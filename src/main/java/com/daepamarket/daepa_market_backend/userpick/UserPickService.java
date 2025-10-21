@@ -1,6 +1,7 @@
 package com.daepamarket.daepa_market_backend.userpick;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.daepamarket.daepa_market_backend.domain.userpick.UserPickEntity;
 import com.daepamarket.daepa_market_backend.domain.userpick.UserPickRepository;
@@ -15,6 +16,7 @@ import com.daepamarket.daepa_market_backend.domain.Category.CtUpperRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,8 +29,13 @@ public class UserPickService {
     private final CtLowRepository ctLowRepository;
 
     // 특정 사용자의 모든 관심 상품 목록 조회
-    public List<UserPickEntity> findPicksByUser(UserEntity user) {
-        return userPickRepository.findByUser(user);
+    @Transactional(readOnly = true)
+    public List<UserPickCreateRequestDto> findPicksByUser(UserEntity user) {
+        List<UserPickEntity> entities = userPickRepository.findByUser(user);
+
+        return entities.stream()
+                .map(UserPickCreateRequestDto::new)
+                .collect(Collectors.toList());
     }
 
     // 관심 상품 삭제
@@ -43,13 +50,13 @@ public class UserPickService {
     // 관심 상품 생성 및 저장 메소드 추가
     public UserPickEntity createPick(UserPickCreateRequestDto requestDto, UserEntity user) {
         CtUpperEntity ctUpperEntity = ctUpperRepository.findByUpperCt(requestDto.getUpperCategory())
-            .orElseThrow(() -> new RuntimeException("상위 카테고리를 찾을 수 없음: " + requestDto.getUpperCategory()));
+                .orElseThrow(() -> new RuntimeException("상위 카테고리를 찾을 수 없음: " + requestDto.getUpperCategory()));
 
         CtMiddleEntity ctMiddleEntity = ctMiddleRepository.findByMiddleCt(requestDto.getMiddleCategory())
-            .orElseThrow(() -> new RuntimeException("중간 카테고리를 찾을 수 없음: " + requestDto.getMiddleCategory()));
+                .orElseThrow(() -> new RuntimeException("중간 카테고리를 찾을 수 없음: " + requestDto.getMiddleCategory()));
 
         CtLowEntity ctLowEntity = ctLowRepository.findByLowCt(requestDto.getLowCategory())
-            .orElseThrow(() -> new RuntimeException("하위 카테고리를 찾을 수 없음: " + requestDto.getLowCategory()));
+                .orElseThrow(() -> new RuntimeException("하위 카테고리를 찾을 수 없음: " + requestDto.getLowCategory()));
 
         UserPickEntity newPick = UserPickEntity.builder()
                 .user(user)
@@ -62,7 +69,7 @@ public class UserPickService {
                 .minPrice(requestDto.getMinPrice())
                 .maxPrice(requestDto.getMaxPrice())
                 .build();
-        
+
         return userPickRepository.save(newPick);
     }
 

@@ -1,10 +1,13 @@
 package com.daepamarket.daepa_market_backend.domain.product;
 
 import com.daepamarket.daepa_market_backend.domain.Category.CtLowEntity;
+import com.daepamarket.daepa_market_backend.domain.productimage.ProductImageEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @Entity
@@ -62,4 +65,7 @@ public class ProductEntity {
 
     @Column(name = "pd_ip", length = 50)
     private String pdIp;
+
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductImageEntity> images = new ArrayList<>();
 }

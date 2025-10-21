@@ -42,18 +42,15 @@ public class ProductService {
     /** ⬇️ 새 멀티파트 엔드포인트에서 호출: 파일 저장 → URL 생성 → 기존 register 재사용 */
     @Transactional
     public Long registerMultipart(Long userIdx, ProductCreateDTO dto, List<MultipartFile> images) {
-        int inCount = (images == null) ? -1 : images.size();
-        System.out.println("[registerMultipart] images in = " + inCount);
-
+        System.out.println("[service] images in = " + (images == null ? -1 : images.size()));
         List<String> urls = (images == null || images.isEmpty())
                 ? List.of()
                 : fileStorageService.saveAll(images);
-
-        System.out.println("[registerMultipart] saved urls = " + urls.size());
+        System.out.println("[service] urls saved = " + urls.size());
         dto.setImageUrls(urls);
-
         return register(userIdx, dto);
     }
+
 
     /** (네가 제공한 기존 메서드) 상품 등록 (Product + ProductImage + Deal[buyer=null]) */
     @Transactional
@@ -93,18 +90,22 @@ public class ProductService {
         );
 
         // 3) 이미지 저장
-        if (dto.getImageUrls() != null) {
-            dto.getImageUrls().stream()
-                    .limit(10)
-                    .forEach(url -> imageRepo.save(
-                            ProductImageEntity.builder()
-                                    .product(product)
-                                    .imageUrl(url)
-                                    .createdAt(LocalDateTime.now())
-                                    .updatedAt(LocalDateTime.now())
-                                    .build()
-                    ));
+        // 3) 이미지 저장
+        List<String> urls = dto.getImageUrls();
+        if (urls != null && !urls.isEmpty()) {
+            urls.stream().limit(10).forEach(url -> imageRepo.save(
+                    ProductImageEntity.builder()
+                            .product(product)
+                            .imageUrl(url)
+                            .createdAt(LocalDateTime.now())
+                            .updatedAt(LocalDateTime.now())
+                            .build()
+            ));
+            System.out.println("[register] images inserted = " + Math.min(urls.size(), 10));
+        } else {
+            System.out.println("[register] no images to insert (imageUrls is null/empty)");
         }
+
 
         // 4) 거래 저장 — buyer 는 등록 시점에 비움(null)
         DealEntity deal = DealEntity.builder()
@@ -140,5 +141,22 @@ public class ProductService {
 
     private String blankToNull(String s) { return (s == null || s.isBlank()) ? null : s; }
 
+    // ProductService.java 일부
+    private ProductListDTO toListDTO(ProductEntity p) {
+        String thumb = p.getPdThumb();
+        // 만약 pdThumb가 null이면 이미지 목록 중 첫 번째 URL 사용
+        if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
+            thumb = p.getImages().get(0).getImageUrl();
+        }
+
+        return ProductListDTO.builder()
+                .id(p.getPdIdx())
+                .title(p.getPdTitle())
+                .price(p.getPdPrice())
+                .location(p.getPdLocation())
+                .thumbnail(thumb)
+                .createdAt(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
+                .build();
+    }
 
 }

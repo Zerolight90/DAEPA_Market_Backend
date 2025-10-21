@@ -1,14 +1,17 @@
 // com.daepamarket.daepa_market_backend.product.ProductController
 package com.daepamarket.daepa_market_backend.product;
 
+import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
+import com.daepamarket.daepa_market_backend.product.ProductListDTO;
 import java.util.List;
 
 @RestController
@@ -33,20 +36,20 @@ public class ProductController {
     public ResponseEntity<?> createMultipart(
             @RequestHeader("X-USER-ID") Long userIdx,
             @Valid @RequestPart("dto") ProductCreateDTO dto,
-            BindingResult br, // ⬅️ 추가
-            @RequestPart(value="images", required=false) List<MultipartFile> images // ⬅️ 이름 "images" 확인!
+            BindingResult br,
+            @RequestPart(value="images", required=false) List<MultipartFile> images
     ) {
+        System.out.println("[controller] images part size = " + (images == null ? -1 : images.size()));
         if (br.hasErrors()) {
-            // 어떤 필드가 왜 실패했는지 클라이언트에 보여줌
             var errors = br.getFieldErrors().stream()
                     .map(e -> e.getField() + " : " + e.getDefaultMessage())
                     .toList();
             return ResponseEntity.badRequest().body(errors);
         }
-
         Long id = productService.registerMultipart(userIdx, dto, images);
         return ResponseEntity.ok(id);
     }
+
 
 
     // ID 필터
@@ -63,15 +66,37 @@ public class ProductController {
     }
 
     // (옵션) 이름 필터 버전: /api/products/by-name?big=전자제품&mid=노트북/PC&sub=맥
+
     @GetMapping("/by-name")
-    public ResponseEntity<?> listByNames(
+    @Transactional(readOnly = true)
+    public ResponseEntity<Page<ProductListDTO>> listByNames(
             @RequestParam(required = false) String big,
             @RequestParam(required = false) String mid,
             @RequestParam(required = false) String sub,
             @RequestParam(defaultValue = "recent") String sort,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "40") int size
+            @RequestParam(defaultValue = "20") int size
     ) {
-        return ResponseEntity.ok(productService.getProductsByNames(big, mid, sub, sort, page, size));
+        Page<ProductListDTO> mapped = productService
+                .getProductsByNames(big, mid, sub, sort, page, size)
+                .map(this::toListDTO);
+        return ResponseEntity.ok(mapped);
+    }
+    // ProductController.java
+    private ProductListDTO toListDTO(ProductEntity p) {
+        // 썸네일은 pdThumb가 우선, 없으면 첫 번째 이미지
+        String thumb = p.getPdThumb();
+        if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
+            thumb = p.getImages().get(0).getImageUrl();
+        }
+
+        return ProductListDTO.builder()
+                .id(p.getPdIdx())
+                .title(p.getPdTitle())
+                .price(p.getPdPrice())
+                .location(p.getPdLocation())
+                .thumbnail(thumb)
+                .createdAt(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
+                .build();
     }
 }

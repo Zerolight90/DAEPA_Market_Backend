@@ -30,13 +30,13 @@ public class UserPickController {
 
     // GET /api/userpicks : 현재 로그인한 유저의 관심 상품 목록 조회
     @GetMapping
-    public ResponseEntity<List<UserPickEntity>> getUserPicks() {
+    public ResponseEntity<List<UserPickCreateRequestDto>> getUserPicks() {
         // 중요: 실제로는 Spring Security 등 보안 설정을 통해
         // 현재 로그인한 사용자의 정보를 가져와야 합니다.
         // 여기서는 임시로 ID가 김토스인 사용자를 조회한다고 가정합니다.
         UserEntity currentUser = userService.findUserById((long) 1);
 
-        List<UserPickEntity> picks = userPickService.findPicksByUser(currentUser);
+        List<UserPickCreateRequestDto> picks = userPickService.findPicksByUser(currentUser);
         return ResponseEntity.ok(picks);
     }
 
