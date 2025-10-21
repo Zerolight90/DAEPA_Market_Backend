@@ -1,6 +1,5 @@
 package com.daepamarket.daepa_market_backend.chat.controller;
 
-
 import com.daepamarket.daepa_market_backend.chat.service.ChatService;
 import com.daepamarket.daepa_market_backend.common.dto.ChatDto;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
