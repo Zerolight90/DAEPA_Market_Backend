@@ -1,0 +1,58 @@
+# --- OS / 편의 ---
+.DS_Store
+Thumbs.db
+
+# --- IDE ---
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.vscode/
+
+# --- Java / Gradle 빌드 산출물 ---
+/build/
+/out/
+/target/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+/**/build/
+
+# --- 로그/임시 ---
+*.log
+logs/
+tmp/
+*.tmp
+
+# --- 환경변수 파일(.env) ---
+.env
+.env.*
+!.env.example          # ← 팀원용 예시 파일은 허용
+
+# --- 모든 .yml 차단 ---
+*.yml
+
+# --- 하지만 아래 예시는 허용(팀원이 복사해서 씀) ---
+!*.example.yml         # ← 예: application-example.yml, docker-compose.example.yml 허용
+
+# --- GitHub Actions 워크플로우는 필요하면 허용 ---
+!.github/workflows/*.yml
+
+# --- Docker(민감값 들어가는 보조 파일은 차단) ---
+docker-compose.override.yml
+.docker/
+docker.env
+docker/.env
+
+# --- 프론트(있을 때) ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.next/
+dist/
+
+# --- 기타 ---
+*.swp
+*.swo
