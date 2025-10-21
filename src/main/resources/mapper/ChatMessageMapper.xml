@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.daepamarket.daepa_market_backend.mapper.ChatMessageMapper">
+
+    <!-- ✅ 메시지 조회: 오래된 순 → 최신순 -->
+    <select id="findMessages"
+            resultType="com.daepamarket.daepa_market_backend.common.dto.ChatDto$MessageRes">
+        SELECT
+        cm_idx       AS messageId,
+        ch_idx       AS roomId,
+        sender_id    AS senderId,
+        message_type AS type,
+        cm_content   AS content,
+        image_url    AS imageUrl,
+        cm_date      AS time
+        FROM chat_messages
+        WHERE ch_idx = #{roomId}
+        <if test="before != null">
+            AND cm_idx &lt; #{before}
+        </if>
+        ORDER BY cm_idx ASC  <!-- ✅ 아래쪽으로 최신 메시지 -->
+        LIMIT #{size}
+    </select>
+
+    <!-- ✅ 메시지 저장 -->
+    <insert id="insertMessage"
+            useGeneratedKeys="true"
+            keyProperty="cmIdx"
+            keyColumn="cm_idx">
+        INSERT INTO chat_messages
+        (ch_idx, sender_id, cm_writer, message_type, cm_content, image_url, cm_date)
+        VALUES (
+                   #{chIdx},
+                   #{senderId},
+                   IFNULL(CAST(#{senderId} AS CHAR), 'unknown'),
+                   #{messageType},
+                   #{content},
+                   #{imageUrl},
+                   NOW()
+               )
+    </insert>
+
+    <!-- ✅ 읽음 업서트 -->
+    <insert id="upsertRead">
+        INSERT INTO chat_reads (ch_idx, cread_reader, last_seen_message_id, updated_at)
+        SELECT #{roomId}, #{userId}, COALESCE(MAX(cm_idx), 0), NOW()
+        FROM chat_messages
+        WHERE ch_idx = #{roomId}
+            ON DUPLICATE KEY UPDATE
+                                 last_seen_message_id = GREATEST(chat_reads.last_seen_message_id, VALUES(last_seen_message_id)),
+                                 updated_at = NOW();
+    </insert>
+
+    <!-- ✅ 안 읽은 메시지 수 -->
+    <select id="countUnread" resultType="int">
+        SELECT COUNT(*)
+        FROM chat_messages m
+        WHERE m.ch_idx = #{roomId}
+          AND m.cm_idx >
+              COALESCE((
+                           SELECT last_seen_message_id
+                           FROM chat_reads
+                           WHERE ch_idx = #{roomId}
+                             AND cread_reader = #{userId}
+                       ), 0)
+          AND (
+            CASE
+                WHEN m.cm_writer REGEXP '^[0-9]+$' THEN CAST(m.cm_writer AS UNSIGNED)
+                ELSE -1
+                END
+            ) != #{userId}
+    </select>
+
+</mapper>

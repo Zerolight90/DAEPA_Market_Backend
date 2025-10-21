@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper">
+
+    <!-- ✅ 정상 버전: INNER JOIN으로 상품/유저 존재 보장 -->
+    <select id="listRooms" parameterType="java.lang.Long"
+            resultType="com.daepamarket.daepa_market_backend.common.dto.ChatRoomListDto">
+        SELECT
+            r.ch_idx AS roomId,
+            CASE
+                WHEN d.buyer_idx = #{userId} THEN d.seller_idx2
+                WHEN d.seller_idx2 = #{userId} THEN d.buyer_idx
+                ELSE NULL
+                END AS counterpartyId,
+
+            -- 상대방 이름 (COALESCE로 안전 처리)
+            COALESCE(u.u_name, '탈퇴한 사용자') AS counterpartyName,
+
+            -- 나의 역할 구분
+            CASE
+                WHEN d.seller_idx2 = #{userId} THEN '판매자'
+                WHEN d.buyer_idx   = #{userId} THEN '구매자'
+                ELSE '참여자'
+                END AS myRole,
+
+            -- 거래 상태 배지
+            CASE COALESCE(d.d_status, 0)
+                WHEN 2 THEN '거래완료'
+                WHEN 1 THEN '거래중'
+                ELSE '예약중'
+                END AS statusBadge,
+
+            -- 상품 제목과 썸네일
+            COALESCE(p.pd_title, '(삭제된 상품)') AS productTitle,
+            COALESCE(p.pd_thumb, '/images/placeholder.jpg') AS productThumb,
+
+            -- 마지막 메시지 및 시간
+            (SELECT m.cm_content
+             FROM chat_messages m
+             WHERE m.ch_idx = r.ch_idx
+             ORDER BY m.cm_idx DESC
+                LIMIT 1) AS lastMessage,
+
+            (SELECT m.cm_date
+               FROM chat_messages m
+              WHERE m.ch_idx = r.ch_idx
+              ORDER BY m.cm_idx DESC
+              LIMIT 1) AS lastAt,
+
+            -- 안 읽은 메시지 수 계산
+            (
+              SELECT COUNT(*)
+              FROM chat_messages m
+              WHERE m.ch_idx = r.ch_idx
+                AND m.cm_idx > IFNULL((
+                    SELECT cr.last_seen_message_id
+                      FROM chat_reads cr
+                     WHERE cr.ch_idx = r.ch_idx
+                       AND cr.cread_reader = #{userId}
+            ), 0)
+            AND (
+            CASE
+            WHEN m.cm_writer REGEXP '^[0-9]+$'
+            THEN CAST(m.cm_writer AS UNSIGNED)
+            ELSE -1
+            END
+            ) != #{userId}
+            ) AS unread
+
+        FROM chat_rooms r
+            INNER JOIN deal    d ON d.d_idx  = r.d_idx
+            INNER JOIN product p ON p.pd_idx = r.pd_idx
+            INNER JOIN `user`  u ON u.u_idx  = (
+            CASE
+            WHEN d.buyer_idx = #{userId} THEN d.seller_idx2
+            ELSE d.buyer_idx
+            END
+            )
+        WHERE (d.buyer_idx = #{userId} OR d.seller_idx2 = #{userId})
+        ORDER BY r.ch_updated DESC, r.ch_idx DESC
+    </select>
+
+    <!-- ✅ 채팅방 최근 시간 갱신 -->
+    <update id="touchUpdated">
+        UPDATE chat_rooms SET ch_updated = NOW(6) WHERE ch_idx = #{roomId}
+    </update>
+
+</mapper>

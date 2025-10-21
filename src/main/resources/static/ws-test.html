@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>WS Test</title>
+</head>
+<body>
+<h3>STOMP Chat Quick Test</h3>
+
+<!-- 유저 선택 -->
+<div>
+    <label>로그인 사용자: </label>
+    <select id="who">
+        <option value="1:구매자1">구매자(1)</option>
+        <option value="2:판매자">판매자(2)</option>
+    </select>
+</div>
+
+<div>
+    <label>WS URL: </label>
+    <input id="wsUrl" size="40" value="http://localhost:8080/ws-stomp"/>
+</div>
+<div>
+    <label>Subscribe dest: </label>
+    <!-- roomId는 DB에 맞추세요. (예: ch_idx=3) -->
+    <input id="subDest" size="40" value="/topic/chats/3"/>
+</div>
+<div>
+    <label>Send dest: </label>
+    <input id="sendDest" size="40" value="/app/chats/3/send"/>
+</div>
+<div>
+    <label>Payload(JSON): </label>
+    <input id="payload" size="80" value='{"text":"hello","tempId":"local-1"}'/>
+</div>
+<button id="connect" type="button">Connect</button>
+<button id="send" type="button" disabled>Send</button>
+
+<pre id="log" style="border:1px solid #ddd; padding:8px; height:240px; overflow:auto;"></pre>
+
+<!-- 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<!-- 우리 코드 -->
+<script src="/ws-test.js"></script>
+</body>
+</html>

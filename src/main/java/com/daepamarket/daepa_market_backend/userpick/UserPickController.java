@@ -1,0 +1,62 @@
+package com.daepamarket.daepa_market_backend.userpick;
+
+import java.util.List;
+
+import com.daepamarket.daepa_market_backend.domain.userpick.UserPickEntity;
+import com.daepamarket.daepa_market_backend.user.UserService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
+
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/userpicks")
+@CrossOrigin(origins = "http://localhost:3000")
+public class UserPickController {
+
+    private final UserPickService userPickService;
+    private final UserService userService; // 예시: 현재 로그인한 유저 정보를 가져오기 위한 서비스
+
+    // GET /api/userpicks : 현재 로그인한 유저의 관심 상품 목록 조회
+    @GetMapping
+    public ResponseEntity<List<UserPickEntity>> getUserPicks() {
+        // 중요: 실제로는 Spring Security 등 보안 설정을 통해
+        // 현재 로그인한 사용자의 정보를 가져와야 합니다.
+        // 여기서는 임시로 ID가 김토스인 사용자를 조회한다고 가정합니다.
+        UserEntity currentUser = userService.findUserById((long) 1);
+
+        List<UserPickEntity> picks = userPickService.findPicksByUser(currentUser);
+        return ResponseEntity.ok(picks);
+    }
+
+    // DELETE /api/userpicks/{id} : 특정 관심 상품 삭제
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteUserPick(@PathVariable("id") Long upIdx) {
+        // TODO: 삭제를 요청한 사용자가 해당 관심 상품의 실제 소유주인지 확인하는 로직 추가 필요
+        userPickService.deletePick(upIdx);
+        return ResponseEntity.ok("성공적으로 삭제되었습니다.");
+    }
+
+    @PostMapping("/add")
+    public ResponseEntity<UserPickEntity> createUserPick(@RequestBody UserPickCreateRequestDto requestDto) {
+        // 실제로는 Spring Security 등에서 현재 로그인한 유저 정보를 가져와야 함
+        UserEntity currentUser = userService.findUserById((long)1);
+
+        UserPickEntity createdPick = userPickService.createPick(requestDto, currentUser);
+
+        // 성공 시 201 Created 상태와 함께 생성된 데이터를 반환
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdPick);
+    }
+
+}
