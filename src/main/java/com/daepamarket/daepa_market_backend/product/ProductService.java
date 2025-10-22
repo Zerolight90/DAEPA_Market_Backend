@@ -130,34 +130,24 @@ public class ProductService {
         return productRepo.findAllByCategoryIds(upperId, middleId, lowId, pageable);
     }
 
-    public Page<ProductEntity> getProductsByNames(String big, String mid, String sub,
-                                                  String sort, int page, int size) {
-        Pageable pageable = switch (sort) {
-            case "price_asc"  -> PageRequest.of(page, size, Sort.by("price").ascending());
-            case "price_desc" -> PageRequest.of(page, size, Sort.by("price").descending());
-            default           -> PageRequest.of(page, size, Sort.by("createdAt").descending());
+    @Transactional(readOnly = true)
+    public Page<ProductEntity> getProductsByNames(
+            String big,
+            String mid,
+            String sub,
+            String sort,
+            int page,
+            int size
+    ) {
+        Sort sortSpec = switch (sort) {
+            case "priceAsc"  -> Sort.by(Sort.Direction.ASC,  "pdPrice");
+            case "priceDesc" -> Sort.by(Sort.Direction.DESC, "pdPrice");
+            case "old"       -> Sort.by(Sort.Direction.ASC,  "pdCreate");
+            default          -> Sort.by(Sort.Direction.DESC, "pdCreate"); // recent
         };
-        return productRepo.findAllByCategoryNames(blankToNull(big), blankToNull(mid), blankToNull(sub), pageable);
-    }
 
-    private String blankToNull(String s) { return (s == null || s.isBlank()) ? null : s; }
-
-    // ProductService.java 일부
-    private ProductListDTO toListDTO(ProductEntity p) {
-        String thumb = p.getPdThumb();
-        // 만약 pdThumb가 null이면 이미지 목록 중 첫 번째 URL 사용
-        if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
-            thumb = p.getImages().get(0).getImageUrl();
-        }
-
-        return ProductListDTO.builder()
-                .id(p.getPdIdx())
-                .title(p.getPdTitle())
-                .price(p.getPdPrice())
-                .location(p.getPdLocation())
-                .thumbnail(thumb)
-                .createdAt(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
-                .build();
+        Pageable pageable = PageRequest.of(page, size, sortSpec);
+        return productRepo.findAllByNames(big, mid, sub, pageable);
     }
 
 

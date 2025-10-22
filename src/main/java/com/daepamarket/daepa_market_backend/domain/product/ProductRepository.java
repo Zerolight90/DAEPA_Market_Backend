@@ -27,15 +27,12 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
 
     /** (옵션) 이름으로 필터: upperCt/middleCt/lowCt 전부 선택적 */
     @Query("""
-        SELECT p FROM ProductEntity p
-          JOIN p.ctLow l
-          JOIN l.middle m
-          JOIN m.upper  u
-        WHERE (:big IS NULL OR u.upperCt   = :big)
-          AND (:mid IS NULL OR m.middleCt  = :mid)
-          AND (:sub IS NULL OR l.lowCt     = :sub)
-    """)
-    Page<ProductEntity> findAllByCategoryNames(
+           select p from ProductEntity p
+           where (:big is null or p.ctLow.middle.upper.upperCt = :big)
+             and (:mid is null or p.ctLow.middle.middleCt     = :mid)
+             and (:sub is null or p.ctLow.lowCt               = :sub)
+           """)
+    Page<ProductEntity> findAllByNames(
             @Param("big") String big,
             @Param("mid") String mid,
             @Param("sub") String sub,
