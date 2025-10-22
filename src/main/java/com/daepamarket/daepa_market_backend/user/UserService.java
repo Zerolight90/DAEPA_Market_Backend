@@ -1,6 +1,7 @@
 package com.daepamarket.daepa_market_backend.user;
 
 import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
+import com.daepamarket.daepa_market_backend.domain.admin.UserResponseDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserSignUpDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -175,6 +177,10 @@ public class UserService {
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(Map.of("message", "토큰 재발급 완료"));
+
+    public UserEntity findUserById (Long user){
+        return userRepository.findById(user)
+                .orElseThrow(() -> new RuntimeException("User Not Found: " + user));
     }
 
     @Transactional
@@ -182,6 +188,14 @@ public class UserService {
         // 쿠키에서 refresh 토큰 꺼내기
         String refresh = readCookie(request, CookieUtil.REFRESH)
                 .orElse(null);
+    /* 관리자용 전체 사용자 조회 */
+    public List<UserResponseDTO> findAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .map(UserResponseDTO::of)
+                .toList();
+    }
+
 
         // DB에 refresh가 등록된 사용자 찾고 무효화
         if (refresh != null) {
