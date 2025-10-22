@@ -2,9 +2,12 @@
 package com.daepamarket.daepa_market_backend.product;
 
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
+import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
+import com.daepamarket.daepa_market_backend.domain.productimage.ProductImageEntity;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +15,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.daepamarket.daepa_market_backend.product.ProductListDTO;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.List;
 
 @RestController
@@ -20,6 +25,7 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductRepository productRepository;
 
     // (참고) JSON body만 받는 기존 엔드포인트
     // @PostMapping("/create")
@@ -67,6 +73,7 @@ public class ProductController {
 
     // (옵션) 이름 필터 버전: /api/products/by-name?big=전자제품&mid=노트북/PC&sub=맥
 
+    // com.daepamarket.daepa_market_backend.product.ProductController
     @GetMapping("/by-name")
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByNames(
@@ -82,21 +89,46 @@ public class ProductController {
                 .map(this::toListDTO);
         return ResponseEntity.ok(mapped);
     }
-    // ProductController.java
+
+
+    /** Entity -> DTO */
     private ProductListDTO toListDTO(ProductEntity p) {
-        // 썸네일은 pdThumb가 우선, 없으면 첫 번째 이미지
         String thumb = p.getPdThumb();
         if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
             thumb = p.getImages().get(0).getImageUrl();
         }
 
         return ProductListDTO.builder()
-                .id(p.getPdIdx())
-                .title(p.getPdTitle())
-                .price(p.getPdPrice())
-                .location(p.getPdLocation())
-                .thumbnail(thumb)
-                .createdAt(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
+                .pdIdx(p.getPdIdx())
+                .pdTitle(p.getPdTitle())
+                .pdPrice(p.getPdPrice())
+                .pdThumb(thumb)
+                .pdLocation(p.getPdLocation())
+                .pdCreate(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
                 .build();
     }
+    @GetMapping("/{id}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<ProductDetailDTO> getProduct(@PathVariable("id") Long id) {
+        ProductEntity p = productRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상품 없음"));
+
+        ProductDetailDTO dto = ProductDetailDTO.builder()
+                .pdIdx(p.getPdIdx())
+                .pdTitle(p.getPdTitle())
+                .pdPrice(p.getPdPrice())
+                .pdLocation(p.getPdLocation())
+                .pdCreate(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
+                .pdContent(p.getPdContent())
+                .pdThumb(p.getPdThumb())
+                .images(p.getImages().stream()
+                        .map(ProductImageEntity::getImageUrl)
+                        .toList())
+                .sellerName(p.getSeller().getUName())
+                .sellerId(p.getSeller().getUIdx())
+                .build();
+
+        return ResponseEntity.ok(dto);
+    }
+
 }
