@@ -1,8 +1,11 @@
 package com.daepamarket.daepa_market_backend.user;
 
+import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserSignUpDTO;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
@@ -34,6 +37,30 @@ public class UserController {
     @GetMapping("/join/check_phone")
     public boolean existsByuPhone(@RequestParam("u_phone") String uPhone) {
         return userService.existsByuPhone(uPhone);
+    }
+
+    // 로그인
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody UserLoginDTO dto) {
+        return userService.login(dto);
+    }
+
+    // 토큰 재발급
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(HttpServletRequest request) {
+        return userService.refresh(request);
+    }
+
+    // 로그아웃
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request) {
+        return userService.logout(request);
+    }
+
+    //현재 로그인 사용자 정보 조회
+    @GetMapping("/me")
+    public ResponseEntity<?> getMe(HttpServletRequest request) {
+        return userService.getMe(request);
     }
 
 
