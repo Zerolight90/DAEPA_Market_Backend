@@ -59,6 +59,11 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("찾을 수 없는 유저: " + uid));
     }
 
+    public UserEntity findUserById (Long user){
+        return userRepository.findById(user)
+                .orElseThrow(() -> new RuntimeException("User Not Found: " + user));
+    }
+
     @Transactional
     public Long signup(UserSignUpDTO rep) {
         //중복 검사

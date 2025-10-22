@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class UserPickService {
 
     private final UserPickRepository userPickRepository;
@@ -33,6 +34,7 @@ public class UserPickService {
     public List<UserPickCreateRequestDto> findPicksByUser(UserEntity user) {
         List<UserPickEntity> entities = userPickRepository.findByUser(user);
 
+        //return userPickRepository.findByUser(user);
         return entities.stream()
                 .map(UserPickCreateRequestDto::new)
                 .collect(Collectors.toList());
@@ -48,7 +50,8 @@ public class UserPickService {
     }
 
     // 관심 상품 생성 및 저장 메소드 추가
-    public UserPickEntity createPick(UserPickCreateRequestDto requestDto, UserEntity user) {
+    public UserPickCreateRequestDto createPick(UserPickCreateRequestDto requestDto, UserEntity user) {
+        // 1. 카테고리 엔티티 조회
         CtUpperEntity ctUpperEntity = ctUpperRepository.findByUpperCt(requestDto.getUpperCategory())
                 .orElseThrow(() -> new RuntimeException("상위 카테고리를 찾을 수 없음: " + requestDto.getUpperCategory()));
 
@@ -58,11 +61,9 @@ public class UserPickService {
         CtLowEntity ctLowEntity = ctLowRepository.findByLowCt(requestDto.getLowCategory())
                 .orElseThrow(() -> new RuntimeException("하위 카테고리를 찾을 수 없음: " + requestDto.getLowCategory()));
 
+        // 2. 엔티티 생성
         UserPickEntity newPick = UserPickEntity.builder()
                 .user(user)
-                // DTO에서 받은 데이터로 엔티티 필드 설정
-                // 실제 UserPickEntity 필드명에 맞게 set 메소드 호출 필요
-                // 예: .setCtUpper(requestDto.getUpperCategory())
                 .ctUpper(ctUpperEntity)
                 .ctMiddle(ctMiddleEntity)
                 .ctLow(ctLowEntity)
@@ -70,7 +71,11 @@ public class UserPickService {
                 .maxPrice(requestDto.getMaxPrice())
                 .build();
 
-        return userPickRepository.save(newPick);
+        // 3. 엔티티 저장 (DB INSERT)
+        UserPickEntity savedEntity = userPickRepository.save(newPick);
+
+        // 4. ✅ 저장된 엔티티를 이용해 DTO를 생성하여 반환 (트랜잭션 내에서!)
+        return new UserPickCreateRequestDto(savedEntity);
     }
 
 }
