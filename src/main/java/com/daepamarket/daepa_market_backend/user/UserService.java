@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.user;
 
+import com.daepamarket.daepa_market_backend.domain.admin.UserResponseDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserSignUpDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -72,9 +74,18 @@ public class UserService {
 
         return user.getUIdx();
     }
+
     public UserEntity findUserById (Long user){
         return userRepository.findById(user)
                 .orElseThrow(() -> new RuntimeException("User Not Found: " + user));
+    }
+
+    /* 관리자용 전체 사용자 조회 */
+    public List<UserResponseDTO> findAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .map(UserResponseDTO::of)
+                .toList();
     }
 
 
