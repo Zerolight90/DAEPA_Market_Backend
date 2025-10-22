@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.web.cors.CorsConfiguration;
@@ -35,7 +37,9 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /** ✅ 전역 CORS: 쿠키 허용 + 정확한 오리진 지정 (절대 "*" 금지) */
+    /**
+     * ✅ 전역 CORS: 쿠키 허용 + 정확한 오리진 지정 (절대 "*" 금지)
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
@@ -45,17 +49,22 @@ public class SecurityConfig {
                 "http://127.0.0.1:3000"
                 // 운영 도메인 예: "https://app.your-domain.com"
         ));
-        cfg.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
 
         // ✅ 쿠키(세션/JWT 쿠키) 사용
         cfg.setAllowCredentials(true);
 
         // 필요시 노출 헤더
-        cfg.setExposedHeaders(List.of("Authorization","Set-Cookie","Content-Disposition"));
+        cfg.setExposedHeaders(List.of("Authorization", "Set-Cookie", "Content-Disposition"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
         return source;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }

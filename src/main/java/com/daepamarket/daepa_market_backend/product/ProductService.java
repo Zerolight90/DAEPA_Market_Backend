@@ -1,10 +1,8 @@
 package com.daepamarket.daepa_market_backend.product;
 
+import com.daepamarket.daepa_market_backend.alarm.AlarmService;
 import com.daepamarket.daepa_market_backend.common.FileStorageService;
-import com.daepamarket.daepa_market_backend.domain.Category.CtLowEntity;
-import com.daepamarket.daepa_market_backend.domain.Category.CtLowRepository;
-import com.daepamarket.daepa_market_backend.domain.Category.CtMiddleEntity;
-import com.daepamarket.daepa_market_backend.domain.Category.CtMiddleRepository;
+import com.daepamarket.daepa_market_backend.domain.Category.*;
 import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
 import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
@@ -38,6 +36,9 @@ public class ProductService {
     private final CtMiddleRepository middleRepo;
 
     private final FileStorageService fileStorageService; // ⬅️ 추가 주입
+
+    private final ProductRepository productRepository;
+    private final AlarmService alarmService;
 
     /** ⬇️ 새 멀티파트 엔드포인트에서 호출: 파일 저장 → URL 생성 → 기존 register 재사용 */
     @Transactional
@@ -148,5 +149,38 @@ public class ProductService {
         Pageable pageable = PageRequest.of(page, size, sortSpec);
         return productRepo.findAllByNames(big, mid, sub, pageable);
     }
+
+
+
+//    @Transactional // 상품 저장 + 알림 생성 트리거를 하나의 트랜잭션으로 묶음
+//    public ProductEntity createProductAndNotify(ProductCreateDTO dto, List<String> imageUrls, UserEntity seller) {
+//
+//        // 1. ProductCreateDto와 UserEntity 로부터 ProductEntity 생성
+//        // (카테고리 ID -> 카테고리 Entity 조회 필요)
+//        CtUpperEntity upper = ... ;
+//        CtMiddleEntity middle = ... ;
+//        CtLowEntity low = ... ;
+//
+//        ProductEntity product = ProductEntity.builder()
+//                .user(seller)
+//                .ctUpper(upper)
+//                .ctMiddle(middle)
+//                .ctLow(low)
+//                .pdTitle(dto.getTitle())
+//                .pdPrice(dto.getPrice())
+//                // ... (나머지 필드 설정)
+//                .build();
+//
+//        // 2. 상품 정보 DB에 저장
+//        ProductEntity savedProduct = productRepository.save(product);
+//
+//        // 3. ✅ 상품 이미지 저장 로직 (필요시)
+//        // ...
+//
+//        // 4. ✅ 저장된 상품 정보를 기반으로 알림 생성 로직 호출
+//        alarmService.createAlarmsForMatchingProduct(savedProduct);
+//
+//        return savedProduct; // 생성된 상품 엔티티 반환
+//    }
 
 }

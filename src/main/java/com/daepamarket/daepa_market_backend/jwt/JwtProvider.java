@@ -42,12 +42,13 @@ public class JwtProvider {
     }
 
     //RefreshToken 생성
-    public String createRefreshToken(){
+    public String createRefreshToken(String u_idx){
         Instant now = Instant.now();
 
         Instant exp = now.plus(props.getRefreshExpDays(), ChronoUnit.DAYS);
 
         return Jwts.builder()
+                .claim("userIdx", u_idx)
                 .issuer(props.getIssuer())
                 .subject("refresh")
                 .issuedAt(Date.from(now))

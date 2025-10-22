@@ -46,11 +46,8 @@ public class UserEntity {
     @Column(name = "u_warn")
     private Integer uWarn;
 
-    @Column(name = "u_accesstoken", length = 100)
-    private String uAccessToken;
-
-    @Column(name = "u_refreshtoken", length = 100)
-    private String uRefreshToken;
+    @Column(name = "u_refreshtoken", length = 800)
+    private String urefreshToken;
 
     @Column(name = "u_jointype", length = 100)
     private String uJoinType;
@@ -69,4 +66,7 @@ public class UserEntity {
 
     @Column(name = "u_location_detail", length = 200)
     private String uLocationDetail;
+
+    @Column(name = "u_type", length = 20)
+    private String uType;
 }
