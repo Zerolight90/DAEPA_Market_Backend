@@ -1,10 +1,12 @@
 package com.daepamarket.daepa_market_backend.domain.admin;
 
+import com.daepamarket.daepa_market_backend.user.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -14,6 +16,7 @@ public class AdminController {
 
     private final AdminRepository adminRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final UserService userService;
 
     @PostMapping("/add-admin")
     public String addAdmin(@RequestBody AdminDTO request) {
@@ -22,13 +25,10 @@ public class AdminController {
             return "필수 항목이 누락되었습니다.";
         }
 
-        // 비밀번호 암호화
-        String encodedPw = passwordEncoder.encode(request.getAdPw());
-
         AdminEntity admin = AdminEntity.builder()
                 .adId(request.getAdId())
-                .adPw(encodedPw)
                 .adName(request.getAdName())
+                .adName(request.getAdPw())
                 .adNick(request.getAdNick())
                 .adBirth(LocalDate.parse(request.getAdBirth()))
                 .adStatus(request.getAdStatus() != null ? request.getAdStatus() : 1) // 기본값: 활성화
@@ -36,5 +36,10 @@ public class AdminController {
 
         adminRepository.save(admin);
         return "관리자 추가 성공";
+    }
+
+    @GetMapping("/users")
+    public List<UserResponseDTO> getAllUsers() {
+        return userService.findAllUsers();
     }
 }
