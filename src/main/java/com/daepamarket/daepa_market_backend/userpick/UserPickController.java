@@ -49,11 +49,11 @@ public class UserPickController {
     }
 
     @PostMapping("/add")
-    public ResponseEntity<UserPickEntity> createUserPick(@RequestBody UserPickCreateRequestDto requestDto) {
+    public ResponseEntity<UserPickCreateRequestDto  > createUserPick(@RequestBody UserPickCreateRequestDto requestDto) {
         // 실제로는 Spring Security 등에서 현재 로그인한 유저 정보를 가져와야 함
         UserEntity currentUser = userService.findUserById((long)1);
 
-        UserPickEntity createdPick = userPickService.createPick(requestDto, currentUser);
+        UserPickCreateRequestDto createdPick = userPickService.createPick(requestDto, currentUser);
 
         // 성공 시 201 Created 상태와 함께 생성된 데이터를 반환
         return ResponseEntity.status(HttpStatus.CREATED).body(createdPick);
