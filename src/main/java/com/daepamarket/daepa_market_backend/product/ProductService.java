@@ -162,35 +162,35 @@ public class ProductService {
 
 
 
-    @Transactional // 상품 저장 + 알림 생성 트리거를 하나의 트랜잭션으로 묶음
-    public ProductEntity createProductAndNotify(ProductCreateDTO dto, List<String> imageUrls, UserEntity seller) {
-
-        // 1. ProductCreateDto와 UserEntity 로부터 ProductEntity 생성
-        // (카테고리 ID -> 카테고리 Entity 조회 필요)
-        CtUpperEntity upper = ... ;
-        CtMiddleEntity middle = ... ;
-        CtLowEntity low = ... ;
-
-        ProductEntity product = ProductEntity.builder()
-                .user(seller)
-                .ctUpper(upper)
-                .ctMiddle(middle)
-                .ctLow(low)
-                .pdTitle(dto.getTitle())
-                .pdPrice(dto.getPrice())
-                // ... (나머지 필드 설정)
-                .build();
-
-        // 2. 상품 정보 DB에 저장
-        ProductEntity savedProduct = productRepository.save(product);
-
-        // 3. ✅ 상품 이미지 저장 로직 (필요시)
-        // ...
-
-        // 4. ✅ 저장된 상품 정보를 기반으로 알림 생성 로직 호출
-        alarmService.createAlarmsForMatchingProduct(savedProduct);
-
-        return savedProduct; // 생성된 상품 엔티티 반환
-    }
+//    @Transactional // 상품 저장 + 알림 생성 트리거를 하나의 트랜잭션으로 묶음
+//    public ProductEntity createProductAndNotify(ProductCreateDTO dto, List<String> imageUrls, UserEntity seller) {
+//
+//        // 1. ProductCreateDto와 UserEntity 로부터 ProductEntity 생성
+//        // (카테고리 ID -> 카테고리 Entity 조회 필요)
+//        CtUpperEntity upper = ... ;
+//        CtMiddleEntity middle = ... ;
+//        CtLowEntity low = ... ;
+//
+//        ProductEntity product = ProductEntity.builder()
+//                .user(seller)
+//                .ctUpper(upper)
+//                .ctMiddle(middle)
+//                .ctLow(low)
+//                .pdTitle(dto.getTitle())
+//                .pdPrice(dto.getPrice())
+//                // ... (나머지 필드 설정)
+//                .build();
+//
+//        // 2. 상품 정보 DB에 저장
+//        ProductEntity savedProduct = productRepository.save(product);
+//
+//        // 3. ✅ 상품 이미지 저장 로직 (필요시)
+//        // ...
+//
+//        // 4. ✅ 저장된 상품 정보를 기반으로 알림 생성 로직 호출
+//        alarmService.createAlarmsForMatchingProduct(savedProduct);
+//
+//        return savedProduct; // 생성된 상품 엔티티 반환
+//    }
 
 }
