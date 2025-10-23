@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.user;
 
+import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserSignUpDTO;
@@ -7,6 +8,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @RestController
@@ -62,6 +65,16 @@ public class UserController {
     public ResponseEntity<?> getMe(HttpServletRequest request) {
         return userService.getMe(request);
     }
+
+    @GetMapping("/find_id")
+    public Optional<UserEntity> find_id(@RequestParam("u_name") String uName,
+                                        @RequestParam("u_phone") String uPhone) {
+        return userService.findByUNameAndUphone(uName, uPhone);
+    }
+
+
+
+
 
 
 }
