@@ -124,7 +124,7 @@ public class ProductController {
                 .images(p.getImages().stream()
                         .map(ProductImageEntity::getImageUrl)
                         .toList())
-                .sellerName(p.getSeller().getUName())
+                .sellerName(p.getSeller().getUname())
                 .sellerId(p.getSeller().getUIdx())
                 .build();
 
