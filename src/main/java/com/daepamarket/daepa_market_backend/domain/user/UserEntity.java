@@ -17,7 +17,7 @@ public class UserEntity {
     private String uid;
 
     @Column(name = "u_name", length = 20)
-    private String uName;
+    private String uname;
 
     @Column(name = "u_location", length = 20)
     private String uLocation;

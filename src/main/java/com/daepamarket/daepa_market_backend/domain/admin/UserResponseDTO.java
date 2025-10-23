@@ -19,7 +19,7 @@ public class UserResponseDTO {
     public static UserResponseDTO of(UserEntity user) {
         UserResponseDTO dto = new UserResponseDTO();
         dto.uId = user.getUid();
-        dto.uName = user.getUName();
+        dto.uName = user.getUname();
         dto.uGender = user.getUGender();
         dto.uPhone = user.getUphone();
         dto.uDate = user.getUDate() != null ? user.getUDate().toString() : null;
