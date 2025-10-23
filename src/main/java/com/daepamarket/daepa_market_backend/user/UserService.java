@@ -1,7 +1,7 @@
 package com.daepamarket.daepa_market_backend.user;
 
-import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
 import com.daepamarket.daepa_market_backend.domain.admin.UserResponseDTO;
+import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserSignUpDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
@@ -23,11 +23,11 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -57,11 +57,6 @@ public class UserService {
     public UserEntity findUserByuId(String uid) {
         return userRepository.findByUid(uid)
                 .orElseThrow(() -> new RuntimeException("찾을 수 없는 유저: " + uid));
-    }
-
-    public UserEntity findUserById (Long user){
-        return userRepository.findById(user)
-                .orElseThrow(() -> new RuntimeException("User Not Found: " + user));
     }
 
     @Transactional
@@ -177,10 +172,6 @@ public class UserService {
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(Map.of("message", "토큰 재발급 완료"));
-
-    public UserEntity findUserById (Long user){
-        return userRepository.findById(user)
-                .orElseThrow(() -> new RuntimeException("User Not Found: " + user));
     }
 
     @Transactional
@@ -188,14 +179,6 @@ public class UserService {
         // 쿠키에서 refresh 토큰 꺼내기
         String refresh = readCookie(request, CookieUtil.REFRESH)
                 .orElse(null);
-    /* 관리자용 전체 사용자 조회 */
-    public List<UserResponseDTO> findAllUsers() {
-        return userRepository.findAll()
-                .stream()
-                .map(UserResponseDTO::of)
-                .toList();
-    }
-
 
         // DB에 refresh가 등록된 사용자 찾고 무효화
         if (refresh != null) {
@@ -266,5 +249,19 @@ public class UserService {
             return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
         }
     }
+
+    public UserEntity findUserById (Long user){
+        return userRepository.findById(user)
+                .orElseThrow(() -> new RuntimeException("User Not Found: " + user));
+    }
+
+    /* 관리자용 전체 사용자 조회 */
+    public List<UserResponseDTO> findAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .map(UserResponseDTO::of)
+                .toList();
+    }
+
 
 }
