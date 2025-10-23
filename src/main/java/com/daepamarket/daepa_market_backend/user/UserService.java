@@ -80,7 +80,7 @@ public class UserService {
         UserEntity user = userRepository.save(UserEntity.builder()
                 .uid(rep.getU_id())
                 .uPw(encodedPassword)
-                .uName(rep.getU_name())
+                .uname(rep.getU_name())
                 .unickname(rep.getU_nickname())
                 .uphone(rep.getU_phone())
                 .uAddress(rep.getU_address())
@@ -125,7 +125,7 @@ public class UserService {
         Map<String, Object> responseBody = new HashMap<>();
         responseBody.put("u_idx", user.getUIdx());
         responseBody.put("u_id", user.getUid());
-        responseBody.put("u_name", user.getUName());
+        responseBody.put("u_name", user.getUname());
         responseBody.put("u_type", role);
         responseBody.put("accessToken", access);
         responseBody.put("message", "로그인 성공");
@@ -240,7 +240,7 @@ public class UserService {
             // 필요한 정보만 리턴
             Map<String, Object> result = new HashMap<>();
             result.put("uIdx", user.getUIdx());
-            result.put("uName", user.getUName());
+            result.put("uName", user.getUname());
             result.put("uId", user.getUid());
 
             return ResponseEntity.ok(result);
@@ -262,6 +262,12 @@ public class UserService {
                 .map(UserResponseDTO::of)
                 .toList();
     }
+    
+    //이름이랑 전화번호를 통해 아이디 찾기
+    public Optional<UserEntity> findByUNameAndUphone(String uname, String uphone){
+        return userRepository.findByUnameAndUphone(uname, uphone);
+    }
+
 
 
 }
