@@ -34,7 +34,7 @@ public class PayService {
         // 2. 주문 ID로부터 실제 충전을 요청한 사용자 ID를 가져옵니다.
         // 임시로 1L 유저라고 가정
         // 실제로는 orderId를 DB에 저장하고 매칭하는 과정 (zustand)이 필요함!!
-        Long userId = 1L;
+        Long userId = (long)2;
 
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("해당 유저를 찾을 수 없습니다: " + userId));
