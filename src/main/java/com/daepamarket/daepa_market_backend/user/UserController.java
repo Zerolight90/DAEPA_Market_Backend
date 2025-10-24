@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.Optional;
 
 @RequiredArgsConstructor
@@ -66,11 +67,13 @@ public class UserController {
         return userService.getMe(request);
     }
 
-    @GetMapping("/find_id")
-    public Optional<UserEntity> find_id(@RequestParam("u_name") String uName,
-                                        @RequestParam("u_phone") String uPhone) {
-        return userService.findByUNameAndUphone(uName, uPhone);
-    }
+//    @PostMapping("/find_id")
+//    public ResponseEntity<Map<String, String>> find_id(@RequestBody Map<String, String> requestData) {
+//        String uName = requestData.get("u_name");
+//        String uPhone = requestData.get("u_phone");
+//
+//        return userService.findByUNameAndUphone(uName, uPhone);
+//    }
 
 
 

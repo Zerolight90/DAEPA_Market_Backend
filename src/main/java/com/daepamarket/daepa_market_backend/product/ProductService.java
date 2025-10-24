@@ -37,6 +37,7 @@ public class ProductService {
 
 
 
+    /** ⬇️ 새 멀티파트 엔드포인트에서 호출: 파일 저장 → URL 생성 → 기존 register 재사용 */
     @Transactional
     public Long registerMultipart(Long userIdx, ProductCreateDTO dto, List<MultipartFile> images) {
         List<String> urls = (images == null || images.isEmpty())
@@ -48,9 +49,11 @@ public class ProductService {
 
     @Transactional
     public Long register(Long userIdx, ProductCreateDTO dto) {
+        // 0) 판매자 로딩
         UserEntity seller = userRepo.findById(userIdx)
                 .orElseThrow(() -> new IllegalArgumentException("판매자를 찾을 수 없습니다."));
 
+        // 1) 카테고리 계층 검증 (하위 → 중위 → 상위)
         CtLowEntity low = ctLowRepo.findById(dto.getLowId())
                 .orElseThrow(() -> new IllegalArgumentException("하위 카테고리를 찾을 수 없습니다."));
         CtMiddleEntity middle = low.getMiddle();
@@ -95,12 +98,14 @@ public class ProductService {
         ProductEntity savedProduct = productRepo.save(product);
         alarmService.createAlarmsForMatchingProduct(savedProduct);
 
+
+        // 4) 거래 저장 — buyer 는 등록 시점에 비움(null)
         DealEntity deal = DealEntity.builder()
                 .product(product)
                 .seller(seller)
                 .buyer(null)
-                .dDeal(dto.getDDeal())
-                .dStatus(0L)
+                .dDeal(dto.getDDeal())     // "DELIVERY"/"MEET"
+                .dStatus(0L)               // 0=판매중
                 .build();
         dealRepo.save(deal);
 
