@@ -25,7 +25,6 @@ public class ChatService {
         final String type = (imageUrl != null && !imageUrl.isBlank()) ? "IMAGE" : "TEXT";
         final String content = text == null ? "" : text;
 
-        // MyBatis 파라미터 (키 이름은 XML과 1:1 매칭)
         Map<String, Object> param = new HashMap<>();
         param.put("chIdx", roomId);
         param.put("senderId", senderId);
@@ -34,14 +33,10 @@ public class ChatService {
         param.put("imageUrl", imageUrl);
 
         int inserted = messageMapper.insertMessage(param);
-        if (inserted != 1) {
-            throw new IllegalStateException("insertMessage failed (roomId=" + roomId + ")");
-        }
+        if (inserted != 1) throw new IllegalStateException("insertMessage failed (roomId=" + roomId + ")");
 
-        // 방 updated 갱신
         roomMapper.touchUpdated(roomId);
 
-        // 생성 PK 회수 (Long/Integer 모두 대응)
         Object pk = param.get("cmIdx");
         Long messageId = (pk instanceof Number) ? ((Number) pk).longValue() : null;
 
@@ -52,13 +47,18 @@ public class ChatService {
                 .senderId(senderId)
                 .content(content)
                 .imageUrl(imageUrl)
-                .time(LocalDateTime.now()) // DB NOW()와 약간 차이 있어도 OK
+                .time(LocalDateTime.now())
                 .tempId(tempId)
                 .build();
     }
 
     @Transactional
-    public void markReadToLatest(Long roomId, Long userId) {
-        messageMapper.upsertRead(roomId, userId);
+    public Long markRead(Long roomId, Long userId, Long upToOrNull) {
+        if (upToOrNull == null) {
+            messageMapper.upsertRead(roomId, userId);
+        } else {
+            messageMapper.upsertReadUpTo(roomId, userId, upToOrNull);
+        }
+        return upToOrNull;
     }
 }

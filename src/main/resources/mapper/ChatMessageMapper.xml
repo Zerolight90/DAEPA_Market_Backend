@@ -5,7 +5,7 @@
 
 <mapper namespace="com.daepamarket.daepa_market_backend.mapper.ChatMessageMapper">
 
-    <!-- ✅ 메시지 조회: 오래된 순 → 최신순 -->
+    <!-- 메시지 조회: 오래된 순 → 최신순 (무한스크롤 상단 로딩/초기 진입) -->
     <select id="findMessages"
             resultType="com.daepamarket.daepa_market_backend.common.dto.ChatDto$MessageRes">
         SELECT
@@ -21,11 +21,27 @@
         <if test="before != null">
             AND cm_idx &lt; #{before}
         </if>
-        ORDER BY cm_idx ASC  <!-- ✅ 아래쪽으로 최신 메시지 -->
+        ORDER BY cm_idx ASC
         LIMIT #{size}
     </select>
 
-    <!-- ✅ 메시지 저장 -->
+    <!-- 메시지 1건 -->
+    <select id="findOneById"
+            resultType="com.daepamarket.daepa_market_backend.common.dto.ChatDto$MessageRes">
+        SELECT
+            cm_idx       AS messageId,
+            ch_idx       AS roomId,
+            sender_id    AS senderId,
+            message_type AS type,
+            cm_content   AS content,
+            image_url    AS imageUrl,
+            cm_date      AS time
+        FROM chat_messages
+        WHERE cm_idx = #{id}
+            LIMIT 1
+    </select>
+
+    <!-- 메시지 저장 (useGeneratedKeys로 cm_idx 회수) -->
     <insert id="insertMessage"
             useGeneratedKeys="true"
             keyProperty="cmIdx"
@@ -43,7 +59,7 @@
                )
     </insert>
 
-    <!-- ✅ 읽음 업서트 -->
+    <!-- 읽음 포인터: 방의 최신 메시지까지 -->
     <insert id="upsertRead">
         INSERT INTO chat_reads (ch_idx, cread_reader, last_seen_message_id, updated_at)
         SELECT #{roomId}, #{userId}, COALESCE(MAX(cm_idx), 0), NOW()
@@ -51,27 +67,29 @@
         WHERE ch_idx = #{roomId}
             ON DUPLICATE KEY UPDATE
                                  last_seen_message_id = GREATEST(chat_reads.last_seen_message_id, VALUES(last_seen_message_id)),
-                                 updated_at = NOW();
+                                 updated_at           = NOW()
     </insert>
 
-    <!-- ✅ 안 읽은 메시지 수 -->
+    <!-- ✅ 읽음 포인터: 지정 메시지 id(upTo)까지 끌어올리기 -->
+    <insert id="upsertReadUpTo">
+        INSERT INTO chat_reads (ch_idx, cread_reader, last_seen_message_id, updated_at)
+        VALUES (#{roomId}, #{userId}, COALESCE(#{upTo}, 0), NOW())
+            ON DUPLICATE KEY UPDATE
+                                 last_seen_message_id = GREATEST(chat_reads.last_seen_message_id, COALESCE(#{upTo}, 0)),
+                                 updated_at           = NOW()
+    </insert>
+
+    <!-- 안 읽은 메시지 수 -->
     <select id="countUnread" resultType="int">
         SELECT COUNT(*)
         FROM chat_messages m
         WHERE m.ch_idx = #{roomId}
-          AND m.cm_idx >
-              COALESCE((
-                           SELECT last_seen_message_id
-                           FROM chat_reads
-                           WHERE ch_idx = #{roomId}
-                             AND cread_reader = #{userId}
-                       ), 0)
-          AND (
-            CASE
-                WHEN m.cm_writer REGEXP '^[0-9]+$' THEN CAST(m.cm_writer AS UNSIGNED)
-                ELSE -1
-                END
-            ) != #{userId}
+          AND m.cm_idx &gt; COALESCE((
+                                         SELECT last_seen_message_id
+                                         FROM chat_reads
+                                         WHERE ch_idx = #{roomId} AND cread_reader = #{userId}
+                                     ), 0)
+          AND COALESCE(m.sender_id, -1) != #{userId}
     </select>
 
 </mapper>
