@@ -35,6 +35,8 @@ public class ProductService {
     private final FileStorageService fileStorageService;
     private final AlarmService alarmService;
 
+
+
     @Transactional
     public Long registerMultipart(Long userIdx, ProductCreateDTO dto, List<MultipartFile> images) {
         List<String> urls = (images == null || images.isEmpty())
@@ -88,6 +90,10 @@ public class ProductService {
                             .build()
             ));
         }
+
+        // 종민 - 상품 등록할 때 조건에 맞는 알림 매칭 있을 시 인서트
+        ProductEntity savedProduct = productRepo.save(product);
+        alarmService.createAlarmsForMatchingProduct(savedProduct);
 
         DealEntity deal = DealEntity.builder()
                 .product(product)
