@@ -4,6 +4,13 @@ package com.daepamarket.daepa_market_backend.product;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
 import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
 import com.daepamarket.daepa_market_backend.domain.productimage.ProductImageEntity;
+
+// [ADDED] 로그인 검증을 위한 의존성 추가
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
+import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
+
+import jakarta.servlet.http.Cookie;                // [ADDED]
+import jakarta.servlet.http.HttpServletRequest;   // [ADDED]
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -26,10 +33,14 @@ public class ProductController {
     private final ProductService productService;
     private final ProductRepository productRepository;
 
-    /** ✅ 멀티파트(JSON + files)로 등록 */
+    // [ADDED] JWT/쿠키 유틸 주입
+    private final JwtProvider jwtProvider;
+    private final CookieUtil cookieUtil;
+
+    /** ✅ 멀티파트(JSON + files)로 등록 (로그인 필요) */
     @PostMapping(value="/create-multipart", consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createMultipart(
-            @RequestHeader("X-USER-ID") Long userIdx,
+            HttpServletRequest request,                                  // [CHANGED] (원래: @RequestHeader("X-USER-ID") Long userIdx)
             @Valid @RequestPart("dto") ProductCreateDTO dto,
             BindingResult br,
             @RequestPart(value="images", required=false) List<MultipartFile> images
@@ -40,13 +51,53 @@ public class ProductController {
                     .toList();
             return ResponseEntity.badRequest().body(errors);
         }
-        Long id = productService.registerMultipart(userIdx, dto, images);
+
+        // ===== 로그인 검증 추가 시작 =====
+        // [ADDED] ACCESS_TOKEN 쿠키 → 없으면 Authorization: Bearer 헤더에서 토큰 추출
+        String token = resolveAccessToken(request);
+        if (token == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        }
+        // [ADDED] 토큰 만료/유효성 검사
+        if (jwtProvider.isExpired(token)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰 만료");
+        }
+
+        // [ADDED] 토큰 subject(유저 ID) 꺼내기
+        Long userId;
+        try {
+            userId = Long.valueOf(jwtProvider.getUid(token));  // subject = uIdx (문자열)
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰");
+        }
+        // ===== 로그인 검증 추가 끝 =====
+
+        // [CHANGED] userIdx 대신 추출한 userId 사용
+        Long id = productService.registerMultipart(userId, dto, images);
         return ResponseEntity.ok(id);
     }
 
-    /** ✅ ID 필터 (upperId/middleId/lowId) + 정렬 + 페이지네이션
-     *  프론트는 이 응답을 그대로 사용하므로 DTO로 변환해서 반환
-     */
+    /** [NEW METHOD] ACCESS_TOKEN 쿠키 → Authorization: Bearer 순으로 토큰 추출 */
+    private String resolveAccessToken(HttpServletRequest request) { // [NEW METHOD]
+        // 1) 쿠키 우선
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie c : cookies) {
+                if (CookieUtil.ACCESS.equals(c.getName())) {
+                    String v = c.getValue();
+                    if (v != null && !v.isBlank()) return v;
+                }
+            }
+        }
+        // 2) Authorization: Bearer
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            return auth.substring(7);
+        }
+        return null;
+    }
+
+    /** ✅ ID 필터 (upperId/middleId/lowId) + 정렬 + 페이지네이션 */
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByIds(
