@@ -1,4 +1,4 @@
-package com.daepamarket.daepa_market_backend.pay.service;
+package com.daepamarket.daepa_market_backend.pay;
 
 import java.time.LocalDate;
 
