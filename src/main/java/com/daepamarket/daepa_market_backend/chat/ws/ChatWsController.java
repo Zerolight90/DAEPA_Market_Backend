@@ -1,5 +1,7 @@
+// src/main/java/com/daepamarket/daepa_market_backend/chat/ws/ChatWsController.java
 package com.daepamarket.daepa_market_backend.chat.ws;
 
+import com.daepamarket.daepa_market_backend.chat.controller.JwtSupport;
 import com.daepamarket.daepa_market_backend.chat.service.ChatService;
 import com.daepamarket.daepa_market_backend.common.dto.ChatDto;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +13,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
-import java.util.Optional;
 
 @Controller
 @RequiredArgsConstructor
@@ -19,6 +20,7 @@ public class ChatWsController {
 
     private final ChatService chatService;
     private final SimpMessagingTemplate broker;
+    private final JwtSupport jwtSupport;
 
     @MessageMapping("/chats/{roomId}/send")
     public void sendMessage(@DestinationVariable Long roomId,
@@ -26,24 +28,21 @@ public class ChatWsController {
                             SimpMessageHeaderAccessor accessor,
                             Principal principal) {
 
-        // 1) senderId 확보 (payload ≫ native headers ≫ session ≫ principal ≫ dev fallback)
         Long senderId = sanitizeId(req.getSenderId());
         if (senderId == null) senderId = parseLongSafe(accessor.getFirstNativeHeader("x-user-id"));
-        if (senderId == null) senderId = extractFromSession(accessor);
         if (senderId == null && principal != null) senderId = parseLongSafe(principal.getName());
-        if (senderId == null) senderId = 101L; // ⚠️ 개발용 fallback. 운영에선 제거/인증 연동.
+        if (senderId == null) senderId = jwtSupport.resolveUserIdFromHeaderOrCookie(accessor);
+
+        if (senderId == null) {
+            // 인증 실패 시 무시하거나 에러 처리 (여기선 무시)
+            return;
+        }
 
         req.setRoomId(roomId);
         req.setSenderId(senderId);
 
-        // 로깅
-        System.out.println("[WS/SEND] room=" + roomId + " sender=" + senderId +
-                " text=" + (req.getText() == null ? "" : req.getText()));
-
-        // 2) 저장
         var res = chatService.sendMessage(roomId, senderId, req.getText(), req.getImageUrl(), req.getTempId());
 
-        // 3) 브로드캐스트 (프론트 구독 prefix와 반드시 일치: /sub)
         broker.convertAndSend("/sub/chats/" + roomId, res);
     }
 
@@ -55,18 +54,22 @@ public class ChatWsController {
 
         Long readerId = sanitizeId(readEvent.getReaderId());
         if (readerId == null) readerId = parseLongSafe(accessor.getFirstNativeHeader("x-user-id"));
-        if (readerId == null) readerId = extractFromSession(accessor);
         if (readerId == null && principal != null) readerId = parseLongSafe(principal.getName());
-        if (readerId == null) readerId = 101L; // 개발용
+        if (readerId == null) readerId = jwtSupport.resolveUserIdFromHeaderOrCookie(accessor);
 
-        chatService.markReadToLatest(roomId, readerId);
-    }
+        if (readerId == null) return;
 
-    // ---- helpers ----
-    private static Long extractFromSession(SimpMessageHeaderAccessor accessor) {
-        if (accessor.getSessionAttributes() == null) return null;
-        Object v = accessor.getSessionAttributes().get("userId");
-        return v == null ? null : parseLongSafe(String.valueOf(v));
+        Long appliedUpTo = chatService.markRead(roomId, readerId, readEvent.getLastSeenMessageId());
+
+        ChatDto.ReadEvent ack = ChatDto.ReadEvent.builder()
+                .type("READ")
+                .roomId(roomId)
+                .readerId(readerId)
+                .lastSeenMessageId(appliedUpTo)
+                .time(java.time.LocalDateTime.now())
+                .build();
+
+        broker.convertAndSend("/sub/chats/" + roomId, ack);
     }
 
     private static Long sanitizeId(Long v) { return v == null ? null : v; }
