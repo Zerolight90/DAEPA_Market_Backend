@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.domain.user;
 
+import org.apache.catalina.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Repository;
@@ -22,4 +23,5 @@ public interface UserRepository extends JpaRepository<UserEntity,Long> {
 
     Optional<UserEntity> findByUnameAndUphone(String uname, String uphone);
 
+    Optional<UserEntity> findByUidAndUnameAndUphone(String uid, String uname, String uphone);
 }
