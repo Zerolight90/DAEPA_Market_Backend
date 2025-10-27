@@ -1,5 +1,9 @@
-package com.daepamarket.daepa_market_backend.domain.admin;
+package com.daepamarket.daepa_market_backend.admin.main;
 
+import com.daepamarket.daepa_market_backend.domain.admin.AdminDTO;
+import com.daepamarket.daepa_market_backend.domain.admin.AdminEntity;
+import com.daepamarket.daepa_market_backend.domain.admin.AdminRepository;
+import com.daepamarket.daepa_market_backend.domain.admin.AdminUpdateDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
