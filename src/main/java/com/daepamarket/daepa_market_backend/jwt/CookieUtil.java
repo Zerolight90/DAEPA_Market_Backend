@@ -32,7 +32,7 @@ public class CookieUtil {
     //쿠키의 기본 설정값
     private ResponseCookie.ResponseCookieBuilder base(String name, String value, Duration maxAge) {
         return ResponseCookie.from(name, value)
-                .domain(props.getDomain())
+//                .domain(props.getDomain())
                 .path(props.getPath())
                 .secure(props.isSecure())
                 .sameSite(props.getSamesite())

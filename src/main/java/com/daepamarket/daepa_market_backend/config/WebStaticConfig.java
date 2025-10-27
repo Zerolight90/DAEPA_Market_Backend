@@ -1,4 +1,3 @@
-// 예: com.daepamarket.daepa_market_backend.config.WebStaticConfig
 package com.daepamarket.daepa_market_backend.config;
 
 import org.springframework.beans.factory.annotation.Value;
