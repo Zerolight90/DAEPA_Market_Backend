@@ -1,5 +1,6 @@
-package com.daepamarket.daepa_market_backend.domain.admin;
+package com.daepamarket.daepa_market_backend.admin.main;
 
+import com.daepamarket.daepa_market_backend.domain.admin.*;
 import com.daepamarket.daepa_market_backend.user.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

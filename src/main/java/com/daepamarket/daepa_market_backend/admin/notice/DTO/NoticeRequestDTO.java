@@ -1,4 +1,4 @@
-package com.daepamarket.daepa_market_backend.domain.notice.DTO;
+package com.daepamarket.daepa_market_backend.admin.notice.DTO;
 
 import lombok.Getter;
 import lombok.Setter;
