@@ -20,7 +20,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws-stomp")
                 .setAllowedOriginPatterns(
                         "http://localhost:3000",
-                        "http://127.0.0.1:3000"
+                        "http://127.0.0.1:3000",
+                        "http://192.168.*.*:3000",
+                        "*"
+
                         // 운영 도메인 추가
                 )
                 .withSockJS();
