@@ -6,24 +6,45 @@
 <mapper namespace="com.daepamarket.daepa_market_backend.mapper.ChatMessageMapper">
 
     <!-- 메시지 조회: 오래된 순 → 최신순 (무한스크롤 상단 로딩/초기 진입) -->
+    <!-- /src/main/resources/.../ChatMessageMapper.xml 의 findMessages만 교체 -->
     <select id="findMessages"
             resultType="com.daepamarket.daepa_market_backend.common.dto.ChatDto$MessageRes">
-        SELECT
-        cm_idx       AS messageId,
-        ch_idx       AS roomId,
-        sender_id    AS senderId,
-        message_type AS type,
-        cm_content   AS content,
-        image_url    AS imageUrl,
-        cm_date      AS time
-        FROM chat_messages
-        WHERE ch_idx = #{roomId}
-        <if test="before != null">
-            AND cm_idx &lt; #{before}
-        </if>
-        ORDER BY cm_idx ASC
-        LIMIT #{size}
+        <choose>
+            <when test="before == null">
+                SELECT * FROM (
+                SELECT
+                cm_idx       AS messageId,
+                ch_idx       AS roomId,
+                sender_id    AS senderId,
+                message_type AS type,
+                cm_content   AS content,
+                image_url    AS imageUrl,
+                cm_date      AS time
+                FROM chat_messages
+                WHERE ch_idx = #{roomId}
+                ORDER BY cm_idx DESC
+                LIMIT #{size}
+                ) t
+                ORDER BY t.messageId ASC
+            </when>
+            <otherwise>
+                SELECT
+                cm_idx       AS messageId,
+                ch_idx       AS roomId,
+                sender_id    AS senderId,
+                message_type AS type,
+                cm_content   AS content,
+                image_url    AS imageUrl,
+                cm_date      AS time
+                FROM chat_messages
+                WHERE ch_idx = #{roomId}
+                AND cm_idx &lt; #{before}
+                ORDER BY cm_idx ASC
+                LIMIT #{size}
+            </otherwise>
+        </choose>
     </select>
+
 
     <!-- 메시지 1건 -->
     <select id="findOneById"

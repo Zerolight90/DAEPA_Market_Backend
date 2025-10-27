@@ -3,6 +3,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper">
 
+    <!-- ✅ 방 목록: roomId 기준으로 중복 행이 나오지 않도록 다른 참여자 집계를 서브쿼리로 묶고 GROUP BY 수행 -->
     <select id="listRooms" parameterType="java.lang.Long"
             resultType="com.daepamarket.daepa_market_backend.common.dto.ChatRoomListDto">
 
@@ -42,25 +43,32 @@
             SELECT COUNT(*) FROM chat_messages m
             WHERE m.ch_idx = r.ch_idx
             AND m.cm_idx &gt; COALESCE((
-            SELECT cr_inner.last_seen_message_id
-            FROM chat_reads cr_inner
-            WHERE cr_inner.ch_idx = r.ch_idx AND cr_inner.cread_reader = #{userId}
+            SELECT cr2.last_seen_message_id
+            FROM chat_reads cr2
+            WHERE cr2.ch_idx = r.ch_idx AND cr2.cread_reader = #{userId}
             ), 0)
             AND COALESCE(m.sender_id, -1) != #{userId}
             ) AS unread
 
             FROM chat_reads cr
-
             JOIN chat_rooms r ON r.ch_idx = cr.ch_idx
-
-            LEFT JOIN chat_reads cr_other ON cr_other.ch_idx = r.ch_idx AND cr_other.cread_reader != #{userId}
-            LEFT JOIN `user` u_other ON u_other.u_idx = cr_other.cread_reader
 
             LEFT JOIN deal    d ON d.d_idx  = r.d_idx
             LEFT JOIN product p ON p.pd_idx = r.pd_idx
 
+            <!-- 🔽 “나 제외(other)”를 1명만 뽑는 파생 테이블 -->
+            LEFT JOIN (
+            SELECT ch_idx, MAX(cread_reader) AS other_reader
+            FROM chat_reads
+            WHERE cread_reader != #{userId}
+            GROUP BY ch_idx
+            ) o ON o.ch_idx = r.ch_idx
+
+            LEFT JOIN `user` u_other ON u_other.u_idx = o.other_reader
+
             WHERE cr.cread_reader = #{userId}
 
+            GROUP BY r.ch_idx
             ORDER BY r.ch_updated DESC, r.ch_idx DESC
         </if>
     </select>
