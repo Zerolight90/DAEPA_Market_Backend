@@ -5,6 +5,8 @@ import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.sql.Timestamp;
+
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @Entity
 @Table(name = "deal")
@@ -35,7 +37,7 @@ public class DealEntity {
     private Long dStatus;
 
     @Column(name = "d_edate")
-    private Long dEdate;
+    private Timestamp dEdate;
 
     @Column(name = "agreed_price")
     private Long agreedPrice;
