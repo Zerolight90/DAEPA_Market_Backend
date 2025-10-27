@@ -1,9 +1,11 @@
-package com.daepamarket.daepa_market_backend.domain.notice;
+package com.daepamarket.daepa_market_backend.domain.notice.Service;
 
 import com.daepamarket.daepa_market_backend.domain.admin.AdminEntity;
 import com.daepamarket.daepa_market_backend.domain.admin.AdminRepository;
-import com.daepamarket.daepa_market_backend.domain.notice.NoticeRequestDTO;
-import com.daepamarket.daepa_market_backend.domain.notice.NoticeResponseDTO;
+import com.daepamarket.daepa_market_backend.domain.notice.DTO.NoticeRequestDTO;
+import com.daepamarket.daepa_market_backend.domain.notice.DTO.NoticeResponseDTO;
+import com.daepamarket.daepa_market_backend.domain.notice.NoticeEntity;
+import com.daepamarket.daepa_market_backend.domain.notice.Repository.NoticeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
