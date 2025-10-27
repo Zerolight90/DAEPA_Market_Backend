@@ -18,9 +18,4 @@ public class UserLoginDTO {
     private String message;
 
 
-    public UserLoginDTO(Long uIdx, String uId, String message) {
-        this.u_idx = uIdx;
-        this.u_id = uId;
-        this.message = message;
-    }
 }

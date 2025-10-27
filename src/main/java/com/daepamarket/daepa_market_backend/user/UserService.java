@@ -262,10 +262,16 @@ public class UserService {
                 .map(UserResponseDTO::of)
                 .toList();
     }
-    
+
     //이름이랑 전화번호를 통해 아이디 찾기
     public Optional<UserEntity> findByUNameAndUphone(String uname, String uphone){
-        return userRepository.findByUnameAndUphone(uname, uphone);
+        String phoneNumber = uphone.replaceAll("[^0-9]", "");
+        return userRepository.findByUnameAndUphone(uname, phoneNumber);
+    }
+
+    public Optional<UserEntity> findByUidAndUnameAndUphone(String uid, String uname, String uphone){
+        String phoneNumber = uphone.replaceAll("[^0-9]", "");
+        return userRepository.findByUidAndUnameAndUphone(uid, uname, phoneNumber);
     }
 
 
