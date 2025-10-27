@@ -41,7 +41,9 @@ public class SecurityConfig {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
-                "http://127.0.0.1:3000"
+                "http://127.0.0.1:3000",
+                "http://192.168.*.*:3000",
+                "*"
                 // 운영 도메인 추가
         ));
         cfg.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
