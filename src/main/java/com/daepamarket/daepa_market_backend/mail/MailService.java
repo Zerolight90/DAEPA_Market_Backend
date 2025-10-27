@@ -1,3 +1,4 @@
+/*
 package com.daepamarket.daepa_market_backend.mail;
 
 import jakarta.mail.MessagingException;
@@ -77,3 +78,4 @@ public class MailService {
     }
 
 }
+*/

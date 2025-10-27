@@ -1,3 +1,4 @@
+/*
 package com.daepamarket.daepa_market_backend.config;
 
 import org.springframework.mail.javamail.JavaMailSender;
@@ -33,3 +34,4 @@ public class MailConfig {
         return mailSender;
     }
 }
+*/
