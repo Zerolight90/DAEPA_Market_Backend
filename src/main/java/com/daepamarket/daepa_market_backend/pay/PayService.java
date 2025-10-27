@@ -1,9 +1,15 @@
 package com.daepamarket.daepa_market_backend.pay;
 
+import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
+import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
+import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
 import com.daepamarket.daepa_market_backend.domain.pay.PayEntity;
 import com.daepamarket.daepa_market_backend.domain.pay.PayRepository;
+import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
+import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 
@@ -24,9 +30,11 @@ public class PayService {
     private final RestTemplate restTemplate; // API 호출을 위함
     private final PayRepository payRepository; // JPA
     private final UserRepository userRepository;
+    private final DealRepository dealRepository;
+    private final ProductRepository productRepository;
 
     @Transactional // 이 메서드 내의 모든 DB 작업을 하나의 트랜잭션으로 묶음
-    public void confirmPaymentAndUpdateDb(String paymentKey, String orderId, Long amount) {
+    public void confirmPointCharge(String paymentKey, String orderId, Long amount) {
         
         // 1. 토스페이먼츠에 최종 결제 승인을 요청합니다. (보안상 필수, zustand 사용해서 검증하는것 추가해야함!)
         confirmToTossPayments(paymentKey, orderId, amount);
@@ -51,6 +59,67 @@ public class PayService {
         payRepository.save(chargeLog);
         // 만약 여기서 에러가 발생하면? @Transactional 덕분에
         // 위에서 변경된 user의 잔액(u_balance)도 자동으로 롤백(원상복구)됩니다.
+    }
+
+    @Transactional
+    public void confirmProductPurchase(String paymentKey, String orderId, Long amount){
+
+        // 1. 토스페이먼츠 최종 결제 승인 요청
+        confirmToTossPayments(paymentKey, orderId, amount);
+
+        // 2. 주문 정보에서 상품 ID(pdIdx)와 구매자 ID(buyerIdx) 추출
+        long pdIdx = extractProductIdFromOrderId(orderId);
+        long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId); // 실제 구매자 ID 가져오는 로직 필요
+
+        // 3. 필요한 엔티티 조회
+        ProductEntity product = productRepository.findById(pdIdx)
+                .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + pdIdx));
+        UserEntity buyer = userRepository.findById(buyerIdx)
+                .orElseThrow(() -> new RuntimeException("구매자 정보를 찾을 수 없습니다: " + buyerIdx));
+        DealEntity deal = dealRepository.findByProduct_PdIdx(pdIdx)
+                .orElseThrow(() -> new RuntimeException("해당 상품의 거래 정보를 찾을 수 없습니다: " + pdIdx));
+
+        // 4. Deal 테이블 업데이트
+        deal.setAgreedPrice(amount);
+        deal.setBuyer(buyer);
+        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now()));
+        deal.setDBuy("구매확정 대기"); // 구매 상태 (예: 구매 확정 대기)
+        deal.setDSell("판매완료");    // 판매 상태
+        deal.setDStatus(2L);         // 거래 상태 (예: 1 = 결제완료)
+
+        dealRepository.save(deal);
+
+    }
+
+    // 예시: 충전 주문 ID("charge-${userId}-${uuid}")에서 사용자 ID 추출
+    private Long extractUserIdFromChargeOrderId(String orderId) {
+        try {
+            String[] parts = orderId.split("-");
+            if (parts.length > 1 && "charge".equals(parts[0])) {
+                return Long.parseLong(parts[1]);
+            }
+        } catch (Exception e) { /* ignore */ }
+        // 실제로는 더 안정적인 방법 사용 권장 (예: DB 조회)
+        // 임시로 하드코딩된 ID 반환 (테스트용)
+        return 2L;
+    }
+
+    // 예시: 구매자 ID 추출 (실제 구현 필요)
+    private Long extractBuyerIdFromContextOrOrderId(String orderId) {
+        // TODO: Spring Security Context Holder에서 현재 로그인 사용자 ID를 가져오거나,
+        // orderId 생성 시 구매자 정보를 포함시키는 등 실제 구매자 ID를 가져오는 로직 구현 필요
+        return 2L; // 임시 구매자 ID
+    }
+
+    // 예시: 상품 구매 주문 ID("product-${pdIdx}-${uuid}")에서 상품 ID 추출
+    private Long extractProductIdFromOrderId(String orderId) {
+        try {
+            String[] parts = orderId.split("-");
+            if (parts.length > 1 && "product".equals(parts[0])) {
+                return Long.parseLong(parts[1]);
+            }
+        } catch (Exception e) { /* ignore */ }
+        throw new IllegalArgumentException("주문 ID에서 상품 ID를 추출할 수 없습니다: " + orderId);
     }
 
     // 토스페이먼츠 API를 호출하여 결제를 최종 승인하는 메서드

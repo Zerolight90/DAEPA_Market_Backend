@@ -27,7 +27,7 @@ public class FavoriteProductEntity {
     private ProductEntity product;
 
     @Column(name = "f_status")
-    private Boolean fStatus;
+    private Boolean status;
 
     @Column(name = "f_date")
     private LocalDateTime fDate;
