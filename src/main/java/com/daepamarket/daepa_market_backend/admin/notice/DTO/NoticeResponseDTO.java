@@ -14,5 +14,6 @@ public class NoticeResponseDTO {
     private String nDate;
     private String nIp;
     private Byte nCategory;
+    private String adminNick;
 
 }

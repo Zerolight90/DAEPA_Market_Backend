@@ -30,13 +30,13 @@ public class NoticeService {
                 .nDate(e.getNDate().toString())
                 .nIp(e.getNIp())
                 .nCategory(e.getNCategory())
+                .adminNick(e.getAdmin().getAdNick())
                 .build();
     }
 
-
     /** 전체 목록 DTO 반환 */
     public List<NoticeResponseDTO> findAllDTO() {
-        return noticeRepository.findAll()
+        return noticeRepository.findAllWithAdmin()
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
@@ -44,7 +44,9 @@ public class NoticeService {
 
     /** 상세 조회 DTO 반환 */
     public NoticeResponseDTO findByIdDTO(Long id) {
-        return toDTO(findById(id)); // 아래 findById 재사용
+        return noticeRepository.findByIdWithAdmin(id)   // ← 변경
+                .map(this::toDTO)
+                .orElseThrow(() -> new RuntimeException("공지사항이 존재하지 않습니다."));
     }
 
     /** 내부 공용: Entity 조회 */
