@@ -1,14 +1,20 @@
 package com.daepamarket.daepa_market_backend.mail;
 
+import com.daepamarket.daepa_market_backend.domain.auth.AuthEntity;
+import com.daepamarket.daepa_market_backend.domain.auth.AuthRepository;
 import jakarta.mail.MessagingException;
+import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import java.io.UnsupportedEncodingException;
 
+import java.util.Optional;
 import java.util.Random;
 
 @Slf4j
@@ -16,6 +22,9 @@ import java.util.Random;
 @RequiredArgsConstructor
 public class MailService {
     private final JavaMailSender emailSender;
+
+    private final AuthRepository authRepository;
+
 
     @Value("${spring.mail.username}")
     private String senderEmail;
@@ -28,6 +37,12 @@ public class MailService {
         //인증키 생성
         String authKey = createKey();
 
+        //DB 저장
+        authRepository.save(AuthEntity.builder()
+                .authEmail(toEmail)
+                .authCode(authKey)
+                .build());
+
         // 제목 및 본문 생성
         String subject = "대파마켓 인증번호";
         String htmlContent = createAuthHtmlContent(authKey);
@@ -38,6 +53,7 @@ public class MailService {
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
 
+            helper.setFrom(new InternetAddress(senderEmail, SENDER_NAME));
             helper.setTo(toEmail);
             helper.setSubject(subject);
             helper.setText(htmlContent, true);
@@ -48,6 +64,9 @@ public class MailService {
             log.error("메일 발송 실패: {}", toEmail, e);
 
             throw new RuntimeException("이메일 전송에 실패했습니다.", e);
+        } catch (UnsupportedEncodingException e) {
+            log.error("메일 발송 실패 (Encoding): 발신자 이름 인코딩 오류", e);
+            throw new RuntimeException("이메일 전송에 실패했습니다. (발신자 이름 인코딩 오류)", e);
         }
     }
 
@@ -75,5 +94,22 @@ public class MailService {
                 "<br><p>감사합니다.</p>" +
                 "</div>";
     }
+
+    @Transactional
+    public boolean verifyCode(String email, String inputCode){
+        Optional<AuthEntity> lastcode = authRepository.findTopByAuthEmailOrderByAuthIdxDesc(email);
+
+        if(lastcode.isEmpty()) return false;
+
+        AuthEntity last = lastcode.get();
+        boolean ok = last.getAuthCode().equals(inputCode);
+
+        if(ok) {
+            authRepository.delete(last);
+        }
+        return ok;
+    }
+
+
 
 }
