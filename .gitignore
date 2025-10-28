@@ -56,3 +56,5 @@ dist/
 # --- 기타 ---
 *.swp
 *.swo
+
+uploads/

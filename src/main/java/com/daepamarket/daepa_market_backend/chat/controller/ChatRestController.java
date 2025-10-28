@@ -12,12 +12,18 @@ import com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.file.*;
 import java.security.Principal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -26,9 +32,9 @@ public class ChatRestController {
 
     private final ChatMessageMapper messageMapper;
     private final ChatRoomMapper chatRoomMapper;
-    private final RoomService roomService;   // 방 생성/재사용(JPA+MyBatis 보조)
+    private final RoomService roomService;
     private final JwtSupport jwtSupport;
-    private final ChatService chatService;   // ✅ REST 폴백에서 직접 사용
+    private final ChatService chatService;
 
     /** 내 채팅방 목록 */
     @GetMapping("/my-rooms")
@@ -60,7 +66,7 @@ public class ChatRestController {
         return messageMapper.findMessages(roomId, before, size);
     }
 
-    /** ✅ after(마지막 메시지ID) 초과만 ASC로 반환 → 폴링용 증분 조회 */
+    /** after(마지막 메시지ID) 초과만 ASC로 반환 → 폴링용 증분 조회(지금은 미사용) */
     @GetMapping("/{roomId}/messages-after")
     public List<ChatDto.MessageRes> messagesAfter(@PathVariable Long roomId,
                                                   @RequestParam Long after,
@@ -80,7 +86,7 @@ public class ChatRestController {
         return roomService.openOrGetRoom(req, buyerId);
     }
 
-    /** ✅ REST 폴백: 메시지 전송(WS 미연결 시 사용) */
+    /** REST 폴백: 메시지 전송(WS 미연결 시 사용) */
     @PostMapping("/{roomId}/send")
     public ChatDto.MessageRes sendViaHttp(@PathVariable Long roomId,
                                           @RequestBody ChatDto.SendMessageReq req,
@@ -94,7 +100,7 @@ public class ChatRestController {
         return chatService.sendMessage(roomId, senderId, req.getText(), req.getImageUrl(), req.getTempId());
     }
 
-    /** ✅ REST 폴백: 읽음 포인터 올리기(WS 미연결 시 사용) */
+    /** REST 폴백: 읽음 포인터 올리기(WS 미연결 시 사용) */
     @PostMapping("/{roomId}/read-up-to")
     public ChatDto.ReadEvent readUpTo(@PathVariable Long roomId,
                                       @RequestParam(required = false) Long upTo,
@@ -116,6 +122,57 @@ public class ChatRestController {
                 .lastSeenMessageId(applied)
                 .time(LocalDateTime.now())
                 .build();
+    }
+
+    /** ✅ 채팅 이미지 업로드(멀티파트) → { url } 반환 — 로컬 디스크 저장 */
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, Object>> upload(
+            @RequestPart("file") MultipartFile file,
+            HttpServletRequest request
+    ) throws Exception {
+        Long userId = jwtSupport.resolveUserIdFromCookie(request);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "로그인이 필요합니다."));
+        }
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "file is empty"));
+        }
+        // 확장자/타입 간단 체크(보안상 더 강화 가능)
+        String ct = Optional.ofNullable(file.getContentType()).orElse("");
+        if (!ct.startsWith("image/")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "이미지 파일만 허용됩니다."));
+        }
+
+        String originalName = StringUtils.cleanPath(
+                Optional.ofNullable(file.getOriginalFilename()).orElse("image")
+        );
+        String ext = "";
+        int idx = originalName.lastIndexOf('.');
+        if (idx >= 0) ext = originalName.substring(idx);
+
+        LocalDate today = LocalDate.now();
+        Path base = Paths.get("uploads", "chat",
+                String.valueOf(today.getYear()),
+                String.format("%02d", today.getMonthValue()));
+        Files.createDirectories(base);
+
+        String saveName = UUID.randomUUID().toString().replace("-", "") + ext;
+        Path dest = base.resolve(saveName);
+
+        file.transferTo(dest.toFile());
+
+        String url = "/files/chat/" + today.getYear()
+                + "/" + String.format("%02d", today.getMonthValue())
+                + "/" + saveName;
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("url", url);
+        body.put("name", saveName);
+        body.put("size", file.getSize());
+        body.put("contentType", file.getContentType());
+        body.put("uploaderId", userId);
+        return ResponseEntity.ok(body);
     }
 
     private static Long parseLongOrNull(String s) {
