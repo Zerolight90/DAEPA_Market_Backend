@@ -1,3 +1,4 @@
+// src/main/java/com/daepamarket/daepa_market_backend/mapper/ChatMessageMapper.java
 package com.daepamarket.daepa_market_backend.mapper;
 
 import com.daepamarket.daepa_market_backend.common.dto.ChatDto;
@@ -25,4 +26,9 @@ public interface ChatMessageMapper {
                        @Param("upTo") Long upTo);
 
     int countUnread(@Param("roomId") Long roomId, @Param("userId") Long userId);
+
+    /** ✅ 폴백용 증분 조회 */
+    List<ChatDto.MessageRes> findMessagesAfter(@Param("roomId") Long roomId,
+                                               @Param("after") Long after,
+                                               @Param("size") int size);
 }
