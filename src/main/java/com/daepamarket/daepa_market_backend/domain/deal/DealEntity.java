@@ -47,4 +47,10 @@ public class DealEntity {
 
     @Column(name = "d_buy", length = 20)
     private String dBuy;
+
+    @Column(name = "payment_key", length = 255)
+    private String paymentKey;
+
+    @Column(name = "order_id", length = 100)
+    private String orderId;
 }

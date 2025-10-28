@@ -3,6 +3,7 @@ package com.daepamarket.daepa_market_backend.pay;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
 import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
@@ -15,6 +16,7 @@ import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 
 import jakarta.transaction.Transactional;
 
+import org.apache.catalina.User;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -32,6 +34,66 @@ public class PayService {
     private final UserRepository userRepository;
     private final DealRepository dealRepository;
     private final ProductRepository productRepository;
+
+    // --- 페이 잔액 조회 ---
+    @Transactional
+    public long getCurrentBalance(Long userId) {
+        // Pay 테이블에서 해당 유저의 모든 거래 내역 합산
+        // (PayRepository에 잔액 계산 쿼리 메소드 필요 - 예: findTotalBalanceByUserId)
+        Long balance = payRepository.calculateTotalBalanceByUserId(userId);
+        return balance != null ? balance : 0L; // null이면 0 반환
+    }
+
+    // --- 페이로 상품 구매 처리 ---
+    @Transactional // 중요: 여러 DB 업데이트가 있으므로 트랜잭션 필수
+    public long processPurchaseWithPoints(Long buyerId, Long itemId, int qty, Long amountFromClient) {
+
+        // 1. 구매자 정보 로드
+        UserEntity buyer = userRepository.findById(buyerId)
+                .orElseThrow(() -> new RuntimeException("구매자 정보를 찾을 수 없습니다: " + buyerId));
+
+        // 2. 상품 정보 로드 및 가격 검증 (★중요★)
+        ProductEntity product = productRepository.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + itemId));
+        long correctTotal = product.getPdPrice() * qty; // DB 가격 * 수량
+
+        if (!amountFromClient.equals(correctTotal)) {
+            throw new IllegalArgumentException("요청된 결제 금액이 실제 상품 가격과 일치하지 않습니다.");
+        }
+
+        // 3. 현재 잔액 확인 (DB에서 다시 확인 - 동시성 문제 방지)
+        long currentBalance = getCurrentBalance(buyerId);
+        if (currentBalance < correctTotal) {
+            throw new IllegalArgumentException("페이 잔액이 부족합니다.");
+        }
+
+        Optional<UserEntity> user = userRepository.findById(buyerId);
+
+        // 4. Pay 테이블에 사용 내역 기록 (★차감★)
+        PayEntity purchaseLog = new PayEntity();
+        // purchaseLog.setUser(user);
+        purchaseLog.setPaPrice(-correctTotal); // ✅ 사용 금액은 음수로 기록
+        purchaseLog.setPaDate(LocalDate.now());
+        // purchaseLog.setDIdx(...); // 필요 시 Deal ID 연결
+        // ... 기타 정보 ...
+        payRepository.save(purchaseLog);
+
+        // 5. Deal 테이블 업데이트
+        DealEntity deal = dealRepository.findByProduct_PdIdx(product.getPdIdx())
+                .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
+
+        deal.setAgreedPrice(correctTotal); // 실제 거래된 가격
+        deal.setBuyer(buyer);
+        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now()));
+        deal.setDBuy("구매확정대기"); // 페이 구매 상태
+        deal.setDSell("판매완료");
+        deal.setDStatus(1L); // 결제 완료 상태
+
+        dealRepository.save(deal);
+
+        // 6. 남은 잔액 계산하여 반환
+        return currentBalance - correctTotal;
+    }
 
     @Transactional // 이 메서드 내의 모든 DB 작업을 하나의 트랜잭션으로 묶음
     public void confirmPointCharge(String paymentKey, String orderId, Long amount) {
@@ -85,7 +147,9 @@ public class PayService {
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now()));
         deal.setDBuy("구매확정 대기"); // 구매 상태 (예: 구매 확정 대기)
         deal.setDSell("판매완료");    // 판매 상태
-        deal.setDStatus(2L);         // 거래 상태 (예: 1 = 결제완료)
+        deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
+        deal.setPaymentKey(paymentKey);
+        deal.setOrderId(orderId);
 
         dealRepository.save(deal);
 
