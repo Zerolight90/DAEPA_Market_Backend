@@ -17,6 +17,7 @@
 //
 //public class MailConfig {
 //    private String host;
+//    private int port;
 //    private String username;
 //    private String password;
 //    private Properties properties;
@@ -28,7 +29,6 @@
 //        mailSender.setPort(465); // 포트가 여기에 하드코딩 되어있습니다.
 //        mailSender.setUsername(username);
 //        mailSender.setPassword(password);
-//        mailSender.setJavaMailProperties(properties);
 //
 //        return mailSender;
 //    }
