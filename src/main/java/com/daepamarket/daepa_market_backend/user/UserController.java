@@ -106,4 +106,21 @@ public class UserController {
         return userService.findByUidAndUnameAndUphone(uId, uName, uPhone);
 
     }
+
+    @PutMapping ("/login/find_password/reset")
+    public ResponseEntity<Map<String, String>> reset_password(@RequestBody Map<String, String> requestData){
+        String uId = requestData.get("u_id");
+        String newPw = requestData.get("new_password");
+
+        try{
+            //성공했을 때
+            userService.reset_password(uId, newPw);
+
+            return ResponseEntity.ok(Map.of("message", "비밀번호가 성공적으로 변경되었습니다."));
+        }
+        //사용자를 찾지 못함
+        catch (IllegalArgumentException e){
+            return ResponseEntity.notFound().build();
+        }
+    }
 }
