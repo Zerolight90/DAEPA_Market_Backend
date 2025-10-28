@@ -1,3 +1,4 @@
+// src/main/java/com/daepamarket/daepa_market_backend/mapper/ChatRoomMapper.java
 package com.daepamarket.daepa_market_backend.mapper;
 
 import com.daepamarket.daepa_market_backend.common.dto.ChatRoomListDto;
@@ -24,4 +25,7 @@ public interface ChatRoomMapper {
     int isNewlyCreated(@Param("roomId") Long roomId);
 
     int insertSystemMessage(Map<String, Object> param);
+
+    /** ✅ 방 나가기(해당 사용자 읽음행 삭제) */
+    int deleteRead(@Param("roomId") Long roomId, @Param("userId") Long userId);
 }

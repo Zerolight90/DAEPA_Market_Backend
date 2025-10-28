@@ -116,4 +116,6 @@
             (#{chIdx}, NULL, 'SYSTEM', 'SYSTEM', #{content}, NULL, NOW())
     </insert>
 
+
+
 </mapper>
