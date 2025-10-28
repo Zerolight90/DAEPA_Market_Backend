@@ -13,6 +13,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.apache.catalina.User;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -269,9 +270,21 @@ public class UserService {
         return userRepository.findByUnameAndUphone(uname, phoneNumber);
     }
 
+    //아이디, 이름, 전화번호를 통해 비밀번호 재설정 전 본인확인
     public Optional<UserEntity> findByUidAndUnameAndUphone(String uid, String uname, String uphone){
         String phoneNumber = uphone.replaceAll("[^0-9]", "");
         return userRepository.findByUidAndUnameAndUphone(uid, uname, phoneNumber);
+    }
+
+    public void reset_password(String uId, String newPw) {
+        //아이디로 사용자 조회
+        UserEntity user = userRepository.findByUid(uId).orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        String encodedPassword = passwordEncoder.encode(newPw);
+
+        user.setUPw(encodedPassword);
+
+        userRepository.save(user);
     }
 
 
