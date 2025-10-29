@@ -15,6 +15,6 @@ public interface PayRepository extends JpaRepository<PayEntity, Long> {
      * @return 현재 잔액 (기록이 없으면 null일 수 있으므로 주의)
      */
     
-    @Query("SELECT p.paNprice FROM PayEntity p WHERE p.user.uIdx = :userId")
+    @Query("SELECT sum(p.paPrice) FROM PayEntity p WHERE p.user.uIdx = :userId")
     Long calculateTotalBalanceByUserId(@Param("userId") Long userId);
 }
