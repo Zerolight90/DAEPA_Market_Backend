@@ -3,6 +3,7 @@ package com.daepamarket.daepa_market_backend.chat.service;
 import com.daepamarket.daepa_market_backend.common.dto.ChatDto;
 import com.daepamarket.daepa_market_backend.mapper.ChatMessageMapper;
 import com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper;
+import com.daepamarket.daepa_market_backend.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,13 +18,17 @@ public class ChatService {
 
     private final ChatMessageMapper messageMapper;
     private final ChatRoomMapper roomMapper;
+    private final UserMapper userMapper; // ✅ 추가
 
     @Transactional
     public ChatDto.MessageRes sendMessage(Long roomId, Long senderId,
                                           String text, String imageUrl, String tempId) {
-
         final String type = (imageUrl != null && !imageUrl.isBlank()) ? "IMAGE" : "TEXT";
         final String content = text == null ? "" : text;
+
+        // ✅ senderId(=u_idx) → u_id 조회
+        String writer = userMapper.findLoginIdByIdx(senderId);
+        if (writer == null || writer.isBlank()) writer = "unknown";
 
         Map<String, Object> param = new HashMap<>();
         param.put("chIdx", roomId);
@@ -31,6 +36,7 @@ public class ChatService {
         param.put("messageType", type);
         param.put("content", content);
         param.put("imageUrl", imageUrl);
+        param.put("writer", writer); // ✅ 추가
 
         int inserted = messageMapper.insertMessage(param);
         if (inserted != 1) throw new IllegalStateException("insertMessage failed (roomId=" + roomId + ")");
@@ -51,6 +57,7 @@ public class ChatService {
                 .tempId(tempId)
                 .build();
     }
+
 
     @Transactional
     public Long markRead(Long roomId, Long userId, Long upToOrNull) {

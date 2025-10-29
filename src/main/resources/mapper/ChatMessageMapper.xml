@@ -68,15 +68,16 @@
         INSERT INTO chat_messages
         (ch_idx, sender_id, cm_writer, message_type, cm_content, image_url, cm_date)
         VALUES (
-                   #{chIdx},
-                   #{senderId},
-                   IFNULL(CAST(#{senderId} AS CHAR), 'unknown'),
-                   #{messageType},
-                   #{content},
-                   #{imageUrl},
-                   NOW()
-               )
+        #{chIdx},
+        #{senderId},
+        #{writer},
+        #{messageType},
+        #{content},
+        #{imageUrl},
+        NOW()
+        )
     </insert>
+
 
     <!-- 읽음 포인터: 방의 최신 메시지까지 -->
     <insert id="upsertRead">
