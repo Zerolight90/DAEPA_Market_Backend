@@ -11,12 +11,13 @@ import com.daepamarket.daepa_market_backend.mapper.ChatMessageMapper;
 import com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.file.*;
@@ -35,6 +36,11 @@ public class ChatRestController {
     private final RoomService roomService;
     private final JwtSupport jwtSupport;
     private final ChatService chatService;
+
+    // ⚠️ WebConfig가 /uploads/** → file:/data/uploads/ 로 고정이므로
+    //     여기 기본값도 /data/uploads 로 맞춘다. (운영·로컬 모두 동일 동작)
+    @Value("${app.upload.dir:/data/uploads}")
+    private String uploadRoot;
 
     /** 내 채팅방 목록 */
     @GetMapping("/my-rooms")
@@ -124,7 +130,11 @@ public class ChatRestController {
                 .build();
     }
 
-    /** ✅ 채팅 이미지 업로드(멀티파트) → { url } 반환 — 로컬 디스크 저장 */
+    /** ✅ 채팅 이미지 업로드(멀티파트)
+     *  - 디스크 저장: <uploadRoot>/chat/YYYY/MM/<uuid>.<ext>
+     *  - 반환 URL :  /uploads/chat/YYYY/MM/<uuid>.<ext>
+     *    (WebConfig: /uploads/** → file:/data/uploads/ 매핑과 1:1 일치)
+     */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> upload(
             @RequestPart("file") MultipartFile file,
@@ -138,31 +148,29 @@ public class ChatRestController {
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "file is empty"));
         }
-        // 확장자/타입 간단 체크(보안상 더 강화 가능)
         String ct = Optional.ofNullable(file.getContentType()).orElse("");
         if (!ct.startsWith("image/")) {
             return ResponseEntity.badRequest().body(Map.of("error", "이미지 파일만 허용됩니다."));
         }
 
-        String originalName = StringUtils.cleanPath(
-                Optional.ofNullable(file.getOriginalFilename()).orElse("image")
-        );
+        // 저장 디렉토리 (연/월 폴더)
+        LocalDate today = LocalDate.now();
+        Path base = Paths.get(uploadRoot, "chat",
+                String.valueOf(today.getYear()),
+                String.format("%02d", today.getMonthValue()));
+        Files.createDirectories(base); // 폴더 없으면 생성 (권한 필요)
+
+        // 파일명 및 저장
+        String originalName = StringUtils.cleanPath(Optional.ofNullable(file.getOriginalFilename()).orElse("image"));
         String ext = "";
         int idx = originalName.lastIndexOf('.');
         if (idx >= 0) ext = originalName.substring(idx);
-
-        LocalDate today = LocalDate.now();
-        Path base = Paths.get("uploads", "chat",
-                String.valueOf(today.getYear()),
-                String.format("%02d", today.getMonthValue()));
-        Files.createDirectories(base);
-
         String saveName = UUID.randomUUID().toString().replace("-", "") + ext;
         Path dest = base.resolve(saveName);
+        file.transferTo(dest); // java.nio.file.Path 지원(Spring 6+)
 
-        file.transferTo(dest.toFile());
-
-        String url = "/files/chat/" + today.getYear()
+        // 반환 URL — 정적 매핑과 일치
+        String url = "/uploads/chat/" + today.getYear()
                 + "/" + String.format("%02d", today.getMonthValue())
                 + "/" + saveName;
 
