@@ -4,40 +4,32 @@ import com.daepamarket.daepa_market_backend.domain.favorite.FavoriteProductEntit
 import com.daepamarket.daepa_market_backend.domain.favorite.FavoriteProductRepository;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
 import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
-import com.daepamarket.daepa_market_backend.domain.productimage.ProductImageRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import static org.springframework.data.domain.Sort.Direction.DESC;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class FavoriteService {
-
     private final FavoriteProductRepository favoriteRepo;
     private final UserRepository userRepo;
     private final ProductRepository productRepo;
-    private final ProductImageRepository imageRepo;
 
-    /**
-     * ✅ 찜 토글 기능
-     * - 이미 찜했다면 → 해제
-     * - 처음 누르면 → 등록
-     * - 현재 상태(true/false)를 반환
-     */
     @Transactional
     public boolean toggle(Long userId, Long productId) {
         UserEntity user = userRepo.findById(userId).orElseThrow();
         ProductEntity product = productRepo.findById(productId).orElseThrow();
 
-        // 기존 찜 여부 확인
         var favOpt = favoriteRepo.findByUserAndProduct(user, product);
         if (favOpt.isEmpty()) {
-            // 찜 기록이 없으면 새로 추가 (찜 상태 true)
             favoriteRepo.save(
                     FavoriteProductEntity.builder()
                             .user(user).product(product)
@@ -48,7 +40,6 @@ public class FavoriteService {
             return true;
         }
 
-        // 이미 존재한다면 상태 토글 (true↔false)
         FavoriteProductEntity fav = favOpt.get();
         boolean next = !Boolean.TRUE.equals(fav.getStatus());
         fav.setStatus(next);
@@ -56,7 +47,6 @@ public class FavoriteService {
         return next;
     }
 
-    /** ✅ 현재 유저가 이 상품을 찜했는지 여부 조회 */
     @Transactional(readOnly = true)
     public boolean isFavorited(Long userId, Long productId) {
         UserEntity user = userRepo.findById(userId).orElseThrow();
@@ -66,28 +56,40 @@ public class FavoriteService {
                 .orElse(false);
     }
 
-    /** ✅ 상품의 총 찜 수 조회 */
     @Transactional(readOnly = true)
     public long count(Long productId) {
         ProductEntity product = productRepo.findById(productId).orElseThrow();
-        return favoriteRepo.countByProductAndStatusTrue(product);
+        return favoriteRepo.countByProductAndStatusIsTrue(product);
     }
 
-    public List<FavoriteItemDTO> getMyFavorites(Long userId) {
-        List<ProductEntity> products = favoriteRepo.findLikedProductsByUserId(userId);
+    // =========================
+    // ✅ 내가 찜한 상품 목록
+    // =========================
+    @Transactional(readOnly = true)
+    public List<FavoriteItemDTO> list(Long userId) {
+        UserEntity user = userRepo.findById(userId).orElseThrow();
 
-        return products.stream().map(p -> {
-            // 대표 이미지 1장 가져오기
-            String imageUrl = imageRepo.findTop1ByProductOrderByPiIdxAsc(p)
-                    .map(img -> img.getImageUrl()) // 컬럼명이 imageUrl임
-                    .orElse(null);
+        // ⚠ 여기 "fDate" 는 엔티티 필드명(게터명)과 100% 동일해야 함
+        var favs = favoriteRepo.findByUserAndStatus(user, true, Sort.by(DESC, "fDate"));
 
-            return FavoriteItemDTO.builder()
-                    .id(p.getPdIdx())
-                    .title(p.getPdTitle())
-                    .price(p.getPdPrice())
-                    .imageUrl(imageUrl)
-                    .build();
-        }).toList();
+        return favs.stream()
+                .map(f -> toDto(f.getProduct()))
+                .toList();
+    }
+
+    // ProductEntity -> FavoriteItemDTO 매핑
+    private FavoriteItemDTO toDto(ProductEntity p) {
+        // createdAt 문자열로 간단히 포맷 (프론트에서 그대로 표시 가능)
+        String createdAt = null;
+        if (p.getPdCreate() != null) {
+            createdAt = p.getPdCreate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+
+        return FavoriteItemDTO.builder()
+                .id(p.getPdIdx())
+                .title(p.getPdTitle())
+                .price(p.getPdPrice())
+                .imageUrl(p.getPdThumb())      // 썸네일 컬럼명에 맞춰 사용
+                .build();
     }
 }

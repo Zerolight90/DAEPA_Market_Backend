@@ -67,12 +67,13 @@ public class PayService {
             throw new IllegalArgumentException("페이 잔액이 부족합니다.");
         }
 
-        Optional<UserEntity> user = userRepository.findById(buyerId);
+        Long panprice = payRepository.calculateTotalBalanceByUserId(buyerId);
 
         // 4. Pay 테이블에 사용 내역 기록 (★차감★)
         PayEntity purchaseLog = new PayEntity();
-        // purchaseLog.setUser(user);
+        purchaseLog.setUser(buyer);
         purchaseLog.setPaPrice(-correctTotal); // ✅ 사용 금액은 음수로 기록
+        purchaseLog.setPaNprice(panprice + correctTotal);
         purchaseLog.setPaDate(LocalDate.now());
         // purchaseLog.setDIdx(...); // 필요 시 Deal ID 연결
         // ... 기타 정보 ...
@@ -96,7 +97,7 @@ public class PayService {
     }
 
     @Transactional // 이 메서드 내의 모든 DB 작업을 하나의 트랜잭션으로 묶음
-    public void confirmPointCharge(String paymentKey, String orderId, Long amount) {
+    public void confirmPointCharge(String paymentKey, String orderId, Long amount, Long userId) {
         
         // 1. 토스페이먼츠에 최종 결제 승인을 요청합니다. (보안상 필수, zustand 사용해서 검증하는것 추가해야함!)
         confirmToTossPayments(paymentKey, orderId, amount);
@@ -104,16 +105,21 @@ public class PayService {
         // 2. 주문 ID로부터 실제 충전을 요청한 사용자 ID를 가져옵니다.
         // 임시로 1L 유저라고 가정
         // 실제로는 orderId를 DB에 저장하고 매칭하는 과정 (zustand)이 필요함!!
-        Long userId = (long)2;
+        // Long userId = (long)4;
 
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("해당 유저를 찾을 수 없습니다: " + userId));
+
+        Long panprice = payRepository.calculateTotalBalanceByUserId(userId);
+        if (panprice == null){
+            panprice = 0L;
+        }
 
         // 3. [JPA만 사용] 'pay' 테이블에 충전 기록을 생성하고 저장(INSERT)합니다.
         PayEntity chargeLog = new PayEntity();
         chargeLog.setPaDate(LocalDate.now());
         chargeLog.setPaPrice(amount);     // ✅ 충전이므로 양수로 금액 기록
-        chargeLog.setPaNprice(amount);    // 실 결제액
+        chargeLog.setPaNprice(panprice + amount);    // 실 결제액
         chargeLog.setPaPoint(0);  // 사용 포인트 없음
         chargeLog.setUser(user);
         // chargeLog.setDIdx(null);       // 거래 ID는 충전이므로 없음
