@@ -1,5 +1,9 @@
 package com.daepamarket.daepa_market_backend.pay;
 
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
+import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @RestController
@@ -19,16 +25,42 @@ public class PayController {
 
     private final PayService payService;
 
+    private final JwtProvider jwtProvider;
+    private final CookieUtil cookieUtil;
+
     // Toss Payments가 성공 시 호출하는 엔드포인트
     @GetMapping("/api/charge/success")
     public void handleChargeSuccess(
             @RequestParam String paymentKey,
             @RequestParam String orderId,
             @RequestParam Long amount,
-            HttpServletResponse httpServletResponse) throws IOException {
+            HttpServletResponse httpServletResponse,
+            HttpServletRequest request
+    ) throws IOException {
+        // ===== 1. 토큰 추출 및 검증 =====
+        String token = resolveAccessToken(request);
+        if (token == null) {
+            handleAuthError(httpServletResponse, "로그인이 필요합니다 (토큰 없음).");
+            return;
+        }
+        if (jwtProvider.isExpired(token)) {
+            handleAuthError(httpServletResponse, "토큰이 만료되었습니다.");
+            return;
+        }
+
+        // ===== 2. 토큰에서 사용자 ID 추출 =====
+        Long userId;
+        try {
+            userId = Long.valueOf(jwtProvider.getUid(token));
+        } catch (Exception e) {
+            handleAuthError(httpServletResponse, "유효하지 않은 토큰입니다.");
+            return;
+        }
+        // =======================================================
+
         try {
             // 실제 로직은 Service 계층에 위임
-            payService.confirmPointCharge(paymentKey, orderId, amount);
+            payService.confirmPointCharge(paymentKey, orderId, amount, userId);
             // 성공 시 사용자에게 보여줄 페이지로 리다이렉트
             String redirectUrl = "http://localhost:3000/payCharge/success?amount=" + amount;
             httpServletResponse.sendRedirect(redirectUrl);
@@ -42,62 +74,101 @@ public class PayController {
     }
 
     // --- 페이 잔액 조회 API ---
-    @GetMapping("/balance")
-    public ResponseEntity<?> getPayBalance(Authentication authentication) { // ✅ Authentication 파라미터 추가
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "로그인이 필요합니다."));
+    @GetMapping("/api/pay/balance")
+    public ResponseEntity<?> getPayBalance(HttpServletRequest request) {
+        // ===== 1. 토큰 추출 및 검증 (ProductController 방식) =====
+        String token = resolveAccessToken(request); // 토큰 추출
+        System.out.println("### 전달받은 토큰: " + token); // ✅ 로그 추가!
+        if (token == null) {
+            // 401 Unauthorized 응답
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "로그인이 필요합니다 (토큰 없음)."));
+        }
+        if (jwtProvider.isExpired(token)) {
+            // 401 Unauthorized 응답
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "토큰이 만료되었습니다."));
         }
 
+        // ===== 2. 토큰에서 사용자 ID 추출 =====
+        Long userId;
         try {
-            // ✅ Authentication 객체에서 사용자 ID (u_idx) 추출 (Principal이 ID 문자열이라고 가정)
-            Long userId = Long.parseLong(authentication.getName());
-
-            long balance = payService.getCurrentBalance(userId);
-            return ResponseEntity.ok(Map.of("balance", balance));
-        } catch (NumberFormatException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "사용자 ID 형식이 잘못되었습니다."));
+            userId = Long.valueOf(jwtProvider.getUid(token)); // 토큰 subject가 uIdx (문자열)라고 가정
+            System.out.println("### 추출된 User ID: " + userId); // ✅ 성공 시 로그 추가!
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            // 401 Unauthorized 응답
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "유효하지 않은 토큰입니다."));
+        }
+        // =======================================================
+
+        // ===== 3. 비즈니스 로직 호출 =====
+        try {
+            long balance = payService.getCurrentBalance(userId); // 추출한 userId 사용
+            return ResponseEntity.ok(Map.of("balance", balance));
+        } catch (Exception e) {
+            // 서비스 로직에서 발생한 예외 처리 (e.g., UserNotFound)
+            System.err.println("잔액 조회 중 서버 오류: " + e.getMessage()); // 로그 추가 권장
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "잔액 조회 중 오류가 발생했습니다."));
         }
     }
 
-    // ✅ 페이 구매 요청 DTO (새로 생성)
-    @Getter
-    @NoArgsConstructor
-    class PurchaseRequestDto {
-        private Long itemId;
-        private int qty;
-        private Long amount;
+    // --- 토큰 추출 헬퍼 메소드 ---
+    private String resolveAccessToken(HttpServletRequest request) {
+        // 1) 쿠키 우선
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie c : cookies) {
+                // ✅ CookieUtil.ACCESS (쿠키 이름) 확인!
+                if (CookieUtil.ACCESS.equals(c.getName())) {
+                    String v = c.getValue();
+                    if (v != null && !v.isBlank()) return v;
+                }
+            }
+        }
+        // 2) Authorization: Bearer 헤더
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            return auth.substring(7);
+        }
+        return null; // 토큰 못 찾음
     }
 
     // --- 페이로 상품 구매 API ---
-    @PostMapping("/purchase-with-points")
+    @PostMapping("/api/pay/purchase-with-points")
     public ResponseEntity<?> purchaseWithPoints(
-            @RequestBody PurchaseRequestDto requestDto, // ✅ 요청 DTO 사용
-            Authentication authentication) { // ✅ Authentication 파라미터 추가
+            @RequestBody PayRequestDTO payRequestDTO, // ✅ 요청 DTO 사용
+            HttpServletRequest request) {
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "로그인이 필요합니다."));
+        // ===== 1. 토큰 추출 및 검증 =====
+        String token = resolveAccessToken(request);
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "로그인이 필요합니다 (토큰 없음)."));
+        }
+        if (jwtProvider.isExpired(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "토큰이 만료되었습니다."));
         }
 
+        // ===== 2. 토큰에서 사용자 ID 추출 =====
+        Long userId;
         try {
-            Long userId = Long.parseLong(authentication.getName());
+            userId = Long.valueOf(jwtProvider.getUid(token));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "유효하지 않은 토큰입니다."));
+        }
+        // ===================================
 
-            // ✅ 서비스 호출 시 사용자 ID 전달
+        // ===== 3. 비즈니스 로직 호출 =====
+        try {
             long remainingBalance = payService.processPurchaseWithPoints(
-                    userId,
-                    requestDto.getItemId(),
-                    requestDto.getQty(),
-                    requestDto.getAmount()
+                    userId, // 추출한 userId 사용
+                    payRequestDTO.getItemId(),
+                    payRequestDTO.getQty(),
+                    payRequestDTO.getAmount()
             );
-
             return ResponseEntity.ok(Map.of("message", "결제 완료", "remainingBalance", remainingBalance));
-        } catch (NumberFormatException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "사용자 ID 형식이 잘못되었습니다."));
-        } catch (IllegalArgumentException e) { // 잔액 부족 등 서비스 예외 처리
+        } catch (IllegalArgumentException e) { // 잔액 부족, 금액 불일치 등
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            System.err.println("페이 결제 처리 중 서버 오류: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "페이 결제 처리 중 오류가 발생했습니다."));
         }
     }
 
@@ -141,5 +212,15 @@ public class PayController {
             String redirectUrl = "http://localhost:3000/pay/sec/fail?message=" + errorMsg;
             httpServletResponse.sendRedirect(redirectUrl);
         }
+    }
+
+
+
+    // --- 에러 처리 헬퍼 메소드 (리다이렉트용) ---
+    private void handleAuthError(HttpServletResponse response, String message) throws IOException {
+        // 간단히 실패 페이지로 리다이렉트 (메시지 포함)
+        String errorMsg = URLEncoder.encode(message, StandardCharsets.UTF_8);
+        // 로그인 페이지나 공통 에러 페이지로 보내는 것이 더 좋을 수 있음
+        response.sendRedirect("http://localhost:3000/login?error=" + errorMsg);
     }
 }
