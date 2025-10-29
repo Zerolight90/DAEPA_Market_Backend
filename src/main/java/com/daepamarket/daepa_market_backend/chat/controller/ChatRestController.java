@@ -37,8 +37,6 @@ public class ChatRestController {
     private final JwtSupport jwtSupport;
     private final ChatService chatService;
 
-    // ⚠️ WebConfig가 /uploads/** → file:/data/uploads/ 로 고정이므로
-    //     여기 기본값도 /data/uploads 로 맞춘다. (운영·로컬 모두 동일 동작)
     @Value("${app.upload.dir:/data/uploads}")
     private String uploadRoot;
 
