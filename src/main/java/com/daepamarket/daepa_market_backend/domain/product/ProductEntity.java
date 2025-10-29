@@ -1,6 +1,7 @@
 package com.daepamarket.daepa_market_backend.domain.product;
 
 import com.daepamarket.daepa_market_backend.domain.Category.CtLowEntity;
+import com.daepamarket.daepa_market_backend.domain.favorite.FavoriteProductEntity;
 import com.daepamarket.daepa_market_backend.domain.productimage.ProductImageEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import jakarta.persistence.*;
@@ -68,4 +69,7 @@ public class ProductEntity {
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductImageEntity> images = new ArrayList<>();
+
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = false)
+    private List<FavoriteProductEntity> favorites;
 }
