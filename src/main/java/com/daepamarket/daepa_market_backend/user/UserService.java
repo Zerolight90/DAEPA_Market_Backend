@@ -243,6 +243,11 @@ public class UserService {
             result.put("uIdx", user.getUIdx());
             result.put("uName", user.getUname());
             result.put("uId", user.getUid());
+            result.put("uManner", user.getUManner());
+            result.put("uPhone", user.getUphone());
+            result.put("uLocation", user.getULocation());
+            result.put("uLocationDetail", user.getULocationDetail());
+            result.put("uAddress", user.getUAddress());
 
             return ResponseEntity.ok(result);
 
@@ -286,6 +291,8 @@ public class UserService {
 
         userRepository.save(user);
     }
+
+
 
 
 
