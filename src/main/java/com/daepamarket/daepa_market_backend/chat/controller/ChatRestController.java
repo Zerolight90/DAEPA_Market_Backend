@@ -200,4 +200,26 @@ public class ChatRestController {
         try { return (s == null || s.isBlank()) ? null : Long.valueOf(s.trim()); }
         catch (Exception e) { return null; }
     }
+
+    // ✅ 상대방의 마지막 읽음 메시지ID 조회
+    @GetMapping("/{roomId}/last-seen")
+    public ResponseEntity<Map<String, Object>> lastSeen(
+            @PathVariable Long roomId,
+            @RequestParam("userId") Long userId,
+            HttpServletRequest request
+    ) {
+        // (선택) 권한 체크: 로그인 여부만 간단히 확인
+        Long me = jwtSupport.resolveUserIdFromCookie(request);
+        if (me == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "unauthorized"));
+        }
+
+        // DB에서 해당 (roomId, userId)의 last_seen_message_id 읽기
+        Long v = messageMapper.selectLastSeen(roomId, userId);
+        if (v == null) v = 0L;
+
+        return ResponseEntity.ok(Map.of("lastSeenMessageId", v));
+    }
+
 }
