@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.admin.notice.Service;
 
+import com.daepamarket.daepa_market_backend.admin.notice.DTO.NoticeUpdateDTO;
 import com.daepamarket.daepa_market_backend.domain.admin.AdminEntity;
 import com.daepamarket.daepa_market_backend.domain.admin.AdminRepository;
 import com.daepamarket.daepa_market_backend.admin.notice.DTO.NoticeRequestDTO;
@@ -8,6 +9,7 @@ import com.daepamarket.daepa_market_backend.domain.notice.NoticeEntity;
 import com.daepamarket.daepa_market_backend.domain.notice.NoticeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -20,7 +22,7 @@ public class NoticeService {
     private final NoticeRepository noticeRepository;
     private final AdminRepository adminRepository;
 
-    /** 공통 변환 메서드: Entity → ResponseDTO */
+    /** Entity → DTO 변환 */
     private NoticeResponseDTO toDTO(NoticeEntity e) {
         return NoticeResponseDTO.builder()
                 .nIdx(e.getNIdx())
@@ -29,12 +31,13 @@ public class NoticeService {
                 .nImg(e.getNImg())
                 .nDate(e.getNDate().toString())
                 .nIp(e.getNIp())
+
                 .nCategory(e.getNCategory())
                 .adminNick(e.getAdmin().getAdNick())
                 .build();
     }
 
-    /** 전체 목록 DTO 반환 */
+    /** 전체조회 */
     public List<NoticeResponseDTO> findAllDTO() {
         return noticeRepository.findAllWithAdmin()
                 .stream()
@@ -42,20 +45,14 @@ public class NoticeService {
                 .collect(Collectors.toList());
     }
 
-    /** 상세 조회 DTO 반환 */
+    /** 상세조회 */
     public NoticeResponseDTO findByIdDTO(Long id) {
-        return noticeRepository.findByIdWithAdmin(id)   // ← 변경
+        return noticeRepository.findByIdWithAdmin(id)
                 .map(this::toDTO)
                 .orElseThrow(() -> new RuntimeException("공지사항이 존재하지 않습니다."));
     }
 
-    /** 내부 공용: Entity 조회 */
-    private NoticeEntity findById(Long id) {
-        return noticeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("공지사항이 존재하지 않습니다."));
-    }
-
-    /** 공지 작성 (DTO 받아서 Entity 저장 후 DTO로 반환) */
+    /** 등록 */
     public NoticeResponseDTO createNotice(NoticeRequestDTO req) {
         AdminEntity admin = adminRepository.findById(req.getAdIdx())
                 .orElseThrow(() -> new RuntimeException("관리자 정보가 존재하지 않습니다."));
@@ -73,17 +70,17 @@ public class NoticeService {
         return toDTO(noticeRepository.save(notice));
     }
 
-    /** 수정 — 나중에 RequestDTO로 변경 예정 */
-    public NoticeResponseDTO update(Long id, NoticeEntity req) {
-        NoticeEntity origin = findById(id);
+    /** 수정 — LazyException 방지용 @Transactional */
+    @Transactional
+    public NoticeResponseDTO update(Long id, NoticeUpdateDTO req) {
+        NoticeEntity origin = noticeRepository.findByIdWithAdmin(id)
+                .orElseThrow(() -> new RuntimeException("공지사항 없음"));
 
-        origin.setNCategory(req.getNCategory());
+        if (req.getNCategory() != null) {origin.setNCategory(req.getNCategory());}
         origin.setNSubject(req.getNSubject());
         origin.setNContent(req.getNContent());
-        origin.setNImg(req.getNImg());
-        origin.setNIp(req.getNIp());
 
-        return toDTO(noticeRepository.save(origin));
+        return toDTO(origin);
     }
 
     /** 삭제 */
