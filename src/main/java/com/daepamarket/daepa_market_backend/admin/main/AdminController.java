@@ -30,7 +30,7 @@ public class AdminController {
         AdminEntity admin = AdminEntity.builder()
                 .adId(request.getAdId())
                 .adName(request.getAdName())
-                .adName(request.getAdPw())
+                .adPw(request.getAdPw())
                 .adNick(request.getAdNick())
                 .adBirth(LocalDate.parse(request.getAdBirth()))
                 .adStatus(request.getAdStatus() != null ? request.getAdStatus() : 1) // 기본값: 활성화
