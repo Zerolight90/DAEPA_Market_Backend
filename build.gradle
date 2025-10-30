@@ -57,6 +57,10 @@ dependencies {
 
 
     testImplementation 'com.h2database:h2'
+
+    // 10.30일 S3 의존성 추가
+    implementation 'software.amazon.awssdk:s3:2.25.0'
+    implementation 'software.amazon.awssdk:auth:2.25.0'
 }
 
 tasks.named('test') {
