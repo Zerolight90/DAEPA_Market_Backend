@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper">
 
-    <!-- ✅ 방 목록: roomId 기준으로 중복 행이 나오지 않도록 다른 참여자 집계를 서브쿼리로 묶고 GROUP BY 수행 -->
+    <!-- ✅ 방 목록 -->
     <select id="listRooms" parameterType="java.lang.Long"
             resultType="com.daepamarket.daepa_market_backend.common.dto.ChatRoomListDto">
 
@@ -24,12 +24,14 @@
             CASE
             WHEN d.seller_idx2 = #{userId} THEN '판매자'
             WHEN d.buyer_idx   = #{userId} THEN '구매자'
-            ELSE '참여자' END AS myRole,
+            ELSE '참여자'
+            END AS myRole,
 
             CASE COALESCE(d.d_status, 0)
             WHEN 2 THEN '거래완료'
             WHEN 1 THEN '거래중'
-            ELSE '예약중' END AS statusBadge,
+            ELSE '예약중'
+            END AS statusBadge,
 
             (SELECT m.cm_content FROM chat_messages m
             WHERE m.ch_idx = r.ch_idx
@@ -40,7 +42,8 @@
             ORDER BY m.cm_idx DESC LIMIT 1) AS lastAt,
 
             (
-            SELECT COUNT(*) FROM chat_messages m
+            SELECT COUNT(*)
+            FROM chat_messages m
             WHERE m.ch_idx = r.ch_idx
             AND m.cm_idx &gt; COALESCE((
             SELECT cr2.last_seen_message_id
@@ -52,11 +55,10 @@
 
             FROM chat_reads cr
             JOIN chat_rooms r ON r.ch_idx = cr.ch_idx
-
             LEFT JOIN deal    d ON d.d_idx  = r.d_idx
             LEFT JOIN product p ON p.pd_idx = r.pd_idx
 
-            <!-- 🔽 “나 제외(other)”를 1명만 뽑는 파생 테이블 -->
+            <!-- 나 제외 other 1명 -->
             LEFT JOIN (
             SELECT ch_idx, MAX(cread_reader) AS other_reader
             FROM chat_reads
@@ -65,9 +67,7 @@
             ) o ON o.ch_idx = r.ch_idx
 
             LEFT JOIN `user` u_other ON u_other.u_idx = o.other_reader
-
             WHERE cr.cread_reader = #{userId}
-
             GROUP BY r.ch_idx
             ORDER BY r.ch_updated DESC, r.ch_idx DESC
         </if>
@@ -116,6 +116,24 @@
             (#{chIdx}, NULL, 'SYSTEM', 'SYSTEM', #{content}, NULL, NOW())
     </insert>
 
-
+    <!-- ✅ 전체 안읽음 합계 -->
+    <select id="countTotalUnread" resultType="int">
+        SELECT COALESCE(SUM(t.cnt), 0) AS total_unread
+        FROM (
+                 SELECT r.ch_idx,
+                        SUM(CASE
+                                WHEN m.cm_idx &gt; COALESCE(cr.last_seen_message_id, 0)
+                                    AND COALESCE(m.sender_id, -1) != #{userId}
+                                    THEN 1 ELSE 0
+                            END) AS cnt
+                 FROM chat_reads me
+                          JOIN chat_rooms r ON r.ch_idx = me.ch_idx
+                          JOIN chat_messages m ON m.ch_idx = r.ch_idx
+                          LEFT JOIN chat_reads cr
+                                    ON cr.ch_idx = r.ch_idx AND cr.cread_reader = #{userId}
+                 WHERE me.cread_reader = #{userId}
+                 GROUP BY r.ch_idx
+             ) t
+    </select>
 
 </mapper>
