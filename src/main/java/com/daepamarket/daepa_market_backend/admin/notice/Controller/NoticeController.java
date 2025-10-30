@@ -2,6 +2,7 @@ package com.daepamarket.daepa_market_backend.admin.notice.Controller;
 
 import com.daepamarket.daepa_market_backend.admin.notice.DTO.NoticeRequestDTO;
 import com.daepamarket.daepa_market_backend.admin.notice.DTO.NoticeResponseDTO;
+import com.daepamarket.daepa_market_backend.admin.notice.DTO.NoticeUpdateDTO;
 import com.daepamarket.daepa_market_backend.domain.notice.NoticeEntity;
 import com.daepamarket.daepa_market_backend.admin.notice.Service.NoticeService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,9 +31,9 @@ public class NoticeController {
         return noticeService.findByIdDTO(id);
     }
 
-    /** 공지 수정 (현재는 Entity 기반, 추후 RequestDTO로 리팩토링 가능) */
+    /** 공지 수정 */
     @PutMapping("/{id}")
-    public NoticeResponseDTO update(@PathVariable Long id, @RequestBody NoticeEntity req) {
+    public NoticeResponseDTO update(@PathVariable Long id, @RequestBody NoticeUpdateDTO req) {
         return noticeService.update(id, req);
     }
 

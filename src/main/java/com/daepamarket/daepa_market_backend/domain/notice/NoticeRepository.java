@@ -9,7 +9,7 @@ import java.util.Optional;
 
 public interface NoticeRepository extends JpaRepository<NoticeEntity, Long> {
 
-    @Query("SELECT n FROM NoticeEntity n JOIN FETCH n.admin ORDER BY n.nIdx DESC")
+    @Query("SELECT n FROM NoticeEntity n JOIN FETCH n.admin ORDER BY n.nDate DESC")
     List<NoticeEntity> findAllWithAdmin();
 
     @Query("SELECT n FROM NoticeEntity n JOIN FETCH n.admin WHERE n.nIdx = :id")
