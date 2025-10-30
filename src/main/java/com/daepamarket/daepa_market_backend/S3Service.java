@@ -1,8 +1,11 @@
 package com.daepamarket.daepa_market_backend;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -12,14 +15,18 @@ import java.nio.file.Paths;
 
 @Service
 public class S3Service {
-
     private final S3Client s3Client;
     private final String bucketName = "daepa-s3";
 
-    public S3Service() {
+    public S3Service(
+            @Value("${AWS_ACCESS_KEY_ID}") String accessKey,
+            @Value("${AWS_SECRET_ACCESS_KEY}") String secretKey
+    ) {
+        AwsBasicCredentials awsCreds = AwsBasicCredentials.create(accessKey, secretKey);
+
         this.s3Client = S3Client.builder()
                 .region(Region.AP_NORTHEAST_2) // 서울 리전
-                .credentialsProvider(DefaultCredentialsProvider.create())
+                .credentialsProvider(StaticCredentialsProvider.create(awsCreds))
                 .build();
     }
 
