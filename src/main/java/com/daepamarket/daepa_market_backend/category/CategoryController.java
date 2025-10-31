@@ -4,6 +4,7 @@ package com.daepamarket.daepa_market_backend.category;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.daepamarket.daepa_market_backend.domain.Category.CtUpperRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 @CrossOrigin(origins = "http://localhost:3000")
 public class CategoryController {
     private final CategoryService categoryService;
+    private final CtUpperRepository ctUpperRepository;
 
     //상위
     @GetMapping("/uppers")
@@ -49,5 +51,10 @@ public class CategoryController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(dtos);
+    }
+
+    @GetMapping("/uppers-with-count")
+    public List<UpperCategoryWithCountDTO> getUppersWithCount() {
+        return ctUpperRepository.findAllWithProductCount();
     }
 }
