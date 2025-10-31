@@ -14,13 +14,20 @@ import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
+import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 
 import org.apache.catalina.User;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +41,8 @@ public class PayService {
     private final UserRepository userRepository;
     private final DealRepository dealRepository;
     private final ProductRepository productRepository;
+
+    private final JwtProvider jwtProvider;
 
     // 대파 페이 충전하기
     @Transactional // 이 메서드 내의 모든 DB 작업을 하나의 트랜잭션으로 묶음
@@ -126,14 +135,14 @@ public class PayService {
 
     // 일반 결제 상품 구매 처리
     @Transactional
-    public void confirmProductPurchase(String paymentKey, String orderId, Long amount){
+    public void confirmProductPurchase(String paymentKey, String orderId, Long amount, HttpServletRequest request){
 
         // 토스페이먼츠 최종 결제 승인 요청
         confirmToTossPayments(paymentKey, orderId, amount);
 
         // 주문 정보에서 상품 ID(pdIdx)와 구매자 ID(buyerIdx) 추출
         long pdIdx = extractProductIdFromOrderId(orderId);
-        long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId); // 실제 구매자 ID 가져오는 로직 필요
+        long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId, request); // 실제 구매자 ID 가져오는 로직 필요
 
         // 필요한 엔티티 조회
         // ProductEntity product = productRepository.findById(pdIdx)
@@ -157,6 +166,25 @@ public class PayService {
     }
 
     // -------------------------------------------- 헬퍼 메소드 ----------------------------------------------- //
+    private String resolveAccessToken(HttpServletRequest request) { // [NEW METHOD]
+        // 1) 쿠키 우선
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie c : cookies) {
+                if (CookieUtil.ACCESS.equals(c.getName())) {
+                    String v = c.getValue();
+                    if (v != null && !v.isBlank()) return v;
+                }
+            }
+        }
+        // 2) Authorization: Bearer
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            return auth.substring(7);
+        }
+        return null;
+    }
+
     // 예시: 충전 주문 ID("charge-${userId}-${uuid}")에서 사용자 ID 추출
     private Long extractUserIdFromChargeOrderId(String orderId) {
         try {
@@ -171,10 +199,22 @@ public class PayService {
     }
 
     // 예시: 구매자 ID 추출 (실제 구현 필요)
-    private Long extractBuyerIdFromContextOrOrderId(String orderId) {
+    private Long extractBuyerIdFromContextOrOrderId(String orderId, HttpServletRequest request) {
         // TODO: Spring Security Context Holder에서 현재 로그인 사용자 ID를 가져오거나,
         // orderId 생성 시 구매자 정보를 포함시키는 등 실제 구매자 ID를 가져오는 로직 구현 필요
-        return 2L; // 임시 구매자 ID
+        // return 2L; // 임시 구매자 ID
+
+        String token = resolveAccessToken(request);
+
+        // [ADDED] 토큰 subject(유저 ID) 꺼내기
+        Long userId;
+        try {
+            userId = Long.valueOf(jwtProvider.getUid(token));  // subject = uIdx (문자열)
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰");
+        }
+
+        return userId;
     }
 
     // 예시: 상품 구매 주문 ID("product-${pdIdx}-${uuid}")에서 상품 ID 추출

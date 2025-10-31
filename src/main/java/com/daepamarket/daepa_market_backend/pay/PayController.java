@@ -177,10 +177,10 @@ public class PayController {
             @RequestParam String paymentKey,
             @RequestParam String orderId,
             @RequestParam Long amount,
-            HttpServletResponse httpServletResponse) throws IOException {
+            HttpServletResponse httpServletResponse, HttpServletRequest request) throws IOException {
         try {
             // 실제 로직은 Service 계층에 위임
-            payService.confirmProductPurchase(paymentKey, orderId, amount);
+            payService.confirmProductPurchase(paymentKey, orderId, amount, request);
             // 성공 시 사용자에게 보여줄 페이지로 리다이렉트
             String redirectUrl = "http://localhost:3000/pay/success?amount=" + amount + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
@@ -198,10 +198,10 @@ public class PayController {
             @RequestParam String paymentKey,
             @RequestParam String orderId,
             @RequestParam Long amount,
-            HttpServletResponse httpServletResponse) throws IOException {
+            HttpServletResponse httpServletResponse, HttpServletRequest request) throws IOException {
         try {
             // 실제 로직은 Service 계층에 위임
-            payService.confirmProductPurchase(paymentKey, orderId, amount);
+            payService.confirmProductPurchase(paymentKey, orderId, amount, request);
             // 성공 시 사용자에게 보여줄 페이지로 리다이렉트
             String redirectUrl = "http://localhost:3000/pay/sec/success?amount=" + amount + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
