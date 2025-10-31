@@ -1,6 +1,7 @@
-// src/main/java/com/daepamarket/daepa_market_backend/chat/controller/ChatRestController.java
+// ✅ src/main/java/com/daepamarket/daepa_market_backend/chat/controller/ChatRestController.java
 package com.daepamarket.daepa_market_backend.chat.controller;
 
+import com.daepamarket.daepa_market_backend.S3Service;
 import com.daepamarket.daepa_market_backend.chat.service.ChatService;
 import com.daepamarket.daepa_market_backend.chat.service.RoomService;
 import com.daepamarket.daepa_market_backend.common.dto.ChatDto;
@@ -11,7 +12,6 @@ import com.daepamarket.daepa_market_backend.mapper.ChatMessageMapper;
 import com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.nio.file.*;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,9 +35,7 @@ public class ChatRestController {
     private final RoomService roomService;
     private final JwtSupport jwtSupport;
     private final ChatService chatService;
-
-    @Value("${app.upload.dir:/data/uploads}")
-    private String uploadRoot;
+    private final S3Service s3Service; // ✅ 추가됨
 
     /** 내 채팅방 목록 */
     @GetMapping("/my-rooms")
@@ -70,7 +67,7 @@ public class ChatRestController {
         return messageMapper.findMessages(roomId, before, size);
     }
 
-    /** after(마지막 메시지ID) 초과만 ASC로 반환 → 폴링용 증분 조회(지금은 미사용) */
+    /** after(마지막 메시지ID) 초과만 ASC로 반환 → 폴링용 증분 조회 */
     @GetMapping("/{roomId}/messages-after")
     public List<ChatDto.MessageRes> messagesAfter(@PathVariable Long roomId,
                                                   @RequestParam Long after,
@@ -128,61 +125,101 @@ public class ChatRestController {
                 .build();
     }
 
-    /** ✅ 채팅 이미지 업로드(멀티파트)
-     *  - 디스크 저장: <uploadRoot>/chat/YYYY/MM/<uuid>.<ext>
-     *  - 반환 URL :  /uploads/chat/YYYY/MM/<uuid>.<ext>
-     *    (WebConfig: /uploads/** → file:/data/uploads/ 매핑과 1:1 일치)
-     */
-    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    /** ✅ 이미지 업로드 → S3 업로드 버전 */
+    // ✅ ChatRestController.java 안의 upload 메서드를 아래 코드로 "그대로" 교체하세요.
+    @PostMapping(
+            value = "/upload",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
     public ResponseEntity<Map<String, Object>> upload(
-            @RequestPart("file") MultipartFile file,
+            @RequestParam("file") MultipartFile file,
             HttpServletRequest request
-    ) throws Exception {
-        Long userId = jwtSupport.resolveUserIdFromCookie(request);
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "로그인이 필요합니다."));
+    ) {
+        // 1) 로그인 안전 처리
+        Long userId;
+        try {
+            userId = jwtSupport.resolveUserIdFromCookie(request);
+        } catch (Exception e) {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("error", "unauthorized");
+            body.put("message", "로그인 정보를 해석하지 못했습니다.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
         }
+        if (userId == null) {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("error", "unauthorized");
+            body.put("message", "로그인이 필요합니다.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+        }
+
+        // 2) 파일 유효성
         if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "file is empty"));
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("error", "file_empty");
+            return ResponseEntity.badRequest().body(body);
         }
         String ct = Optional.ofNullable(file.getContentType()).orElse("");
         if (!ct.startsWith("image/")) {
-            return ResponseEntity.badRequest().body(Map.of("error", "이미지 파일만 허용됩니다."));
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("error", "only_image_allowed");
+            body.put("contentType", ct);
+            return ResponseEntity.badRequest().body(body);
         }
 
-        // 저장 디렉토리 (연/월 폴더)
-        LocalDate today = LocalDate.now();
-        Path base = Paths.get(uploadRoot, "chat",
-                String.valueOf(today.getYear()),
-                String.format("%02d", today.getMonthValue()));
-        Files.createDirectories(base); // 폴더 없으면 생성 (권한 필요)
+        try {
+            var today = java.time.LocalDate.now();
+            String folder = String.format("chat/%d/%02d", today.getYear(), today.getMonthValue());
+            String s3Url = s3Service.uploadFile(file, folder);
 
-        // 파일명 및 저장
-        String originalName = StringUtils.cleanPath(Optional.ofNullable(file.getOriginalFilename()).orElse("image"));
-        String ext = "";
-        int idx = originalName.lastIndexOf('.');
-        if (idx >= 0) ext = originalName.substring(idx);
-        String saveName = UUID.randomUUID().toString().replace("-", "") + ext;
-        Path dest = base.resolve(saveName);
-        file.transferTo(dest); // java.nio.file.Path 지원(Spring 6+)
+            // ✅ 성공 응답도 Map.of 대신 null 안전한 Map 사용
+            String safeCt = (file.getContentType() != null) ? file.getContentType() : "application/octet-stream";
+            Map<String, Object> ok = new LinkedHashMap<>();
+            ok.put("url", s3Url);
+            ok.put("size", file.getSize());
+            ok.put("contentType", safeCt);
+            ok.put("uploaderId", userId);
+            return ResponseEntity.ok(ok);
 
-        // 반환 URL — 정적 매핑과 일치
-        String url = "/uploads/chat/" + today.getYear()
-                + "/" + String.format("%02d", today.getMonthValue())
-                + "/" + saveName;
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("url", url);
-        body.put("name", saveName);
-        body.put("size", file.getSize());
-        body.put("contentType", file.getContentType());
-        body.put("uploaderId", userId);
-        return ResponseEntity.ok(body);
+        } catch (Exception e) {
+            // ✅ 에러 응답: Map.of 제거 (null 들어오면 NPE 나는 문제 해결)
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("error", "upload_failed");
+            body.put("message", (e.getMessage() != null) ? e.getMessage() : e.getClass().getSimpleName());
+            if (e.getCause() != null) {
+                body.put("cause", e.getCause().toString());
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+        }
     }
 
+
+
+    /** 문자열 → Long 변환 유틸 */
     private static Long parseLongOrNull(String s) {
         try { return (s == null || s.isBlank()) ? null : Long.valueOf(s.trim()); }
         catch (Exception e) { return null; }
     }
+
+    // ✅ 상대방의 마지막 읽음 메시지ID 조회
+    @GetMapping("/{roomId}/last-seen")
+    public ResponseEntity<Map<String, Object>> lastSeen(
+            @PathVariable Long roomId,
+            @RequestParam("userId") Long userId,
+            HttpServletRequest request
+    ) {
+        // (선택) 권한 체크: 로그인 여부만 간단히 확인
+        Long me = jwtSupport.resolveUserIdFromCookie(request);
+        if (me == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "unauthorized"));
+        }
+
+        // DB에서 해당 (roomId, userId)의 last_seen_message_id 읽기
+        Long v = messageMapper.selectLastSeen(roomId, userId);
+        if (v == null) v = 0L;
+
+        return ResponseEntity.ok(Map.of("lastSeenMessageId", v));
+    }
+
 }
