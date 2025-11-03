@@ -1,5 +1,7 @@
 package com.daepamarket.daepa_market_backend.config;
 
+import com.daepamarket.daepa_market_backend.jwt.oauth.CustomOAuth2UserService;
+import com.daepamarket.daepa_market_backend.jwt.oauth.OAuth2SuccessHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,14 +23,23 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, CustomOAuth2UserService customOAuth2UserService, OAuth2SuccessHandler oAuth2SuccessHandler) throws Exception {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/", "/ws-stomp/**", "/api/**", "/error").permitAll()
+                        .requestMatchers("/", "/ws-stomp/**", "/api/**", "/error", "oauth2/**", "/login/**").permitAll()
                         .anyRequest().permitAll()
+                )
+                //oauth2를 위해 추가
+                .oauth2Login(oauth -> oauth
+                        // 커스텀 유저 정보 처리 (네이버 → 우리 UserEntity 저장)
+                        .userInfoEndpoint(userInfo ->
+                                userInfo.userService(customOAuth2UserService)
+                        )
+                        // 로그인 성공 후 JWT 만들고 3000으로 리다이렉트
+                        .successHandler(oAuth2SuccessHandler)
                 )
                 .httpBasic(Customizer.withDefaults())
                 .formLogin(form -> form.disable());
