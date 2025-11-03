@@ -1,3 +1,16 @@
+FROM gradle:8.5-jdk17-alpine AS builder
+
+WORKDIR /app
+
+# Gradle 캐싱을 위해 먼저 의존성 다운로드
+COPY build.gradle settings.gradle ./
+COPY gradle ./gradle
+RUN gradle dependencies --no-daemon || true
+
+# 소스 코드 복사 및 빌드
+COPY . .
+RUN gradle clean bootJar --no-daemon -x test
+
 # Stage 2: Runtime
 FROM eclipse-temurin:17-jre-alpine
 
@@ -13,7 +26,7 @@ RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
 # 빌드된 JAR 파일 복사
-COPY build/libs/*.jar app.jar
+COPY --from=builder /app/build/libs/*.jar app.jar
 
 # 헬스체크
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
