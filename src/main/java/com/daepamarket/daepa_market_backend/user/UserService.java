@@ -248,6 +248,8 @@ public class UserService {
             result.put("uLocation", user.getULocation());
             result.put("uLocationDetail", user.getULocationDetail());
             result.put("uAddress", user.getUAddress());
+            result.put("uNickname", user.getUnickname());
+            result.put("u_nickname", user.getUnickname());
 
             return ResponseEntity.ok(result);
 

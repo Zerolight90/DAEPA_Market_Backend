@@ -9,6 +9,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ import org.springframework.http.HttpStatus;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
@@ -145,5 +147,26 @@ public class ProductController {
                 .pdLocation(p.getPdLocation())
                 .pdCreate(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
                 .build();
+    }
+
+    // 내 상품 조회
+    @GetMapping("/mypage")
+    public List<productMyPageDTO> myProduct(
+            HttpServletRequest request,
+            @RequestParam(required = false) Integer status
+    ) {
+        log.info("/api/products/mypage called, status={}", status);
+
+        String auth = request.getHeader("Authorization");
+        if (auth == null || !auth.startsWith("Bearer ")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 없습니다.");
+        }
+
+        String accessToken = auth.substring(7);
+
+        Long uIdx = Long.valueOf(jwtProvider.getUid(accessToken));
+        log.info("token -> uIdx = {}", uIdx);
+
+        return productService.getMyProductByUIdx(uIdx, status);
     }
 }

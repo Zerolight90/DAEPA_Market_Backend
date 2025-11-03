@@ -1,12 +1,15 @@
 package com.daepamarket.daepa_market_backend.product;
 
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+@Setter
 @Getter
 @NoArgsConstructor
+@AllArgsConstructor
 public class productMyPageDTO {
     private Long u_idx;
     private String pd_status;

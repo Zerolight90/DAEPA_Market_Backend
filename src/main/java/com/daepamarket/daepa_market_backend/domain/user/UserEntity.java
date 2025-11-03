@@ -19,7 +19,7 @@ public class UserEntity {
     @Column(name = "u_name", length = 20)
     private String uname;
 
-    @Column(name = "u_location", length = 20)
+    @Column(name = "u_location", length = 100)
     private String uLocation;
 
     @Column(name = "u_profile", length = 250)
