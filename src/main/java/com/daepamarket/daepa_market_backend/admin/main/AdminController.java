@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.admin.main;
 
+import com.daepamarket.daepa_market_backend.admin.user.UserResponseDTO;
 import com.daepamarket.daepa_market_backend.domain.admin.*;
 import com.daepamarket.daepa_market_backend.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -40,11 +41,13 @@ public class AdminController {
         return "관리자 추가 성공";
     }
 
+    // 회원 목록 조회
     @GetMapping("/users")
     public List<UserResponseDTO> getAllUsers() {
         return userService.findAllUsers();
     }
 
+    // 관리자 로그인
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AdminLoginDTO req) {
         AdminEntity admin = adminRepository.findByAdId(req.getAdminId())

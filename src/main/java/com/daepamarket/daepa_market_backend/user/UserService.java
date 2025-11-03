@@ -1,6 +1,6 @@
 package com.daepamarket.daepa_market_backend.user;
 
-import com.daepamarket.daepa_market_backend.domain.admin.UserResponseDTO;
+import com.daepamarket.daepa_market_backend.admin.user.UserResponseDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserSignUpDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
@@ -13,7 +13,6 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.apache.catalina.User;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
