@@ -1,5 +1,7 @@
 package com.daepamarket.daepa_market_backend.jwt;
 import io.jsonwebtoken.Jwts;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -11,10 +13,11 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.SecretKey;
 
-
+@Slf4j
 @Component
 
 public class JwtProvider {
@@ -64,7 +67,17 @@ public class JwtProvider {
 
     //토큰에서 아이디 추출
     public String getUid(String accessToken){
-        return parse(accessToken).getPayload().getSubject();
+        try {
+            return parse(accessToken).getPayload().getSubject();
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            // 토큰이 만료되었을 때
+            log.error("Expired JWT: {}", accessToken);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다. 다시 로그인해 주세요.");
+        } catch (Exception e) {
+            // 그 외 토큰 파싱 오류 (서명 오류 등)
+            log.error("Invalid JWT: {}", accessToken);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+        }
     }
 
     //토큰 만료 여부 확인 true -> 만료, false -> 유효

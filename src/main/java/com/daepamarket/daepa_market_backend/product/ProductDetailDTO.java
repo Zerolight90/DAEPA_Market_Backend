@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.product;
 
+
 import lombok.*;
 
 import java.util.List;
@@ -11,18 +12,30 @@ import java.util.List;
 @Builder
 public class ProductDetailDTO {
 
+    // 기본 상품
     private Long pdIdx;              // 상품 ID
     private String pdTitle;          // 상품 제목
     private Long pdPrice;            // 가격
-    private String pdLocation;       // 거래 지역
+    private String pdLocation;       // 거래 지역(DB 컬럼: pd_location)
     private String pdContent;        // 상품 설명
-    private String pdThumb;          // 대표 썸네일 이미지 (없으면 images[0])
+    private String pdThumb;          // 대표 썸네일 이미지
     private String pdCreate;         // 등록일 (ISO 문자열)
 
-    // ✅ 이미지 URL 리스트 (ProductImageEntity.imageUrl)
-    private List<String> images;
+    // 이미지
+    private List<String> images;     // ProductImageEntity.imageUrl
 
-    // ✅ 판매자 정보
-    private Long sellerId;           // 판매자 ID (UserEntity.uIdx)
-    private String sellerName;       // 판매자 이름 (UserEntity.uName)
+    // 판매자
+    private Long sellerId;           // UserEntity.uIdx
+    private String sellerName;       // UserEntity.uName or uNickname
+    private String sellerAvatar;     // ✅ 프로필 이미지도 내려주면 프론트가 바로 씀
+
+    // 거래/상태
+    private Integer pdStatus;        // ✅ 0=중고, 1=새상품
+    private String dDeal;            // ✅ "DELIVERY" | "MEET"
+    private String location;         // ✅ 프론트에서 meetLocation 으로도 쓰려고 한 번 더 준 값
+
+    // 카테고리 이름
+    private String upperName;        // ✅ 상위 카테고리명
+    private String middleName;       // ✅ 중위 카테고리명
+    private String lowName;          // ✅ 하위 카테고리명
 }
