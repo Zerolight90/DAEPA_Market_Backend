@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.mapper;
 
+import com.daepamarket.daepa_market_backend.common.dto.ChatRoomHeaderDto;
 import com.daepamarket.daepa_market_backend.common.dto.ChatRoomListDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -31,4 +32,8 @@ public interface ChatRoomMapper {
 
     /** ✅ 전체 안읽음 합계 (헤더 배지 용) */
     Integer countTotalUnread(@Param("userId") Long userId);
+
+    // ⬇️ 헤더 정보
+    ChatRoomHeaderDto selectRoomHeader(@Param("roomId") Long roomId,
+                                       @Param("me") Long me);
 }

@@ -5,6 +5,7 @@ import com.daepamarket.daepa_market_backend.S3Service;
 import com.daepamarket.daepa_market_backend.chat.service.ChatService;
 import com.daepamarket.daepa_market_backend.chat.service.RoomService;
 import com.daepamarket.daepa_market_backend.common.dto.ChatDto;
+import com.daepamarket.daepa_market_backend.common.dto.ChatRoomHeaderDto;
 import com.daepamarket.daepa_market_backend.common.dto.ChatRoomListDto;
 import com.daepamarket.daepa_market_backend.common.dto.ChatRoomOpenDto.OpenChatRoomReq;
 import com.daepamarket.daepa_market_backend.common.dto.ChatRoomOpenDto.OpenChatRoomRes;
@@ -220,6 +221,27 @@ public class ChatRestController {
         if (v == null) v = 0L;
 
         return ResponseEntity.ok(Map.of("lastSeenMessageId", v));
+    }
+
+
+    @GetMapping("/{roomId}/header")
+    public ResponseEntity<ChatRoomHeaderDto> header(
+            @PathVariable Long roomId,
+            @RequestHeader(name = "x-user-id", required = false) Long userIdHeader,
+            Principal principal,
+            HttpServletRequest request
+    ) {
+        Long me =
+                userIdHeader != null ? userIdHeader :
+                        (principal != null ? parseLongOrNull(principal.getName()) : null);
+
+        if (me == null) me = jwtSupport.resolveUserIdFromCookie(request);
+        if (me == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+
+        ChatRoomHeaderDto dto = chatRoomMapper.selectRoomHeader(roomId, me);
+        if (dto == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 채팅방입니다.");
+
+        return ResponseEntity.ok(dto);
     }
 
 }

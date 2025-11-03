@@ -6,90 +6,139 @@
     <!-- ✅ 방 목록 -->
     <select id="listRooms" parameterType="java.lang.Long"
             resultType="com.daepamarket.daepa_market_backend.common.dto.ChatRoomListDto">
-
         <if test="userId == null">
-            SELECT NULL AS roomId WHERE 1 = 0
+            <![CDATA[
+            SELECT NULL AS roomId WHERE 1=0
+            ]]>
         </if>
 
         <if test="userId != null">
+            <![CDATA[
             SELECT
-            r.ch_idx AS roomId,
+                r.ch_idx AS roomId,
 
-            u_other.u_idx AS counterpartyId,
-            COALESCE(u_other.u_name, '탈퇴한 사용자') AS counterpartyName,
+                u_other.u_idx AS counterpartyId,
+                COALESCE(u_other.u_nickname, u_other.u_name, '탈퇴한 사용자') AS counterpartyName,
 
-            COALESCE(p.pd_title, '(삭제된 상품)') AS productTitle,
-            COALESCE(p.pd_thumb, '/images/placeholder.jpg') AS productThumb,
+                COALESCE(p.pd_title, '(삭제된 상품)') AS productTitle,
 
-            CASE
-            WHEN d.seller_idx2 = #{userId} THEN '판매자'
-            WHEN d.buyer_idx   = #{userId} THEN '구매자'
-            ELSE '참여자'
-            END AS myRole,
+                COALESCE(
+                    p.pd_thumb,
+                    (SELECT pi.image_url
+                       FROM product_image pi
+                      WHERE pi.pd_idx = p.pd_idx
+                      ORDER BY pi.pi_idx
+                      LIMIT 1),
+                    '/images/placeholder.jpg'
+                ) AS productThumb,
 
-            CASE COALESCE(d.d_status, 0)
-            WHEN 2 THEN '거래완료'
-            WHEN 1 THEN '거래중'
-            ELSE '예약중'
-            END AS statusBadge,
+                CASE
+                  WHEN CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(r.ch_identifier, ':', 2), ':', -1) AS UNSIGNED) = #{userId}
+                    THEN '판매자'
+                  WHEN CAST(SUBSTRING_INDEX(r.ch_identifier, ':', 1) AS UNSIGNED) = #{userId}
+                    THEN '구매자'
+                  WHEN d.seller_idx2 = #{userId} THEN '판매자'
+                  WHEN d.buyer_idx   = #{userId} THEN '구매자'
+                  ELSE '참여자'
+                END AS myRole,
 
-            (SELECT m.cm_content FROM chat_messages m
-            WHERE m.ch_idx = r.ch_idx
-            ORDER BY m.cm_idx DESC LIMIT 1) AS lastMessage,
+                CASE
+                  WHEN p.pd_status = 1
+                        OR EXISTS (
+                            SELECT 1 FROM deal dx
+                             WHERE dx.pd_idx = p.pd_idx
+                               AND dx.d_sell = '판매완료'
+                             LIMIT 1
+                        )
+                    THEN '판매완료'
+                  ELSE '판매중'
+                END AS statusBadge,
 
-            (SELECT m.cm_date FROM chat_messages m
-            WHERE m.ch_idx = r.ch_idx
-            ORDER BY m.cm_idx DESC LIMIT 1) AS lastAt,
+                CASE
+                  WHEN (p.pd_status = 1
+                        OR EXISTS (SELECT 1 FROM deal dx WHERE dx.pd_idx = p.pd_idx AND dx.d_sell='판매완료' LIMIT 1))
+                       THEN COALESCE(d.agreed_price, p.pd_price)
+                  ELSE p.pd_price
+                END AS displayPrice,
 
-            (
-            SELECT COUNT(*)
-            FROM chat_messages m
-            WHERE m.ch_idx = r.ch_idx
-            AND m.cm_idx &gt; COALESCE((
-            SELECT cr2.last_seen_message_id
-            FROM chat_reads cr2
-            WHERE cr2.ch_idx = r.ch_idx AND cr2.cread_reader = #{userId}
-            ), 0)
-            AND COALESCE(m.sender_id, -1) != #{userId}
-            ) AS unread
+                (SELECT m.cm_content
+                   FROM chat_messages m
+                  WHERE m.ch_idx = r.ch_idx
+                    AND m.message_type <> 'SYSTEM'
+                  ORDER BY m.cm_idx DESC
+                  LIMIT 1) AS lastMessage,
 
-            FROM chat_reads cr
-            JOIN chat_rooms r ON r.ch_idx = cr.ch_idx
-            LEFT JOIN deal    d ON d.d_idx  = r.d_idx
+                (SELECT m2.cm_date
+                   FROM chat_messages m2
+                  WHERE m2.ch_idx = r.ch_idx
+                  ORDER BY m2.cm_idx DESC
+                  LIMIT 1) AS lastAt,
+
+                (
+                  SELECT COUNT(*)
+                    FROM chat_messages m3
+                   WHERE m3.ch_idx = r.ch_idx
+                     AND m3.cm_idx > COALESCE((
+                           SELECT cr2.last_seen_message_id
+                             FROM chat_reads cr2
+                            WHERE cr2.ch_idx = r.ch_idx
+                              AND cr2.cread_reader = #{userId}
+                            LIMIT 1
+                        ), 0)
+                     AND COALESCE(m3.sender_id, -1) != #{userId}
+                ) AS unread
+
+            FROM chat_reads me
+            JOIN chat_rooms r   ON r.ch_idx = me.ch_idx
             LEFT JOIN product p ON p.pd_idx = r.pd_idx
+            LEFT JOIN deal d    ON d.d_idx  = r.d_idx
 
-            <!-- 나 제외 other 1명 -->
             LEFT JOIN (
-            SELECT ch_idx, MAX(cread_reader) AS other_reader
-            FROM chat_reads
-            WHERE cread_reader != #{userId}
-            GROUP BY ch_idx
+                SELECT ch_idx, MAX(cread_reader) AS other_reader
+                  FROM chat_reads
+                 WHERE cread_reader != #{userId}
+                 GROUP BY ch_idx
             ) o ON o.ch_idx = r.ch_idx
-
             LEFT JOIN `user` u_other ON u_other.u_idx = o.other_reader
-            WHERE cr.cread_reader = #{userId}
+
+            WHERE me.cread_reader = #{userId}
+
             GROUP BY r.ch_idx
-            ORDER BY r.ch_updated DESC, r.ch_idx DESC
+            ORDER BY
+                (SELECT m4.cm_idx
+                   FROM chat_messages m4
+                  WHERE m4.ch_idx = r.ch_idx
+                  ORDER BY m4.cm_idx DESC
+                  LIMIT 1) DESC,
+                r.ch_idx DESC
+            ]]>
         </if>
     </select>
 
     <update id="touchUpdated">
+        <![CDATA[
         UPDATE chat_rooms SET ch_updated = NOW(6) WHERE ch_idx = #{roomId}
+        ]]>
     </update>
 
     <select id="findRoomIdByIdentifier" resultType="long">
+        <![CDATA[
         SELECT ch_idx FROM chat_rooms
         WHERE ch_identifier = #{identifier}
             LIMIT 1
+        ]]>
     </select>
 
     <insert id="insertRoomIfAbsent">
+        <![CDATA[
         INSERT INTO chat_rooms (pd_idx, ch_created, ch_updated, ch_identifier)
         VALUES (#{pdId}, NOW(6), NOW(6), #{identifier})
             ON DUPLICATE KEY UPDATE ch_updated = VALUES(ch_updated)
+        ]]>
     </insert>
 
     <insert id="upsertRead">
+        <![CDATA[
         INSERT INTO chat_reads (ch_idx, cread_reader, last_seen_message_id, updated_at)
         SELECT #{roomId}, #{userId},
                COALESCE((SELECT MAX(cm_idx) FROM chat_messages WHERE ch_idx = #{roomId}), 0),
@@ -100,40 +149,109 @@
                                  COALESCE((SELECT MAX(cm_idx) FROM chat_messages WHERE ch_idx = #{roomId}), 0)
                                  ),
                                  updated_at = NOW()
+        ]]>
     </insert>
 
     <select id="isNewlyCreated" resultType="int">
-        SELECT CASE WHEN TIMESTAMPDIFF(SECOND, ch_created, NOW(6)) &lt;= 60 THEN 1 ELSE 0 END
+        <![CDATA[
+        SELECT CASE WHEN TIMESTAMPDIFF(SECOND, ch_created, NOW(6)) <= 60 THEN 1 ELSE 0 END
         FROM chat_rooms
         WHERE ch_idx = #{roomId}
             LIMIT 1
+        ]]>
     </select>
 
     <insert id="insertSystemMessage">
+        <![CDATA[
         INSERT INTO chat_messages
         (ch_idx, sender_id, cm_writer, message_type, cm_content, image_url, cm_date)
         VALUES
             (#{chIdx}, NULL, 'SYSTEM', 'SYSTEM', #{content}, NULL, NOW())
+        ]]>
     </insert>
 
     <!-- ✅ 전체 안읽음 합계 -->
     <select id="countTotalUnread" resultType="int">
+        <![CDATA[
         SELECT COALESCE(SUM(t.cnt), 0) AS total_unread
         FROM (
                  SELECT r.ch_idx,
                         SUM(CASE
-                                WHEN m.cm_idx &gt; COALESCE(cr.last_seen_message_id, 0)
+                                WHEN m.cm_idx > COALESCE(cr.last_seen_message_id, 0)
                                     AND COALESCE(m.sender_id, -1) != #{userId}
                                     THEN 1 ELSE 0
                             END) AS cnt
                  FROM chat_reads me
-                          JOIN chat_rooms r ON r.ch_idx = me.ch_idx
+                          JOIN chat_rooms r    ON r.ch_idx = me.ch_idx
                           JOIN chat_messages m ON m.ch_idx = r.ch_idx
                           LEFT JOIN chat_reads cr
                                     ON cr.ch_idx = r.ch_idx AND cr.cread_reader = #{userId}
                  WHERE me.cread_reader = #{userId}
                  GROUP BY r.ch_idx
              ) t
+        ]]>
+    </select>
+
+    <!-- ✅ 채팅방 헤더 조회 -->
+    <select id="selectRoomHeader"
+            parameterType="map"
+            resultType="com.daepamarket.daepa_market_backend.common.dto.ChatRoomHeaderDto">
+        <![CDATA[
+        SELECT
+            r.ch_idx AS roomId,
+            p.pd_idx AS productId,
+            COALESCE(p.pd_title, '(삭제된 상품)') AS productTitle,
+
+            COALESCE(
+                    p.pd_thumb,
+                    (SELECT pi.image_url
+                     FROM product_image pi
+                     WHERE pi.pd_idx = p.pd_idx
+                     ORDER BY pi.pi_idx
+                    LIMIT 1),
+                '/images/placeholder.jpg'
+            ) AS productThumb,
+
+            d.seller_idx2 AS sellerId,
+            d.buyer_idx   AS buyerId,
+
+            CASE
+                WHEN CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(r.ch_identifier, ':', 2), ':', -1) AS UNSIGNED) = #{me}
+                    THEN '판매자'
+                WHEN CAST(SUBSTRING_INDEX(r.ch_identifier, ':', 1) AS UNSIGNED) = #{me}
+                    THEN '구매자'
+                WHEN d.seller_idx2 = #{me} THEN '판매자'
+                WHEN d.buyer_idx   = #{me} THEN '구매자'
+                ELSE '참여자'
+                END AS myRole,
+
+            CASE
+                WHEN p.pd_status = 1
+                    OR d.d_sell = '판매완료'
+                    OR EXISTS (
+                        SELECT 1 FROM deal dx
+                        WHERE dx.pd_idx = p.pd_idx
+                          AND dx.d_sell = '판매완료'
+                        LIMIT 1
+                    )
+                    THEN '판매완료'
+                ELSE '판매중'
+                END AS saleStatus,
+
+            CASE
+                WHEN (p.pd_status = 1
+                    OR d.d_sell = '판매완료'
+                    OR EXISTS (SELECT 1 FROM deal dx WHERE dx.pd_idx = p.pd_idx AND dx.d_sell = '판매완료' LIMIT 1))
+                    THEN COALESCE(d.agreed_price, p.pd_price)
+                ELSE p.pd_price
+                END AS displayPrice
+
+        FROM chat_rooms r
+                 LEFT JOIN product p ON p.pd_idx = r.pd_idx
+                 LEFT JOIN deal    d ON d.d_idx  = r.d_idx
+        WHERE r.ch_idx = #{roomId}
+            LIMIT 1
+        ]]>
     </select>
 
 </mapper>
