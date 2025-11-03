@@ -2,6 +2,7 @@ package com.daepamarket.daepa_market_backend.chat.ws;
 
 import com.daepamarket.daepa_market_backend.chat.controller.JwtSupport;
 import com.daepamarket.daepa_market_backend.chat.service.ChatService;
+import com.daepamarket.daepa_market_backend.chat.service.RoomService;
 import com.daepamarket.daepa_market_backend.common.dto.ChatBadgeDto;
 import com.daepamarket.daepa_market_backend.common.dto.ChatDto;
 import com.daepamarket.daepa_market_backend.mapper.ChatMessageMapper;
@@ -32,6 +33,9 @@ public class ChatWsController {
 
     private final ChatMessageMapper messageMapper;
     private final ChatRoomMapper chatRoomMapper;
+
+    private final RoomService roomService;
+
 
     @PersistenceContext
     private EntityManager em;
@@ -182,4 +186,47 @@ public class ChatWsController {
         if (v == null) return 0;
         return v;
     }
+
+    /** ✅ 채팅방 나가기 (WS 실시간) */
+    @MessageMapping("/chats/{roomId}/leave")
+    public void leaveRoom(@DestinationVariable Long roomId,
+                          SimpMessageHeaderAccessor accessor,
+                          Principal principal) {
+
+        Long me = parseLongSafe(accessor.getFirstNativeHeader("x-user-id"));
+        if (me == null && principal != null) me = parseLongSafe(principal.getName());
+        if (me == null) me = jwtSupport.resolveUserIdFromHeaderOrCookie(accessor);
+        if (me == null) return;
+
+        // 참여자인지 확인
+        // (RoomService의 isParticipant 재사용)
+        // 주입 필드에 RoomService 추가 필요
+        // private final RoomService roomService;
+        if (!roomService.isParticipant(roomId, me)) return;
+
+        // 내 참여 행 삭제
+        chatRoomMapper.deleteRead(roomId, me);
+
+        // 방 구독자에게 LEAVE 이벤트
+        ChatDto.RoomEvent ev = ChatDto.RoomEvent.builder()
+                .type("LEAVE")
+                .roomId(roomId)
+                .actorId(me)
+                .time(LocalDateTime.now())
+                .build();
+        broker.convertAndSend("/sub/chats/" + roomId, ev);
+
+        // 나의 TOTAL 배지 재계산
+        Integer total = chatRoomMapper.countTotalUnread(me);
+        ChatBadgeDto totalBadge = ChatBadgeDto.builder()
+                .type("TOTAL_BADGE")
+                .userId(me)
+                .total(total == null ? 0 : total)
+                .time(LocalDateTime.now())
+                .build();
+        broker.convertAndSend("/sub/users/" + me + "/chat-badge", totalBadge);
+    }
+
+
+
 }

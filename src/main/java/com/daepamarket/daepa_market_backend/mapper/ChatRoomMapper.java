@@ -36,4 +36,7 @@ public interface ChatRoomMapper {
     // ⬇️ 헤더 정보
     ChatRoomHeaderDto selectRoomHeader(@Param("roomId") Long roomId,
                                        @Param("me") Long me);
+
+    /** ✅ 방에서 현재 참여자 수(= chat_reads 행 수) */
+    Integer countParticipants(@Param("roomId") Long roomId);
 }

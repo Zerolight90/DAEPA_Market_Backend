@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,6 +38,7 @@ public class ChatRestController {
     private final JwtSupport jwtSupport;
     private final ChatService chatService;
     private final S3Service s3Service; // ✅ 추가됨
+    private final SimpMessagingTemplate broker;
 
     /** 내 채팅방 목록 */
     @GetMapping("/my-rooms")
@@ -243,5 +245,54 @@ public class ChatRestController {
 
         return ResponseEntity.ok(dto);
     }
+
+    /** ✅ 채팅방 나가기 (REST 폴백) */
+    @PostMapping("/{roomId}/leave")
+    public ResponseEntity<ChatDto.RoomEvent> leave(
+            @PathVariable Long roomId,
+            @RequestHeader(name = "x-user-id", required = false) Long userIdHeader,
+            Principal principal,
+            HttpServletRequest request
+    ) {
+        Long me =
+                userIdHeader != null ? userIdHeader :
+                        (principal != null ? parseLongOrNull(principal.getName()) : null);
+        if (me == null) me = jwtSupport.resolveUserIdFromCookie(request);
+        if (me == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+
+        // 참여자인지 확인(안전)
+        if (!roomService.isParticipant(roomId, me)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "해당 방의 참여자가 아닙니다.");
+        }
+
+        // 1) 내 참여 행 삭제
+        int deleted = chatRoomMapper.deleteRead(roomId, me);
+        if (deleted <= 0) {
+            // 이미 나간 상태면 멱등 처리
+        }
+
+        // 2) LEAVE 이벤트 브로드캐스트(방 구독자용)
+        ChatDto.RoomEvent ev = ChatDto.RoomEvent.builder()
+                .type("LEAVE")
+                .roomId(roomId)
+                .actorId(me)
+                .time(LocalDateTime.now())
+                .build();
+        broker.convertAndSend("/sub/chats/" + roomId, ev);
+
+        // 3) 내 총 배지(TOTAL_BADGE) 재계산 후 푸시
+        Integer total = chatRoomMapper.countTotalUnread(me);
+        com.daepamarket.daepa_market_backend.common.dto.ChatBadgeDto totalBadge =
+                com.daepamarket.daepa_market_backend.common.dto.ChatBadgeDto.builder()
+                        .type("TOTAL_BADGE").userId(me)
+                        .total(total == null ? 0 : total)
+                        .time(LocalDateTime.now())
+                        .build();
+        broker.convertAndSend("/sub/users/" + me + "/chat-badge", totalBadge);
+
+        return ResponseEntity.ok(ev);
+    }
+
+
 
 }
