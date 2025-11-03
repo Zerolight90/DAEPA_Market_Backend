@@ -61,6 +61,9 @@ dependencies {
     // 10.30일 S3 의존성 추가
     implementation 'software.amazon.awssdk:s3:2.25.0'
     implementation 'software.amazon.awssdk:auth:2.25.0'
+
+    // 11.3일 헬스체크 의존성
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
 }
 
 tasks.named('test') {
