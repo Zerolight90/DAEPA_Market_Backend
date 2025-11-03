@@ -2,9 +2,9 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [ main ] # main만 배포
+    branches: [ 1103JongMin ] # main만 배포
   pull_request:
-    branches: [ main ] # dev/main로의 PR은 빌드 검증만
+    branches: [ 1103JongMin ] # dev/main로의 PR은 빌드 검증만
 
 env:
   DOCKER_IMAGE: ${{ secrets.DOCKER_USERNAME }}/elearning-backend
