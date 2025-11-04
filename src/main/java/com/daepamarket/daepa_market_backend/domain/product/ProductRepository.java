@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.domain.product;
 
+import aj.org.objectweb.asm.commons.Remapper;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,5 +51,11 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
     //상태에 따른 내 상품
     List<ProductEntity> findBySellerAndPdStatus(UserEntity user, int pdStatus);
 
-
+    @Query("""
+       select p
+       from ProductEntity p
+       where p.seller.uIdx = :sellerId
+       order by p.pdIdx desc
+       """)
+    Page<ProductEntity> findPageBySellerId(@Param("sellerId") Long sellerId, Pageable pageable);
 }

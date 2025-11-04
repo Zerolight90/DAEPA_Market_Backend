@@ -1,5 +1,7 @@
 package com.daepamarket.daepa_market_backend.user;
 
+import com.daepamarket.daepa_market_backend.domain.location.LocationEntity;
+import com.daepamarket.daepa_market_backend.domain.location.LocationRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -25,12 +28,11 @@ import java.util.Optional;
 public class OauthController {
 
     private final UserRepository userRepository;
+    private final LocationRepository locationRepository;   // ✅ 주소 테이블 연동
     private final JwtProvider jwtProvider;
 
     /**
-     * 소셜/로컬 공통: 현재 로그인한 사용자 정보
-     * - 토큰의 subject 가 "이메일"일 수도 있고
-     * - "u_idx" 같은 숫자일 수도 있으니까 둘 다 처리한다.
+     * ✅ 현재 로그인한 사용자 정보 조회
      */
     @GetMapping("/me")
     public ResponseEntity<?> me(
@@ -43,49 +45,55 @@ public class OauthController {
                     .body("토큰이 없습니다.");
         }
 
-        // 토큰에 들어있는 subject (이게 이메일일 수도, 숫자일 수도 있음)
         String sub = jwtProvider.getUid(accessToken);
         log.debug("JWT subject = {}", sub);
 
         UserEntity user = null;
 
-        // 1) 이메일로 먼저 찾아본다
+        // 1️⃣ 이메일로 먼저 조회
         Optional<UserEntity> byUid = userRepository.findByUid(sub);
         if (byUid.isPresent()) {
             user = byUid.get();
         } else {
-            // 2) 이메일이 아니면 숫자일 가능성 → PK로 한 번 더 찾기
+            // 2️⃣ 숫자(PK)일 경우
             try {
                 Long id = Long.valueOf(sub);
                 user = userRepository.findById(id).orElse(null);
-            } catch (NumberFormatException ignore) {
-                // 진짜 이메일도 아니고 숫자도 아니면 못 찾는 거
-            }
+            } catch (NumberFormatException ignore) {}
         }
 
         if (user == null) {
-            // 유저 없으면 비어있는 응답
             return ResponseEntity.ok(new MeResponse());
         }
 
+        // ✅ location 테이블에서 주소 목록 가져오기
+        List<LocationEntity> locations = locationRepository.findByUser(user);
+
         MeResponse resp = new MeResponse();
-        resp.setU_id(user.getUid());                 // 이메일/아이디
-        resp.setU_name(user.getUname());             // 이름
-        resp.setU_nickname(user.getUnickname());     // ✅ 닉네임
+        resp.setU_id(user.getUid());
+        resp.setU_name(user.getUname());
+        resp.setU_nickname(user.getUnickname());
         resp.setU_phone(user.getUphone());
         resp.setU_gender(user.getUGender());
         resp.setU_birth(user.getUBirth());
-        resp.setU_address(user.getUAddress());               // 우편번호
-        resp.setU_location(user.getULocation());             // 주소
-        resp.setU_location_detail(user.getULocationDetail()); // 상세주소
         resp.setU_jointype(user.getUJoinType());
         resp.setU_status(user.getUStatus());
+
+        // ✅ 주소 여러 개 리스트로 반환
+        resp.setLocations(
+                locations.stream().map(loc -> new MeResponse.LocationDTO(
+                        loc.getLocKey(),
+                        loc.getLocAddress(),
+                        loc.getLocDetail(),
+                        loc.isLocDefault()
+                )).toList()
+        );
 
         return ResponseEntity.ok(resp);
     }
 
     /**
-     * 소셜 로그인 이후 추가정보 저장
+     * ✅ 소셜 로그인 이후 추가정보 저장
      */
     @PostMapping("/oauth-complete")
     public ResponseEntity<?> oauthComplete(
@@ -102,7 +110,6 @@ public class OauthController {
 
         String sub = jwtProvider.getUid(accessToken);
 
-        // 위랑 똑같이 이메일/숫자 둘 다 처리
         UserEntity user = userRepository.findByUid(sub).orElseGet(() -> {
             try {
                 Long id = Long.valueOf(sub);
@@ -117,68 +124,46 @@ public class OauthController {
                     .body("해당 사용자를 찾을 수 없습니다: " + sub);
         }
 
-        // ===== 기본 정보 =====
-        if (StringUtils.hasText(dto.getEmail())) {
-            user.setUid(dto.getEmail());
-        }
-        if (StringUtils.hasText(dto.getUname())) {
-            user.setUname(dto.getUname());
-        }
-        if (StringUtils.hasText(dto.getNickname())) {
-            user.setUnickname(dto.getNickname());
-        }
-        if (StringUtils.hasText(dto.getPhone())) {
-            user.setUphone(dto.getPhone());
-        }
-        if (StringUtils.hasText(dto.getGender())) {
-            user.setUGender(dto.getGender());
-        }
-        if (StringUtils.hasText(dto.getBirth())) {
-            user.setUBirth(dto.getBirth());
-        }
-
-        // ===== 주소 =====
-        if (StringUtils.hasText(dto.getLocation())) {
-            user.setULocation(dto.getLocation());
-        }
-        if (StringUtils.hasText(dto.getAddressDetail())) {
-            user.setULocationDetail(dto.getAddressDetail());
-        }
-        if (StringUtils.hasText(dto.getAddress())) {
-            user.setUAddress(dto.getAddress());
-        }
-
-        // 소셜 종류
-        if (StringUtils.hasText(dto.getProvider())) {
-            user.setUJoinType(dto.getProvider());
-        }
-
-        // 가입일
-        if (user.getUDate() == null) {
-            user.setUDate(LocalDateTime.now());
-        }
-
-        // 선택동의
+        // ✅ 기본 정보 업데이트
+        if (StringUtils.hasText(dto.getEmail())) user.setUid(dto.getEmail());
+        if (StringUtils.hasText(dto.getUname())) user.setUname(dto.getUname());
+        if (StringUtils.hasText(dto.getNickname())) user.setUnickname(dto.getNickname());
+        if (StringUtils.hasText(dto.getPhone())) user.setUphone(dto.getPhone());
+        if (StringUtils.hasText(dto.getGender())) user.setUGender(dto.getGender());
+        if (StringUtils.hasText(dto.getBirth())) user.setUBirth(dto.getBirth());
+        if (StringUtils.hasText(dto.getProvider())) user.setUJoinType(dto.getProvider());
+        if (user.getUDate() == null) user.setUDate(LocalDateTime.now());
+        user.setUStatus(1);
         user.setUAgree("1".equals(dto.getAgree()) ? "1" : "0");
 
-        // 정상회원
-        user.setUStatus(1);
-
         userRepository.save(user);
+
+        // ✅ 주소가 전달됐다면 location 테이블에 추가
+        if (StringUtils.hasText(dto.getLocation()) ||
+                StringUtils.hasText(dto.getAddressDetail()) ||
+                StringUtils.hasText(dto.getAddress())) {
+
+            LocationEntity loc = LocationEntity.builder()
+                    .user(user)
+                    .locAddress(dto.getLocation())
+                    .locDetail(dto.getAddressDetail())
+                    .locDefault(true)
+                    .build();
+            locationRepository.save(loc);
+        }
 
         return ResponseEntity.ok("OK");
     }
 
     /**
-     * Authorization 헤더 or 쿠키에서 토큰 꺼내기
+     * ✅ Authorization 헤더 or 쿠키에서 토큰 꺼내기
      */
     private String resolveToken(HttpServletRequest request, String authHeader) {
-        // 1) 헤더
+        // 1️⃣ 헤더에서 Bearer 추출
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
-
-        // 2) 쿠키
+        // 2️⃣ 쿠키에서 꺼내기
         if (request.getCookies() != null) {
             return Arrays.stream(request.getCookies())
                     .filter(c -> {
@@ -191,11 +176,12 @@ public class OauthController {
                     .map(Cookie::getValue)
                     .orElse(null);
         }
-
         return null;
     }
 
-    // ================= DTO =================
+    // ==========================================================
+    // ✅ 내부 DTO 클래스들
+    // ==========================================================
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -209,7 +195,7 @@ public class OauthController {
 
         private String address;        // 우편번호
         private String addressDetail;  // 상세주소
-        private String location;       // 주소
+        private String location;       // 실제 주소
 
         private String provider;       // naver/kakao
         private String agree;          // "1" or "0"
@@ -223,10 +209,18 @@ public class OauthController {
         private String u_phone;
         private String u_gender;
         private String u_birth;
-        private String u_address;
-        private String u_location;
-        private String u_location_detail;
         private String u_jointype;
         private Integer u_status;
+
+        // ✅ 주소 여러 개
+        private List<LocationDTO> locations;
+
+        // 주소 한 건 표현용
+        public record LocationDTO(
+                Long locKey,
+                String locAddress,
+                String locDetail,
+                boolean locDefault
+        ) {}
     }
 }

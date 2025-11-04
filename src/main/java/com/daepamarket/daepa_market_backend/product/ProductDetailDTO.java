@@ -28,7 +28,9 @@ public class ProductDetailDTO {
     private Long sellerId;           // UserEntity.uIdx
     private String sellerName;       // UserEntity.uName or uNickname
     private String sellerAvatar;     // ✅ 프로필 이미지도 내려주면 프론트가 바로 씀
-
+    // 🟢 추가: 판매자 매너(=신선도)
+    // user 테이블의 u_manner 그대로 보내줄 거야
+    private Double sellerManner;
     // 거래/상태
     private Integer pdStatus;        // ✅ 0=중고, 1=새상품
     private String dDeal;            // ✅ "DELIVERY" | "MEET"
