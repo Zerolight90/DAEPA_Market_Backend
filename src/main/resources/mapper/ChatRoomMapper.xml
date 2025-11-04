@@ -3,7 +3,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper">
 
-    <!-- ✅ 방 목록 -->
+    <!-- ✅ 방 목록: d_status(0/1)로만 상태 결정 -->
     <select id="listRooms" parameterType="java.lang.Long"
             resultType="com.daepamarket.daepa_market_backend.common.dto.ChatRoomListDto">
         <if test="userId == null">
@@ -30,25 +30,24 @@
         '/images/placeholder.jpg'
       ) AS productThumb,
 
-      /* --- 핵심: 판매자/구매자 판별을 product.u_idx(상품 소유자)로 보정 --- */
+      /* --- 판매자/구매자 판별: product.u_idx(상품 소유자) 기준 보정 유지 --- */
       CASE
         WHEN COALESCE(d.seller_idx2, p.u_idx) = #{userId} THEN '판매자'
         WHEN COALESCE(d.buyer_idx,  NULL)     = #{userId} THEN '구매자'
-        /* deal이 없으면: 판매자=상품소유자, 구매자=그 외 참여자 */
         WHEN d.d_idx IS NULL AND p.u_idx = #{userId} THEN '판매자'
         ELSE '구매자'
       END AS myRole,
 
+      /* ✅ 상태 배지: d_status만 사용 (0=판매중, 1=판매완료) */
       CASE
-        WHEN p.pd_status = 1
-          OR EXISTS (SELECT 1 FROM deal dx WHERE dx.pd_idx = p.pd_idx AND dx.d_sell='판매완료' LIMIT 1)
-        THEN '판매완료' ELSE '판매중'
+        WHEN COALESCE(d.d_status, 0) = 1 THEN '판매완료'
+        ELSE '판매중'
       END AS statusBadge,
 
+      /* ✅ 표시 가격: 판매완료면 합의가 우선, 아니면 상품가 */
       CASE
-        WHEN (p.pd_status = 1
-           OR EXISTS (SELECT 1 FROM deal dx WHERE dx.pd_idx = p.pd_idx AND dx.d_sell='판매완료' LIMIT 1))
-        THEN COALESCE(d.agreed_price, p.pd_price)
+        WHEN COALESCE(d.d_status, 0) = 1
+          THEN COALESCE(d.agreed_price, p.pd_price)
         ELSE p.pd_price
       END AS displayPrice,
 
@@ -106,6 +105,8 @@
     ]]>
         </if>
     </select>
+
+
 
 
     <update id="touchUpdated">
@@ -185,7 +186,7 @@
         ]]>
     </select>
 
-    <!-- ✅ 채팅방 헤더 조회 -->
+    <!-- ✅ 헤더: d_status(0/1)로만 상태/가격 결정 -->
     <select id="selectRoomHeader"
             parameterType="map"
             resultType="com.daepamarket.daepa_market_backend.common.dto.ChatRoomHeaderDto">
@@ -202,12 +203,11 @@
                      WHERE pi.pd_idx = p.pd_idx
                      ORDER BY pi.pi_idx
                     LIMIT 1),
-      '/images/placeholder.jpg'
-    ) AS productThumb,
+        '/images/placeholder.jpg'
+      ) AS productThumb,
 
-            /* --- 핵심: 판매자/구매자 고정판별 --- */
+            /* --- 판매자/구매자 판별 고정 --- */
             COALESCE(d.seller_idx2, p.u_idx) AS sellerId,
-            /* deal이 없으면: 구매자 = 읽음테이블에서 '판매자 아닌' 참여자 중 하나 */
             COALESCE(
                     d.buyer_idx,
                     (SELECT cr.cread_reader
@@ -216,7 +216,7 @@
                        AND cr.cread_reader <> p.u_idx
                      ORDER BY cr.cread_idx
                     LIMIT 1)
-    ) AS buyerId,
+      ) AS buyerId,
 
             CASE
                 WHEN COALESCE(d.seller_idx2, p.u_idx) = #{me} THEN '판매자'
@@ -228,27 +228,19 @@
                                 AND cr.cread_reader <> p.u_idx
                               ORDER BY cr.cread_idx
                              LIMIT 1)
-           ) = #{me} THEN '구매자'
+             ) = #{me} THEN '구매자'
                 ELSE '참여자'
                 END AS myRole,
 
+            /* ✅ 판매 상태: d_status 기준 */
             CASE
-                WHEN p.pd_status = 1
-                    OR d.d_sell = '판매완료'
-                    OR EXISTS (
-                        SELECT 1 FROM deal dx
-                        WHERE dx.pd_idx = p.pd_idx
-                          AND dx.d_sell = '판매완료'
-                        LIMIT 1
-                    )
-                    THEN '판매완료'
+                WHEN COALESCE(d.d_status, 0) = 1 THEN '판매완료'
                 ELSE '판매중'
                 END AS saleStatus,
 
+            /* ✅ 표시 가격: 판매완료면 합의가 우선, 아니면 상품가 */
             CASE
-                WHEN (p.pd_status = 1
-                    OR d.d_sell = '판매완료'
-                    OR EXISTS (SELECT 1 FROM deal dx WHERE dx.pd_idx = p.pd_idx AND dx.d_sell='판매완료' LIMIT 1))
+                WHEN COALESCE(d.d_status, 0) = 1
                     THEN COALESCE(d.agreed_price, p.pd_price)
                 ELSE p.pd_price
                 END AS displayPrice
@@ -259,7 +251,8 @@
         WHERE r.ch_idx = #{roomId}
             LIMIT 1
         ]]>
-    </select>
+</select>
+
 
     <!-- ✅ 현재 참여자 수 -->
     <select id="countParticipants" resultType="int">
