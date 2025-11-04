@@ -4,6 +4,7 @@ import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/favorites")
@@ -19,19 +21,25 @@ public class FavoriteController {
     private final FavoriteService favoriteService;
     private final JwtProvider jwtProvider;
 
-    // 찜 토글 (로그인 필수)
+    /**
+     * 찜 토글 (로그인 필수)
+     */
     @PostMapping("/{productId}/toggle")
-    public ResponseEntity<?> toggle(HttpServletRequest request, @PathVariable Long productId) {
-        Long userId = requireUserId(request);
+    public ResponseEntity<?> toggle(HttpServletRequest request,
+                                    @PathVariable Long productId) {
+        Long userId = requireUserId(request); // 여긴 진짜 로그인 필요
         boolean now = favoriteService.toggle(userId, productId);
         long count = favoriteService.count(productId);
         return ResponseEntity.ok(new FavoriteResponse(now, count));
     }
 
-    // 상품 카드가 호출하는 곳 (비로그인도 들어옴)
+    /**
+     * 상품 카드에서 찜 상태/개수 조회 (비로그인도 허용)
+     */
     @GetMapping("/{productId}")
-    public ResponseEntity<?> getStatus(HttpServletRequest request, @PathVariable Long productId) {
-        Long userId = optionalUserId(request);   // 여기서 예외 안나게 하는 게 핵심
+    public ResponseEntity<?> getStatus(HttpServletRequest request,
+                                       @PathVariable Long productId) {
+        Long userId = optionalUserId(request);  // 없으면 null
         boolean favorited = false;
         if (userId != null) {
             favorited = favoriteService.isFavorited(userId, productId);
@@ -40,68 +48,80 @@ public class FavoriteController {
         return ResponseEntity.ok(new FavoriteResponse(favorited, count));
     }
 
-    // 내 찜 목록 (로그인 필수)
+    /**
+     * 내 찜 목록
+     * 👉 이게 문제였으니까: 로그인 안 돼 있으면 401 말고 [] 반환
+     */
     @GetMapping("")
     public ResponseEntity<List<FavoriteItemDTO>> list(HttpServletRequest request) {
-        Long userId = requireUserId(request);
+        Long userId = optionalUserId(request);
+        if (userId == null) {
+            // 새로고침했는데 토큰 안 왔을 때 여기로 온다
+            return ResponseEntity.ok(List.of());
+        }
         return ResponseEntity.ok(favoriteService.list(userId));
     }
 
-    // ----------------- 내부 유틸 -----------------
+    // ================== 내부 유틸 ==================
 
-    // 반드시 로그인해야 하는 경우
+    /** 로그인 필수 버전 */
     private Long requireUserId(HttpServletRequest request) {
-        String token = extractAccessToken(request);
-        if (token == null) {
+        Long userId = optionalUserId(request);
+        if (userId == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
         }
-        try {
-            if (jwtProvider.isExpired(token)) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
-            }
-            return Long.valueOf(jwtProvider.getUid(token));
-        } catch (Exception e) {
-            // 토큰이 깨졌을 때도 401
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
-        }
+        return userId;
     }
 
-    // 로그인 안 했으면 null 주는 버전 (여기가 지금 문제였음)
+    /**
+     * 로그인 안 해도 되는 곳에서 쓰는 버전
+     * - Authorization: Bearer ... 먼저 보고
+     * - 없으면 쿠키에서 ACCESS_TOKEN / accessToken 찾고
+     * - 토큰이 이상하면 null
+     */
     private Long optionalUserId(HttpServletRequest request) {
-        String token = extractAccessToken(request);
-        if (token == null) {
-            return null;
-        }
-        try {
-            if (jwtProvider.isExpired(token)) {
-                return null;
-            }
-            return Long.valueOf(jwtProvider.getUid(token));
-        } catch (Exception e) {
-            // 토큰 파싱 실패, 시그니처 에러 등 → 그냥 비로그인으로 처리
-            return null;
-        }
-    }
+        String token = null;
 
-    // 쿠키나 Authorization 헤더에서 accessToken 뽑기
-    private String extractAccessToken(HttpServletRequest request) {
-        // 1) 쿠키 우선
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie c : cookies) {
-                if ("accessToken".equalsIgnoreCase(c.getName()) || "ACCESS_TOKEN".equals(c.getName())) {
-                    return c.getValue();
+        // 1) 헤더 먼저
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            token = auth.substring(7);
+        }
+
+        // 2) 쿠키에서도 찾아봄 (프론트가 쿠키로만 로그인했을 수도 있으니까)
+        if (token == null) {
+            Cookie[] cookies = request.getCookies();
+            if (cookies != null) {
+                for (Cookie c : cookies) {
+                    if ("ACCESS_TOKEN".equals(c.getName())
+                            || "accessToken".equalsIgnoreCase(c.getName())) {
+                        token = c.getValue();
+                        break;
+                    }
                 }
             }
         }
-        // 2) Authorization: Bearer ...
-        String auth = request.getHeader("Authorization");
-        if (auth != null && auth.startsWith("Bearer ")) {
-            return auth.substring(7);
+
+        if (token == null) {
+            return null;
         }
-        return null;
+
+        // 3) JWT 파싱
+        try {
+            // 만료면 null
+            if (jwtProvider.isExpired(token)) {
+                return null;
+            }
+            String uid = jwtProvider.getUid(token);
+            if (uid == null) return null;
+            return Long.valueOf(uid);
+        } catch (Exception e) {
+            // 여기서 예외 안 터지게 해두긴 했지만 혹시 모르니
+            log.warn("optionalUserId: token parse failed: {}", e.getMessage());
+            return null;
+        }
     }
 
-    // 응답용 record
+    /** 응답용 작은 DTO */
     private record FavoriteResponse(boolean favorited, long count) {}
 }
