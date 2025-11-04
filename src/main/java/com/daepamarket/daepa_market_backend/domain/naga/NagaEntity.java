@@ -19,7 +19,7 @@ public class NagaEntity {
     @Column(name = "b_idx2")
     private Long bIdx2;
 
-    @Column(name = "ng_data")
+    @Column(name = "ng_date")
     private LocalDate ngDate;
 
     @Column(name = "ng_content", length = 400)

@@ -34,7 +34,6 @@ public class UserDetailDTO {
         dto.setUName(e.getUname());
         dto.setUGender(e.getUGender());
         dto.setUNickname(e.getUnickname());
-        dto.setULocation(e.getULocation());
         dto.setUPhone(e.getUphone());
         dto.setUManner(e.getUManner());
         dto.setUWarn(e.getUWarn());

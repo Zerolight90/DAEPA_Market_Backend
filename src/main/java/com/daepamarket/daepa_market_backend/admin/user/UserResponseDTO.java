@@ -30,7 +30,6 @@ public class UserResponseDTO {
         dto.uManner = user.getUManner();
         dto.uWarn = user.getUWarn();
         dto.uStatus = user.getUStatus();
-        dto.uLocation = user.getULocation();
         return dto;
 
 
