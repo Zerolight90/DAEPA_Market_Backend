@@ -116,6 +116,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String accessToken = jwtProvider.createAccessToken(uid, provider);
         String refreshToken = jwtProvider.createRefreshToken(uid);
 
+        user.setUrefreshToken(refreshToken);
+        userRepository.save(user);
+
         // 쿠키로 내려주기
         Cookie at = new Cookie("accessToken", accessToken);
         at.setHttpOnly(true);
