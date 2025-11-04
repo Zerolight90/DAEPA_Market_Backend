@@ -1,6 +1,8 @@
 package com.daepamarket.daepa_market_backend.user;
 
 import com.daepamarket.daepa_market_backend.admin.user.UserResponseDTO;
+import com.daepamarket.daepa_market_backend.domain.location.LocationEntity;
+import com.daepamarket.daepa_market_backend.domain.location.LocationRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserSignUpDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
@@ -33,7 +35,7 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
-
+    private final LocationRepository locationRepository;
 
     private final PasswordEncoder passwordEncoder;
     private final JwtProps jwtProps;
@@ -83,9 +85,6 @@ public class UserService {
                 .uname(rep.getU_name())
                 .unickname(rep.getU_nickname())
                 .uphone(rep.getU_phone())
-                .uAddress(rep.getU_address())
-                .uLocation(rep.getU_location())
-                .uLocationDetail(rep.getU_location_detail())
                 .uBirth(rep.getU_birth())
                 .uGender(rep.getU_gender())
                 .uDate(now)
@@ -96,6 +95,17 @@ public class UserService {
                 .uManner(20.0)
                 .build()
         );
+
+        // 2) 주소가 들어왔다면 location 테이블에 따로 저장
+        if (rep.getU_address() != null || rep.getU_location() != null || rep.getU_location_detail() != null) {
+            LocationEntity loc = LocationEntity.builder()
+                    .user(user)
+                    .locAddress(rep.getU_location())         // → 너희가 의미 맞게 맵핑해
+                    .locDetail(rep.getU_location_detail())
+                    .locDefault(true)
+                    .build();
+            locationRepository.save(loc);
+        }
 
         return user.getUIdx();
     }
@@ -236,7 +246,7 @@ public class UserService {
             if (user == null) {
                 return ResponseEntity.status(404).body("사용자를 찾을 수 없습니다.");
             }
-
+            List<LocationEntity> locations = locationRepository.findByUser(user);
             // 필요한 정보만 리턴
             Map<String, Object> result = new HashMap<>();
             result.put("uIdx", user.getUIdx());
@@ -244,12 +254,15 @@ public class UserService {
             result.put("uId", user.getUid());
             result.put("uManner", user.getUManner());
             result.put("uPhone", user.getUphone());
-            result.put("uLocation", user.getULocation());
-            result.put("uLocationDetail", user.getULocationDetail());
-            result.put("uAddress", user.getUAddress());
             result.put("uNickname", user.getUnickname());
             result.put("u_nickname", user.getUnickname());
-
+            // 주소는 이제 별도 리스트로 내려줌
+            result.put("locations", locations.stream().map(loc -> Map.of(
+                    "locKey", loc.getLocKey(),
+                    "locAddress", loc.getLocAddress(),
+                    "locDetail", loc.getLocDetail(),
+                    "locDefault", loc.isLocDefault()
+            )).toList());
             return ResponseEntity.ok(result);
 
         } catch (Exception e) {

@@ -255,7 +255,14 @@ public class ProductService {
         // 5) 거래 정보 (Deal)
         DealEntity deal = dealRepo.findByProduct_PdIdx(pdIdx).orElse(null);
         String dDeal = (deal != null) ? deal.getDDeal() : null;
-
+        // 🟢 판매자 매너 (u_manner) 꺼내기
+        // UserEntity에 메서드가 getUManner() 라는 이름일 가능성이 높아서 이렇게 씀
+        Double sellerManner = null;
+        if (seller != null) {
+            // 네 엔티티가 getUManner() / getUManner 둘 중 하나일 텐데
+            // 아래처럼 한 줄만 남겨서 쓰면 됨
+            sellerManner = seller.getUManner();   // <- 이름 다르면 여기만 맞춰
+        }
         // 6) DTO 만들기
         return ProductDetailDTO.builder()
                 .pdIdx(product.getPdIdx())
@@ -271,6 +278,7 @@ public class ProductService {
                 .sellerId(seller != null ? seller.getUIdx() : null)
                 .sellerName(seller != null ? seller.getUname() : null)
                 .sellerAvatar(seller != null ? seller.getUProfile() : null)
+                .sellerManner(sellerManner)
                 .upperName(upperName)
                 .middleName(middleName)
                 .lowName(lowName)

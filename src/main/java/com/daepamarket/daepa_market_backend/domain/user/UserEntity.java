@@ -19,9 +19,6 @@ public class UserEntity {
     @Column(name = "u_name", length = 20)
     private String uname;
 
-    @Column(name = "u_location", length = 100)
-    private String uLocation;
-
     @Column(name = "u_profile", length = 250)
     private String uProfile;
 
@@ -61,11 +58,6 @@ public class UserEntity {
     @Column(name = "u_phone", length = 20)
     private String uphone;
 
-    @Column(name = "u_address", length = 200)
-    private String uAddress;
-
-    @Column(name = "u_location_detail", length = 200)
-    private String uLocationDetail;
 
     @Column(name = "u_type", length = 20)
     private String uType;
