@@ -102,6 +102,7 @@ public class UserService {
                     .user(user)
                     .locAddress(rep.getU_location())         // → 너희가 의미 맞게 맵핑해
                     .locDetail(rep.getU_location_detail())
+                    .locCode(rep.getU_locCode())
                     .locDefault(true)
                     .build();
             locationRepository.save(loc);
@@ -260,6 +261,7 @@ public class UserService {
             result.put("locations", locations.stream().map(loc -> Map.of(
                     "locKey", loc.getLocKey(),
                     "locAddress", loc.getLocAddress(),
+                    "locCode", loc.getLocCode(),
                     "locDetail", loc.getLocDetail(),
                     "locDefault", loc.isLocDefault()
             )).toList());
