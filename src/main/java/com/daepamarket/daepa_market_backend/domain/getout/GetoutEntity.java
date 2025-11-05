@@ -18,8 +18,8 @@ public class GetoutEntity {
     @JoinColumn(name = "u_idx", nullable = false)
     private UserEntity user;
 
-    @Column(name = "go_status")
-    private Integer goStatus;
+    @Column(name = "go_status", length = 200)
+    private String goStatus;
 
     @Column(name = "go_outdate")
     private LocalDate goOutdata;
