@@ -48,4 +48,13 @@ public class ChatDto {
                 .time(e.getCmDate())
                 .build();
     }
+
+    //나가기 로직
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class RoomEvent {
+        private String type;      // "LEAVE"
+        private Long roomId;
+        private Long actorId;     // 나간 사람
+        private LocalDateTime time;
+    }
 }

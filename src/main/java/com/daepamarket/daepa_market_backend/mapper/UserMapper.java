@@ -13,4 +13,12 @@ public interface UserMapper {
         LIMIT 1
     """)
     String findLoginIdByIdx(@Param("userIdx") Long userIdx);
+
+    @Select("""
+        SELECT COALESCE(u_nickname, u_name, u_id)
+        FROM user
+        WHERE u_idx = #{userIdx}
+        LIMIT 1
+    """)
+    String findDisplayNameByIdx(@Param("userIdx") Long userIdx);
 }

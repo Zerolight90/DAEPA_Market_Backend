@@ -1,4 +1,3 @@
-// src/main/java/com/daepamarket/daepa_market_backend/chat/service/RoomService.java
 package com.daepamarket.daepa_market_backend.chat.service;
 
 import com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper;
@@ -8,6 +7,7 @@ import com.daepamarket.daepa_market_backend.common.dto.ChatRoomOpenDto.OpenChatR
 import com.daepamarket.daepa_market_backend.domain.chat.ChatRoomEntity;
 import com.daepamarket.daepa_market_backend.domain.chat.repository.ChatRoomRepository;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
+import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -64,6 +64,46 @@ public class RoomService {
         return (buyer != null && buyer.equals(userId)) || (seller != null && seller.equals(userId));
     }
 
+    /**
+     * deal(d_idx) 매핑 우선순위:
+     *  1) 동일 상품(pd_idx) + 동일 판매자(seller_idx2) + 동일 구매자(buyer_idx)
+     *  2) 동일 상품(pd_idx) + 동일 판매자(seller_idx2) (buyer 미정인 deal 존재 시)
+     *  3) 동일 상품(pd_idx) (상품당 1건 unique 제약이 있으므로 이것만으로도 대부분 1건)
+     */
+    private Long findDealId(Long productId, Long sellerId, Long buyerId) {
+        // 1) pd + seller + buyer 정확 일치
+        Object r1 = em.createNativeQuery("""
+            SELECT d_idx FROM deal
+             WHERE pd_idx = :pd AND seller_idx2 = :seller AND buyer_idx = :buyer
+             LIMIT 1
+        """).setParameter("pd", productId)
+                .setParameter("seller", sellerId)
+                .setParameter("buyer", buyerId)
+                .getResultStream().findFirst().orElse(null);
+        if (r1 != null) return ((Number) r1).longValue();
+
+        // 2) pd + seller 일치 (buyer 미정 케이스 포함)
+        Object r2 = em.createNativeQuery("""
+            SELECT d_idx FROM deal
+             WHERE pd_idx = :pd AND seller_idx2 = :seller
+             LIMIT 1
+        """).setParameter("pd", productId)
+                .setParameter("seller", sellerId)
+                .getResultStream().findFirst().orElse(null);
+        if (r2 != null) return ((Number) r2).longValue();
+
+        // 3) pd 일치 (deal.pd_idx UNIQUE 라서 1건이면 이것으로 연결)
+        Object r3 = em.createNativeQuery("""
+            SELECT d_idx FROM deal
+             WHERE pd_idx = :pd
+             LIMIT 1
+        """).setParameter("pd", productId)
+                .getResultStream().findFirst().orElse(null);
+        if (r3 != null) return ((Number) r3).longValue();
+
+        return null;
+    }
+
     @Transactional
     public OpenChatRoomRes openOrGetRoom(OpenChatRoomReq req, Long buyerId) {
         if (buyerId == null || req.getSellerId() == null)
@@ -75,13 +115,23 @@ public class RoomService {
 
         String identifier = buildIdentifier(buyerId, req.getSellerId(), req.getProductId());
 
+        // 미리 deal 탐색
+        Long foundDealId = findDealId(req.getProductId(), req.getSellerId(), buyerId);
+        DealEntity dealRef = (foundDealId != null) ? em.getReference(DealEntity.class, foundDealId) : null;
+
         return chatRoomRepository.findByChIdentifier(identifier)
                 .map(room -> {
+                    // 기존 방이면 updated만 갱신하고, d_idx 비어있으면 채워줌
                     room.setChUpdated(LocalDateTime.now());
+                    if (room.getDeal() == null && dealRef != null) {
+                        room.setDeal(dealRef);
+                        chatRoomRepository.save(room);
+                    }
                     return OpenChatRoomRes.builder()
                             .roomId(room.getChIdx())
                             .created(false)
                             .identifier(identifier)
+                            .dealId((room.getDeal() != null) ? room.getDeal().getDIdx() : foundDealId)
                             .build();
                 })
                 .orElseGet(() -> {
@@ -90,6 +140,7 @@ public class RoomService {
                     ChatRoomEntity saved = chatRoomRepository.save(
                             ChatRoomEntity.builder()
                                     .product(productRef)
+                                    .deal(dealRef) // ✅ 새로 만들 때 d_idx 연결
                                     .chIdentifier(identifier)
                                     .chCreated(LocalDateTime.now())
                                     .chUpdated(LocalDateTime.now())
@@ -98,9 +149,11 @@ public class RoomService {
 
                     final Long newRoomId = saved.getChIdx();
 
+                    // 참여자 읽음 포인터 초기화
                     chatRoomMapper.upsertRead(newRoomId, buyerId);
                     chatRoomMapper.upsertRead(newRoomId, req.getSellerId());
 
+                    // 시스템 환영 메시지
                     Map<String, Object> msg = new HashMap<>();
                     msg.put("chIdx", newRoomId);
                     msg.put("content", WELCOME);
@@ -110,6 +163,7 @@ public class RoomService {
                             .roomId(newRoomId)
                             .created(true)
                             .identifier(identifier)
+                            .dealId(foundDealId) // 응답에 현재 연결된 dealId 알려줌(없으면 null)
                             .build();
                 });
     }

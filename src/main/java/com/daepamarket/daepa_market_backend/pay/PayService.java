@@ -37,7 +37,7 @@ public class PayService {
     private final ChatRoomRepository chatRoomRepository;
 
     // 대파 페이 충전하기
-    @Transactional
+    @Transactional // 이 메서드 내의 모든 DB 작업을 하나의 트랜잭션으로 묶음
     public void confirmPointCharge(String paymentKey, String orderId, Long amount, Long userId) {
 
         // 토스페이먼츠에 최종 결제 승인을 요청 (보안상 zustand 등 사용해서 검증하는것 권장됨)
@@ -111,12 +111,12 @@ public class PayService {
         // Deal 테이블 업데이트
         DealEntity deal = dealRepository.findByProduct_PdIdx(product.getPdIdx())
                 .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
-        deal.setAgreedPrice(correctTotal);
-        deal.setBuyer(buyer);
-        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now()));
-        deal.setDBuy("구매확정대기");
-        deal.setDSell("판매완료");
-        deal.setDStatus(1L);
+        deal.setAgreedPrice(correctTotal); // 실제 거래된 가격
+        deal.setBuyer(buyer); // 구매자 설정
+        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각 설정
+        deal.setDBuy("구매확정대기"); // 페이 구매 상태
+        deal.setDSell("판매완료"); // 페이 판매 상태
+        deal.setDStatus(1L); // 결제 상태
         dealRepository.save(deal);
 
         // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
@@ -125,7 +125,6 @@ public class PayService {
             chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
         }
 
-        // 남은 잔액 계산하여 반환
         return currentBalance - correctTotal;
     }
 
@@ -147,12 +146,12 @@ public class PayService {
                 .orElseThrow(() -> new RuntimeException("해당 상품의 거래 정보를 찾을 수 없습니다: " + pdIdx));
 
         // Deal 테이블 업데이트
-        deal.setAgreedPrice(amount);
-        deal.setBuyer(buyer);
-        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now()));
-        deal.setDBuy("구매확정 대기");
-        deal.setDSell("판매완료");
-        deal.setDStatus(0L);
+        deal.setAgreedPrice(amount); // 거래 가격
+        deal.setBuyer(buyer); // 거래 구매자
+        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
+        deal.setDBuy("구매확정 대기"); // 구매 상태 (예: 구매 확정 대기)
+        deal.setDSell("판매완료");    // 판매 상태
+        deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
         dealRepository.save(deal);
@@ -220,7 +219,7 @@ public class PayService {
     private Long extractBuyerIdFromContextOrOrderId(String orderId) {
         // TODO: Spring Security Context Holder에서 현재 로그인 사용자 ID를 가져오거나,
         // orderId 생성 시 구매자 정보를 포함시키는 등 실제 구매자 ID를 가져오는 로직 구현 필요
-        return 2L; // TODO 실제 구현
+        return 2L; // 임시 구매자 ID
     }
 
     // 예시: 상품 구매 주문 ID("product-${pdIdx}-${uuid}")에서 상품 ID 추출

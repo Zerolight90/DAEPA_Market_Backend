@@ -67,6 +67,10 @@ public class ProductEntity {
     @Column(name = "pd_ip", length = 50)
     private String pdIp;
 
+    // 소프트 삭제
+    @Column(name = "pd_del", nullable = false)
+    private boolean pdDel = false;
+
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductImageEntity> images = new ArrayList<>();
 
