@@ -2,7 +2,7 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [ 1105JongMin ]
+    branches: [ 1105JongMin ] #d
   pull_request:
     branches: [ 1105JongMin ]
 
