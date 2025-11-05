@@ -1,6 +1,5 @@
 package com.daepamarket.daepa_market_backend.domain.product;
 
-import aj.org.objectweb.asm.commons.Remapper;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,11 +9,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<ProductEntity, Long>, JpaSpecificationExecutor<ProductEntity> {
 
-    /** ✅ ID로 필터: upperIdx/middleIdx/lowIdx 전부 선택적 */
+    /**
+     * ✅ 카테고리 id들로 목록 조회할 때
+     *    → 삭제(p.dDel = true) 된 건 제외
+     */
     @Query("""
         SELECT p FROM ProductEntity p
           JOIN p.ctLow l
@@ -23,7 +24,8 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
         WHERE (:upperId  IS NULL OR u.upperIdx   = :upperId)
           AND (:middleId IS NULL OR m.middleIdx  = :middleId)
           AND (:lowId    IS NULL OR l.lowIdx     = :lowId)
-    """)
+          AND p.pdDel = false
+        """)
     Page<ProductEntity> findAllByCategoryIds(
             @Param("upperId")  Long upperId,
             @Param("middleId") Long middleId,
@@ -31,12 +33,15 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
-    /** (옵션) 이름으로 필터: upperCt/middleCt/lowCt 전부 선택적 */
+    /**
+     * ✅ 이름으로 필터할 때도 삭제된 상품은 제외
+     */
     @Query("""
-           select p from ProductEntity p
-           where (:big is null or p.ctLow.middle.upper.upperCt = :big)
-             and (:mid is null or p.ctLow.middle.middleCt     = :mid)
-             and (:sub is null or p.ctLow.lowCt               = :sub)
+           SELECT p FROM ProductEntity p
+           WHERE (:big IS NULL OR p.ctLow.middle.upper.upperCt = :big)
+             AND (:mid IS NULL OR p.ctLow.middle.middleCt     = :mid)
+             AND (:sub IS NULL OR p.ctLow.lowCt               = :sub)
+             AND p.pdDel = false
            """)
     Page<ProductEntity> findAllByNames(
             @Param("big") String big,
@@ -45,17 +50,33 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
-    //내 모든 상품
+    // 내 모든 상품 (마이페이지용이니까 삭제된 것도 보고 싶으면 이건 그대로)
     List<ProductEntity> findBySeller(UserEntity user);
 
-    //상태에 따른 내 상품
+    // 상태에 따른 내 상품
     List<ProductEntity> findBySellerAndPdStatus(UserEntity user, int pdStatus);
 
     @Query("""
-       select p
-       from ProductEntity p
-       where p.seller.uIdx = :sellerId
-       order by p.pdIdx desc
+       SELECT p
+       FROM ProductEntity p
+       WHERE p.seller.uIdx = :sellerId
+       ORDER BY p.pdIdx DESC
        """)
     Page<ProductEntity> findPageBySellerId(@Param("sellerId") Long sellerId, Pageable pageable);
+
+    // ProductRepository.java
+
+    @Query("""
+    SELECT p FROM ProductEntity p
+    WHERE p.pdDel = false
+      AND (:lowId IS NULL OR p.ctLow.lowIdx = :lowId)
+      AND p.pdIdx <> :excludeId
+    ORDER BY p.pdCreate DESC
+    """)
+    Page<ProductEntity> findRelatedByLowIdExcludingSelf(
+            @Param("lowId") Long lowId,
+            @Param("excludeId") Long excludeId,
+            Pageable pageable
+    );
+
 }

@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +35,7 @@ public class ProductController {
     private final CookieUtil cookieUtil;
 
     // ==========================
-    // 등록
+    // 등록 (멀티파트)
     // ==========================
     @PostMapping(value="/create-multipart", consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createMultipart(
@@ -69,6 +70,9 @@ public class ProductController {
         return ResponseEntity.ok(id);
     }
 
+    /**
+     * 쿠키나 Authorization 헤더에서 accessToken 추출
+     */
     private String resolveAccessToken(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
@@ -87,7 +91,7 @@ public class ProductController {
     }
 
     // ==========================
-    // 목록 조회
+    // 목록 조회 (id 기준)
     // ==========================
     @GetMapping
     @Transactional(readOnly = true)
@@ -105,6 +109,9 @@ public class ProductController {
         return ResponseEntity.ok(mapped);
     }
 
+    // ==========================
+    // 목록 조회 (이름 기준)
+    // ==========================
     @GetMapping("/by-name")
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByNames(
@@ -132,24 +139,8 @@ public class ProductController {
     }
 
     // ==========================
-    // Entity -> 리스트 DTO
-    // ==========================
-    private ProductListDTO toListDTO(ProductEntity p) {
-        String thumb = p.getPdThumb();
-        if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
-            thumb = p.getImages().get(0).getImageUrl();
-        }
-        return ProductListDTO.builder()
-                .pdIdx(p.getPdIdx())
-                .pdTitle(p.getPdTitle())
-                .pdPrice(p.getPdPrice())
-                .pdThumb(thumb)
-                .pdLocation(p.getPdLocation())
-                .pdCreate(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
-                .build();
-    }
-
     // 내 상품 조회
+    // ==========================
     @GetMapping("/mypage")
     public List<productMyPageDTO> myProduct(
             HttpServletRequest request,
@@ -170,5 +161,116 @@ public class ProductController {
         return productService.getMyProductByUIdx(uIdx, status);
     }
 
+    // ==========================
+    // ✅ 여기부터 오너 전용 액션 4개
+    // ==========================
 
+    /**
+     * 수정: 등록 DTO를 그대로 받아서 업데이트
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateProduct(
+            @PathVariable("id") Long id,
+            HttpServletRequest request,
+            @Valid @RequestBody ProductCreateDTO dto
+    ) {
+        String token = resolveAccessToken(request);
+        if (token == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        }
+        Long userId = Long.valueOf(jwtProvider.getUid(token));
+
+        productService.updateProduct(id, userId, dto);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 소프트 삭제: pd_del = true
+     */
+    @PostMapping("/{id}/delete")
+    public ResponseEntity<?> deleteProduct(
+            @PathVariable("id") Long id,
+            HttpServletRequest request
+    ) {
+        String token = resolveAccessToken(request);
+        if (token == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        }
+        Long userId = Long.valueOf(jwtProvider.getUid(token));
+
+        productService.softDeleteProduct(id, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 끌어올리기: pd_refdate = now()
+     */
+    @PostMapping("/{id}/bump")
+    public ResponseEntity<?> bumpProduct(
+            @PathVariable("id") Long id,
+            HttpServletRequest request
+    ) {
+        String token = resolveAccessToken(request);
+        if (token == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        }
+        Long userId = Long.valueOf(jwtProvider.getUid(token));
+
+        productService.bumpProduct(id, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 판매완료: product.pdStatus = 1, deal.dSell = 1
+     */
+    @PostMapping("/{id}/complete")
+    public ResponseEntity<?> completeProduct(
+            @PathVariable("id") Long id,
+            HttpServletRequest request
+    ) {
+        String token = resolveAccessToken(request);
+        if (token == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        }
+        Long userId = Long.valueOf(jwtProvider.getUid(token));
+
+        productService.completeProduct(id, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    // ==========================
+    // Entity -> 리스트 DTO
+    // ==========================
+    private ProductListDTO toListDTO(ProductEntity p) {
+        String thumb = p.getPdThumb();
+        if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
+            thumb = p.getImages().get(0).getImageUrl();
+        }
+        return ProductListDTO.builder()
+                .pdIdx(p.getPdIdx())
+                .pdTitle(p.getPdTitle())
+                .pdPrice(p.getPdPrice())
+                .pdThumb(thumb)
+                .pdLocation(p.getPdLocation())
+                .pdCreate(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
+                .build();
+    }
+    @Transactional(readOnly = true)
+    public List<ProductEntity> getRelatedProducts(Long pdIdx, int limit) {
+        // 1) 현재 상품
+        ProductEntity base = productRepository.findById(pdIdx)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."));
+
+        // 2) 삭제된 건 연관으로 안 보여주기
+        if (base.isPdDel()) {
+            return List.of();
+        }
+
+        Long lowId = base.getCtLow() != null ? base.getCtLow().getLowIdx() : null;
+
+        // 3) 같은 하위 카테고리 기준으로 뽑고, 자기 자신은 제외
+        //    이건 레포에 쿼리 하나만 더 만들면 돼
+        return productRepository.findRelatedByLowIdExcludingSelf(lowId, pdIdx, PageRequest.of(0, limit))
+                .getContent();
+    }
 }
