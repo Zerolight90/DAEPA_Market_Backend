@@ -1,10 +1,12 @@
 package com.daepamarket.daepa_market_backend.chat.service;
 
 import com.daepamarket.daepa_market_backend.common.dto.ChatDto;
+import com.daepamarket.daepa_market_backend.domain.chat.ChatMessageEntity;
 import com.daepamarket.daepa_market_backend.mapper.ChatMessageMapper;
 import com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper;
 import com.daepamarket.daepa_market_backend.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,9 @@ public class ChatService {
     private final ChatMessageMapper messageMapper;
     private final ChatRoomMapper roomMapper;
     private final UserMapper userMapper;
+    private final ChatMessageMapper msgMapper;
+    private final SimpMessagingTemplate broker;
+
 
     @Transactional
     public ChatDto.MessageRes sendMessage(Long roomId, Long senderId,
@@ -80,4 +85,80 @@ public class ChatService {
         Long applied = messageMapper.selectLastSeen(roomId, userId);
         return applied == null ? 0L : applied;
     }
+
+    // ------------------------------------------------------
+    // ✅ 공통: SYSTEM 메시지 기록 + 방 갱신 + STOMP 브로드캐스트
+    // ------------------------------------------------------
+    @Transactional
+    public ChatDto.MessageRes sendSystemMessage(Long roomId, String text) {
+        Map<String, Object> p = new HashMap<>();
+        p.put("chIdx", roomId);
+        p.put("content", text);
+        roomMapper.insertSystemMessage(p);
+
+        roomMapper.touchUpdated(roomId);
+
+        Long lastId = messageMapper.selectMaxMessageId(roomId);
+        if (lastId == null) lastId = 0L;
+
+        ChatDto.MessageRes sys = ChatDto.MessageRes.builder()
+                .type("SYSTEM")
+                .messageId(lastId)
+                .roomId(roomId)
+                .senderId(null)
+                .content(text)
+                .imageUrl(null)
+                .time(LocalDateTime.now())
+                .build();
+
+        broker.convertAndSend("/sub/chats/" + roomId, sys);
+        return sys;
+    }
+
+    // ------------------------------------------------------
+    // ✅ 시나리오 1: 구매자 입금 완료 알림 (💸)
+    // ------------------------------------------------------
+    @Transactional
+    public ChatDto.MessageRes sendBuyerDeposited(Long roomId, Long buyerId,
+                                                 String productTitle, Long price) {
+        String buyerName = userMapper.findDisplayNameByIdx(buyerId);
+        if (buyerName == null || buyerName.isBlank()) buyerName = "구매자";
+
+        String text = String.format(
+                "💸 %s님이 \"%s\" (%s원)을 입금했어요! 판매 확정을 눌러주세요.",
+                buyerName,
+                safeProductTitle(productTitle),
+                formatPrice(price)
+        );
+        return sendSystemMessage(roomId, text);
+    }
+
+    // ------------------------------------------------------
+    // ✅ 시나리오 2: 판매자 판매 확정 알림 (📦)
+    // ------------------------------------------------------
+    @Transactional
+    public ChatDto.MessageRes sendSellerConfirmed(Long roomId, Long sellerId,
+                                                  String productTitle, Long price) {
+        String text = String.format(
+                "📦 \"%s\" (%s원) 거래가 판매 확정되었습니다.\n반드시 물건을 인수 후 구매확정을 눌러주세요.",
+                safeProductTitle(productTitle),
+                formatPrice(price)
+        );
+        return sendSystemMessage(roomId, text);
+    }
+
+    // ------------------------------------------------------
+    // ✅ 포맷 헬퍼
+    // ------------------------------------------------------
+    private String formatPrice(Long price) {
+        if (price == null) return "-";
+        return String.format("%,d", price);
+    }
+
+    private String safeProductTitle(String t) {
+        if (t == null || t.isBlank()) return "상품";
+        // 따옴표나 줄바꿈 제거
+        return t.replace("\"", "").replace("\n", " ").trim();
+    }
 }
+
