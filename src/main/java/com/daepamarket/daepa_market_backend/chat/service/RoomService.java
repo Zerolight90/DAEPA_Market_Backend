@@ -73,34 +73,38 @@ public class RoomService {
     private Long findDealId(Long productId, Long sellerId, Long buyerId) {
         // 1) pd + seller + buyer 정확 일치
         Object r1 = em.createNativeQuery("""
-            SELECT d_idx FROM deal
-             WHERE pd_idx = :pd AND seller_idx2 = :seller AND buyer_idx = :buyer
-             LIMIT 1
-        """).setParameter("pd", productId)
+        SELECT d_idx FROM deal
+         WHERE pd_idx = :pd AND seller_idx2 = :seller AND buyer_idx = :buyer
+           AND d_status = 0
+         LIMIT 1
+    """).setParameter("pd", productId)
                 .setParameter("seller", sellerId)
                 .setParameter("buyer", buyerId)
                 .getResultStream().findFirst().orElse(null);
         if (r1 != null) return ((Number) r1).longValue();
 
-        // 2) pd + seller 일치 (buyer 미정 케이스 포함)
+        // 2) pd + seller + 진행중 (buyer 미정 포함)
         Object r2 = em.createNativeQuery("""
-            SELECT d_idx FROM deal
-             WHERE pd_idx = :pd AND seller_idx2 = :seller
-             LIMIT 1
-        """).setParameter("pd", productId)
+        SELECT d_idx FROM deal
+         WHERE pd_idx = :pd AND seller_idx2 = :seller
+           AND d_status = 0
+         LIMIT 1
+    """).setParameter("pd", productId)
                 .setParameter("seller", sellerId)
                 .getResultStream().findFirst().orElse(null);
         if (r2 != null) return ((Number) r2).longValue();
 
-        // 3) pd 일치 (deal.pd_idx UNIQUE 라서 1건이면 이것으로 연결)
+        // 3) pd + 진행중
         Object r3 = em.createNativeQuery("""
-            SELECT d_idx FROM deal
-             WHERE pd_idx = :pd
-             LIMIT 1
-        """).setParameter("pd", productId)
+        SELECT d_idx FROM deal
+         WHERE pd_idx = :pd
+           AND d_status = 0
+         LIMIT 1
+    """).setParameter("pd", productId)
                 .getResultStream().findFirst().orElse(null);
         if (r3 != null) return ((Number) r3).longValue();
 
+        // 진행중 deal이 없다면 연결하지 않음 (null 반환)
         return null;
     }
 
@@ -121,11 +125,12 @@ public class RoomService {
 
         return chatRoomRepository.findByChIdentifier(identifier)
                 .map(room -> {
-                    // 기존 방이면 updated만 갱신하고, d_idx 비어있으면 채워줌
                     room.setChUpdated(LocalDateTime.now());
-                    if (room.getDeal() == null && dealRef != null) {
-                        room.setDeal(dealRef);
-                        chatRoomRepository.save(room);
+                    if (dealRef != null) { // ✅ 진행중 deal만 넘어옴
+                        if (room.getDeal() == null || !room.getDeal().getDIdx().equals(dealRef.getDIdx())) {
+                            room.setDeal(dealRef);
+                            chatRoomRepository.save(room);
+                        }
                     }
                     return OpenChatRoomRes.builder()
                             .roomId(room.getChIdx())
