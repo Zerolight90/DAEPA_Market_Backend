@@ -29,9 +29,9 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         // ✅ 헬스체크 엔드포인트는 인증 없이 항상 허용
-                        .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/", "/ws-stomp/**", "/api/**", "/error", "oauth2/**", "/login/**").permitAll()
+                        .requestMatchers("/", "/ws-stomp/**", "/api/**", "/error", "/oauth2/**", "/login/**").permitAll()
                         .anyRequest().permitAll()
                 )
                 //oauth2를 위해 추가
