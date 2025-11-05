@@ -39,6 +39,7 @@ public class ChatRestController {
     private final ChatService chatService;
     private final S3Service s3Service; // ✅ 추가됨
     private final SimpMessagingTemplate broker;
+   
 
     /** 내 채팅방 목록 */
     @GetMapping("/my-rooms")
@@ -292,6 +293,8 @@ public class ChatRestController {
 
         return ResponseEntity.ok(ev);
     }
+
+
 
 
 

@@ -30,7 +30,7 @@ tmp/
 !.env.example          # ← 팀원용 예시 파일은 허용
 
 # --- 모든 .yml 차단 ---
-*.yml
+!*.yml
 
 # --- 하지만 아래 예시는 허용(팀원이 복사해서 씀) ---
 !*.example.yml         # ← 예: application-example.yml, docker-compose.example.yml 허용
