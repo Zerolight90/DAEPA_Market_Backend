@@ -1,3 +1,4 @@
+// src/main/java/com/daepamarket/daepa_market_backend/product/ProductService.java
 package com.daepamarket.daepa_market_backend.product;
 
 import com.daepamarket.daepa_market_backend.S3Service;
@@ -43,7 +44,7 @@ public class ProductService {
     private final S3Service s3Service;
     private final AlarmService alarmService;
 
-    // 아래 마이페이지 쪽에서 쓰던 애들
+    // 마이페이지 쪽에서 쓰던 것들
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
@@ -70,8 +71,38 @@ public class ProductService {
                 .toList();
 
         dto.setImageUrls(urls);
-
         return register(userIdx, dto);
+    }
+
+    // =========================================================
+    // 수정 (멀티파트) ← 새로 추가
+    // 이미지 바꾸면 기존 이미지 싹 지우고 새로 넣어준다
+    // =========================================================
+    @Transactional
+    public void updateMultipart(Long pdIdx, Long userIdx, ProductCreateDTO dto, List<MultipartFile> images) {
+        // 먼저 내 소유 상품인지 체크
+        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
+
+        // 이미지가 넘어왔으면 S3에 다시 올리고 dto 이미지 리스트를 새로 만든다
+        if (images != null && !images.isEmpty()) {
+            List<String> urls = images.stream()
+                    .map(file -> {
+                        try {
+                            return s3Service.uploadFile(file, "products");
+                        } catch (IOException e) {
+                            throw new RuntimeException("S3 업로드 중 오류 발생: " + file.getOriginalFilename(), e);
+                        }
+                    })
+                    .toList();
+            dto.setImageUrls(urls);
+
+            // 기존 이미지들은 일단 다 날린다 (물리 S3 삭제는 너네 정책대로)
+            List<ProductImageEntity> oldImages = imageRepo.findAllByProduct_PdIdx(pdIdx);
+            oldImages.forEach(imageRepo::delete);
+        }
+
+        // 공통 업데이트 로직 호출
+        updateProductInternal(product, dto);
     }
 
     // =========================================================
@@ -110,8 +141,8 @@ public class ProductService {
                         .pdRef(0)
                         .pdCreate(LocalDateTime.now())
                         .pdUpdate(LocalDateTime.now())
-                        .pdDel(false)                 // ✅ 소프트 삭제 기본값
-                        .pdRefdate(LocalDateTime.now()) // 끌어올리기 기준
+                        .pdDel(false)
+                        .pdRefdate(LocalDateTime.now())
                         .build()
         );
 
@@ -165,7 +196,6 @@ public class ProductService {
             String sort, int page, int size
     ) {
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        // ✅ 레포지토리에서 이미 pdDel=false 조건을 걸어줬음
         return productRepo.findAllByCategoryIds(upperId, middleId, lowId, pageable);
     }
 
@@ -175,12 +205,11 @@ public class ProductService {
             String sort, int page, int size
     ) {
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        // ✅ 여기도 레포에서 pdDel=false 처리됨
         return productRepo.findAllByNames(big, mid, sub, pageable);
     }
 
     // =========================================================
-    // 내 상품 목록 (이건 삭제 포함)
+    // 내 상품 목록
     // =========================================================
     public List<productMyPageDTO> getMyProductByUIdx(Long uIdx, Integer status) {
         UserEntity user = userRepository.findById(uIdx)
@@ -189,7 +218,7 @@ public class ProductService {
                                 "해당 회원이 없습니다. u_idx=" + uIdx)
                 );
 
-        log.info("getMyProductByUIdx uIdx={} -> user.u_id={}", uIdx, user.getUid());
+        log.info("/mypage uIdx={} -> user.u_id={}", uIdx, user.getUid());
 
         List<ProductEntity> products;
 
@@ -226,7 +255,6 @@ public class ProductService {
         ProductEntity product = productRepo.findById(pdIdx)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
 
-        // ✅ 소프트 삭제된 상품은 상세도 안 보이게
         if (product.isPdDel()) {
             throw new ResponseStatusException(HttpStatus.GONE, "삭제된 상품입니다.");
         }
@@ -266,7 +294,7 @@ public class ProductService {
                 .pdThumb(product.getPdThumb())
                 .images(imageUrls)
                 .sellerId(seller != null ? seller.getUIdx() : null)
-                // ✅ 프론트가 sellerName을 쓰니까 닉네임을 여기에 넣는다
+                // 프론트에서 sellerName 쓴다 했으니까 닉네임 넣어줌
                 .sellerName(seller != null ? seller.getUnickname() : null)
                 .sellerAvatar(seller != null ? seller.getUProfile() : null)
                 .sellerManner(sellerManner)
@@ -278,9 +306,29 @@ public class ProductService {
     }
 
     // =========================================================
+    // 연관 상품
+    // =========================================================
+    @Transactional(readOnly = true)
+    public List<ProductEntity> getRelatedProducts(Long pdIdx, int limit) {
+        ProductEntity base = productRepo.findById(pdIdx)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."));
+
+        if (base.isPdDel()) {
+            return List.of();
+        }
+
+        Long lowId = base.getCtLow() != null ? base.getCtLow().getLowIdx() : null;
+
+        return productRepo.findRelatedByLowIdExcludingSelf(
+                lowId,
+                pdIdx,
+                PageRequest.of(0, limit)
+        ).getContent();
+    }
+
+    // =========================================================
     // 오너 전용 액션들
     // =========================================================
-
     private ProductEntity getOwnedProduct(Long pdIdx, Long userIdx) {
         ProductEntity product = productRepo.findById(pdIdx)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."));
@@ -317,10 +365,18 @@ public class ProductService {
         });
     }
 
+    // JSON으로만 수정할 때 여기로 옴
     @Transactional
     public void updateProduct(Long pdIdx, Long userIdx, ProductCreateDTO dto) {
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
+        updateProductInternal(product, dto);
+    }
 
+    /**
+     * 등록/수정 공통 내부 로직
+     */
+    private void updateProductInternal(ProductEntity product, ProductCreateDTO dto) {
+        // 카테고리도 바꿀 수 있게 등록 때랑 똑같이 검증
         CtLowEntity low = ctLowRepo.findById(dto.getLowId())
                 .orElseThrow(() -> new IllegalArgumentException("하위 카테고리를 찾을 수 없습니다."));
         CtMiddleEntity middle = low.getMiddle();
@@ -339,8 +395,21 @@ public class ProductService {
         product.setPdStatus(dto.getPdStatus());
         product.setPdUpdate(LocalDateTime.now());
 
+        // 이미지가 dto 안에 있으면 그걸로 교체 (멀티파트 수정에서 들어온다)
         if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) {
             product.setPdThumb(dto.getImageUrls().get(0));
+
+            // 기존 이미지 전부 삭제 후 다시 저장하는 경우는 위의 updateMultipart 에서 한다
+            dto.getImageUrls().stream()
+                    .limit(10)
+                    .forEach(url -> imageRepo.save(
+                            ProductImageEntity.builder()
+                                    .product(product)
+                                    .imageUrl(url)
+                                    .createdAt(LocalDateTime.now())
+                                    .updatedAt(LocalDateTime.now())
+                                    .build()
+                    ));
         }
 
         productRepo.save(product);

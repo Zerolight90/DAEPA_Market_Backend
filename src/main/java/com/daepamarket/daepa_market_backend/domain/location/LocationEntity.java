@@ -30,5 +30,8 @@ public class LocationEntity {
 
     @Column(name = "loc_default", nullable = false)
     private boolean locDefault; // 기본 주소 여부
+
+    @Column(name = "loc_code", length = 100)
+    private String locCode; // 우편번호
 }
 

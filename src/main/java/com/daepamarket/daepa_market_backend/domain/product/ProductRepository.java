@@ -12,10 +12,6 @@ import java.util.List;
 
 public interface ProductRepository extends JpaRepository<ProductEntity, Long>, JpaSpecificationExecutor<ProductEntity> {
 
-    /**
-     * ✅ 카테고리 id들로 목록 조회할 때
-     *    → 삭제(p.dDel = true) 된 건 제외
-     */
     @Query("""
         SELECT p FROM ProductEntity p
           JOIN p.ctLow l
@@ -33,9 +29,6 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
-    /**
-     * ✅ 이름으로 필터할 때도 삭제된 상품은 제외
-     */
     @Query("""
            SELECT p FROM ProductEntity p
            WHERE (:big IS NULL OR p.ctLow.middle.upper.upperCt = :big)
@@ -50,10 +43,8 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
-    // 내 모든 상품 (마이페이지용이니까 삭제된 것도 보고 싶으면 이건 그대로)
     List<ProductEntity> findBySeller(UserEntity user);
 
-    // 상태에 따른 내 상품
     List<ProductEntity> findBySellerAndPdStatus(UserEntity user, int pdStatus);
 
     @Query("""
@@ -64,19 +55,16 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
        """)
     Page<ProductEntity> findPageBySellerId(@Param("sellerId") Long sellerId, Pageable pageable);
 
-    // ProductRepository.java
-
     @Query("""
-    SELECT p FROM ProductEntity p
-    WHERE p.pdDel = false
-      AND (:lowId IS NULL OR p.ctLow.lowIdx = :lowId)
-      AND p.pdIdx <> :excludeId
-    ORDER BY p.pdCreate DESC
-    """)
+        SELECT p FROM ProductEntity p
+        WHERE p.pdDel = false
+          AND (:lowId IS NULL OR p.ctLow.lowIdx = :lowId)
+          AND p.pdIdx <> :excludeId
+        ORDER BY p.pdCreate DESC
+        """)
     Page<ProductEntity> findRelatedByLowIdExcludingSelf(
             @Param("lowId") Long lowId,
             @Param("excludeId") Long excludeId,
             Pageable pageable
     );
-
 }
