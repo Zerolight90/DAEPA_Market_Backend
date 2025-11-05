@@ -140,5 +140,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: health # health 엔드포인트만 노출
+        include: health, info # health 엔드포인트만 노출
+      base-path: /actuator
+    endpoint:
+      health:
+        probes:
+          enabled: true
+        show-details: never
 
