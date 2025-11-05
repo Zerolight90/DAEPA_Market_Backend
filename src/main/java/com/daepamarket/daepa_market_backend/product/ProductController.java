@@ -11,7 +11,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,6 +67,35 @@ public class ProductController {
 
         Long id = productService.registerMultipart(userId, dto, images);
         return ResponseEntity.ok(id);
+    }
+
+    // ==========================
+    // 수정 (멀티파트) ← 새로 추가
+    // 등록이랑 똑같이 dto + images 로 온다
+    // ==========================
+    @PutMapping(value = "/{id}/update-multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateMultipart(
+            @PathVariable("id") Long id,
+            HttpServletRequest request,
+            @Valid @RequestPart("dto") ProductCreateDTO dto,
+            BindingResult br,
+            @RequestPart(value="images", required=false) List<MultipartFile> images
+    ) {
+        if (br.hasErrors()) {
+            var errors = br.getFieldErrors().stream()
+                    .map(e -> e.getField() + " : " + e.getDefaultMessage())
+                    .toList();
+            return ResponseEntity.badRequest().body(errors);
+        }
+
+        String token = resolveAccessToken(request);
+        if (token == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        }
+        Long userId = Long.valueOf(jwtProvider.getUid(token));
+
+        productService.updateMultipart(id, userId, dto, images);
+        return ResponseEntity.ok().build();
     }
 
     /**
@@ -129,13 +157,29 @@ public class ProductController {
     }
 
     // ==========================
-    // ✅ 단건 상세 조회
+    // 단건 상세 조회
     // ==========================
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     public ResponseEntity<ProductDetailDTO> getProduct(@PathVariable("id") Long id) {
         ProductDetailDTO dto = productService.getProductDetail(id);
         return ResponseEntity.ok(dto);
+    }
+
+    // ==========================
+    // 연관 상품 조회
+    // ==========================
+    @GetMapping("/{id}/related")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<ProductListDTO>> getRelated(
+            @PathVariable("id") Long id,
+            @RequestParam(name = "limit", defaultValue = "10") int limit
+    ) {
+        List<ProductEntity> related = productService.getRelatedProducts(id, limit);
+        List<ProductListDTO> dtoList = related.stream()
+                .map(this::toListDTO)
+                .toList();
+        return ResponseEntity.ok(dtoList);
     }
 
     // ==========================
@@ -154,7 +198,6 @@ public class ProductController {
         }
 
         String accessToken = auth.substring(7);
-
         Long uIdx = Long.valueOf(jwtProvider.getUid(accessToken));
         log.info("token -> uIdx = {}", uIdx);
 
@@ -162,12 +205,9 @@ public class ProductController {
     }
 
     // ==========================
-    // ✅ 여기부터 오너 전용 액션 4개
+    // 수정 (JSON만으로 하는 버전도 유지)
+    // 프론트에서 멀티파트로 보내면 위의 /update-multipart 쓰면 됨
     // ==========================
-
-    /**
-     * 수정: 등록 DTO를 그대로 받아서 업데이트
-     */
     @PutMapping("/{id}")
     public ResponseEntity<?> updateProduct(
             @PathVariable("id") Long id,
@@ -184,9 +224,9 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * 소프트 삭제: pd_del = true
-     */
+    // ==========================
+    // 소프트 삭제
+    // ==========================
     @PostMapping("/{id}/delete")
     public ResponseEntity<?> deleteProduct(
             @PathVariable("id") Long id,
@@ -202,9 +242,9 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * 끌어올리기: pd_refdate = now()
-     */
+    // ==========================
+    // 끌어올리기
+    // ==========================
     @PostMapping("/{id}/bump")
     public ResponseEntity<?> bumpProduct(
             @PathVariable("id") Long id,
@@ -220,9 +260,9 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * 판매완료: product.pdStatus = 1, deal.dSell = 1
-     */
+    // ==========================
+    // 판매완료
+    // ==========================
     @PostMapping("/{id}/complete")
     public ResponseEntity<?> completeProduct(
             @PathVariable("id") Long id,
@@ -239,7 +279,7 @@ public class ProductController {
     }
 
     // ==========================
-    // Entity -> 리스트 DTO
+    // Entity -> 리스트 DTO 변환
     // ==========================
     private ProductListDTO toListDTO(ProductEntity p) {
         String thumb = p.getPdThumb();
@@ -254,23 +294,5 @@ public class ProductController {
                 .pdLocation(p.getPdLocation())
                 .pdCreate(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
                 .build();
-    }
-    @Transactional(readOnly = true)
-    public List<ProductEntity> getRelatedProducts(Long pdIdx, int limit) {
-        // 1) 현재 상품
-        ProductEntity base = productRepository.findById(pdIdx)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."));
-
-        // 2) 삭제된 건 연관으로 안 보여주기
-        if (base.isPdDel()) {
-            return List.of();
-        }
-
-        Long lowId = base.getCtLow() != null ? base.getCtLow().getLowIdx() : null;
-
-        // 3) 같은 하위 카테고리 기준으로 뽑고, 자기 자신은 제외
-        //    이건 레포에 쿼리 하나만 더 만들면 돼
-        return productRepository.findRelatedByLowIdExcludingSelf(lowId, pdIdx, PageRequest.of(0, limit))
-                .getContent();
     }
 }

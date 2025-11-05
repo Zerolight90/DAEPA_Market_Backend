@@ -85,7 +85,9 @@ public class OauthController {
                         loc.getLocKey(),
                         loc.getLocAddress(),
                         loc.getLocDetail(),
-                        loc.isLocDefault()
+                        loc.isLocDefault(),
+                        loc.getLocCode()
+
                 )).toList()
         );
 
@@ -141,12 +143,14 @@ public class OauthController {
         // ✅ 주소가 전달됐다면 location 테이블에 추가
         if (StringUtils.hasText(dto.getLocation()) ||
                 StringUtils.hasText(dto.getAddressDetail()) ||
-                StringUtils.hasText(dto.getAddress())) {
+                StringUtils.hasText(dto.getAddress()) ||
+                StringUtils.hasText(dto.locCode)) {
 
             LocationEntity loc = LocationEntity.builder()
                     .user(user)
                     .locAddress(dto.getLocation())
                     .locDetail(dto.getAddressDetail())
+                    .locCode(dto.getLocCode())
                     .locDefault(true)
                     .build();
             locationRepository.save(loc);
@@ -193,9 +197,10 @@ public class OauthController {
         private String gender;
         private String birth;
 
-        private String address;        // 우편번호
+        private String address;        // 주소
         private String addressDetail;  // 상세주소
-        private String location;       // 실제 주소
+        private String location;       // 거래 주소
+        private String locCode;        // 우편번호
 
         private String provider;       // naver/kakao
         private String agree;          // "1" or "0"
@@ -220,7 +225,8 @@ public class OauthController {
                 Long locKey,
                 String locAddress,
                 String locDetail,
-                boolean locDefault
+                boolean locDefault,
+                String locCode
         ) {}
     }
 }

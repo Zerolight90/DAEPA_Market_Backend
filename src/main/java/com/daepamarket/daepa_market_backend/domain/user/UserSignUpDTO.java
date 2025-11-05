@@ -24,6 +24,8 @@ public class UserSignUpDTO {
 
     private String u_location_detail;
 
+    private String u_locCode;
+
     private String u_birth;
 
     private String u_gender;
