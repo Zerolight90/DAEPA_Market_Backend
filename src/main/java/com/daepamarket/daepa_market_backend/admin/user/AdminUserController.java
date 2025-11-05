@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.admin.user;
 
+import com.daepamarket.daepa_market_backend.admin.review.SaleReviewDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -8,6 +9,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+
+import java.util.List;
 import java.util.Map;
 
 
@@ -31,6 +34,11 @@ public class AdminUserController {
         Double umanner = request.get("umanner");
         adminUserService.updateManner(uIdx, umanner);
         return ResponseEntity.ok().body(Map.of("umanner", umanner));
+    }
+
+    @GetMapping("/users/{userId}/reviews/sell")
+    public List<SaleReviewDTO> getSellerReviews(@PathVariable Long userId) {
+        return adminUserService.getUserSaleReviews(userId);
     }
 
 }
