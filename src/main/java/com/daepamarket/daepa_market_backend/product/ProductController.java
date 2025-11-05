@@ -1,4 +1,3 @@
-// src/main/java/com/daepamarket/daepa_market_backend/product/ProductController.java
 package com.daepamarket.daepa_market_backend.product;
 
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
@@ -11,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +18,6 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
 import java.util.List;
 
@@ -36,12 +35,12 @@ public class ProductController {
     // ==========================
     // 등록 (멀티파트)
     // ==========================
-    @PostMapping(value="/create-multipart", consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/create-multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createMultipart(
             HttpServletRequest request,
             @Valid @RequestPart("dto") ProductCreateDTO dto,
             BindingResult br,
-            @RequestPart(value="images", required=false) List<MultipartFile> images
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) {
         if (br.hasErrors()) {
             var errors = br.getFieldErrors().stream()
@@ -58,28 +57,25 @@ public class ProductController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰 만료");
         }
 
-        Long userId;
-        try {
-            userId = Long.valueOf(jwtProvider.getUid(token));
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰");
-        }
+        Long userId = Long.valueOf(jwtProvider.getUid(token));
 
         Long id = productService.registerMultipart(userId, dto, images);
         return ResponseEntity.ok(id);
     }
 
-    // ==========================
-    // 수정 (멀티파트) ← 새로 추가
-    // 등록이랑 똑같이 dto + images 로 온다
-    // ==========================
-    @PutMapping(value = "/{id}/update-multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    /**
+     * ✅ 수정 (이미지 포함) - 프론트에서 POST /api/products/{id}/edit-multipart 로 보내는 걸 받는 엔드포인트
+     *    Content-Type: multipart/form-data
+     *    part dto: 기존 ProductCreateDTO 그대로
+     *    part images: 새로 업로드하는 파일들
+     */
+    @PostMapping(value = "/{id}/edit-multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateMultipart(
             @PathVariable("id") Long id,
             HttpServletRequest request,
             @Valid @RequestPart("dto") ProductCreateDTO dto,
             BindingResult br,
-            @RequestPart(value="images", required=false) List<MultipartFile> images
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) {
         if (br.hasErrors()) {
             var errors = br.getFieldErrors().stream()
@@ -205,8 +201,7 @@ public class ProductController {
     }
 
     // ==========================
-    // 수정 (JSON만으로 하는 버전도 유지)
-    // 프론트에서 멀티파트로 보내면 위의 /update-multipart 쓰면 됨
+    // 수정 (이미지 안 바꾸는 경우)
     // ==========================
     @PutMapping("/{id}")
     public ResponseEntity<?> updateProduct(
