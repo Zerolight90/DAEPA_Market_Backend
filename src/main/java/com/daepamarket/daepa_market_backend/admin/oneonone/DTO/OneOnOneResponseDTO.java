@@ -18,4 +18,5 @@ public class OneOnOneResponseDTO {
     private String photo;
     private Integer category;
     private LocalDate date;
+    private String status; // 프론트에서 쓰는 상태값
 }
