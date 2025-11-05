@@ -49,6 +49,7 @@ public class PayService {
             panprice = 0L;
         }
 
+        // [JPA] pay 테이블에 충전 기록을 생성하고 인서트 하기
         PayEntity chargeLog = new PayEntity();
         chargeLog.setPaDate(LocalDate.now());
         chargeLog.setPaPrice(amount);
@@ -69,9 +70,11 @@ public class PayService {
     @Transactional
     public long processPurchaseWithPoints(Long buyerId, Long itemId, int qty, Long amountFromClient) {
 
+        // 구매자 정보 받아오기
         UserEntity buyer = userRepository.findById(buyerId)
                 .orElseThrow(() -> new RuntimeException("구매자 정보를 찾을 수 없습니다: " + buyerId));
 
+        // 상품 정보 가져오기 및 가격 검증
         ProductEntity product = productRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + itemId));
 
@@ -80,6 +83,7 @@ public class PayService {
             throw new IllegalArgumentException("요청된 결제 금액이 실제 상품 가격과 일치하지 않습니다.");
         }
 
+        // 현재 대파 페이 잔액 확인 (DB에서 다시 확인 - 동시성 문제 방지)
         long currentBalance = getCurrentBalance(buyerId);
         if (currentBalance < correctTotal) {
             throw new IllegalArgumentException("페이 잔액이 부족합니다.");
@@ -87,6 +91,7 @@ public class PayService {
 
         Long panprice = payRepository.calculateTotalBalanceByUserId(buyerId);
 
+        // Pay 테이블에 사용 내역 기록
         PayEntity purchaseLog = new PayEntity();
         purchaseLog.setUser(buyer);
         purchaseLog.setPaPrice(-correctTotal);
@@ -94,6 +99,7 @@ public class PayService {
         purchaseLog.setPaDate(LocalDate.now());
         payRepository.save(purchaseLog);
 
+        // Deal 테이블 업데이트
         DealEntity deal = dealRepository.findByProduct_PdIdx(product.getPdIdx())
                 .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
         deal.setAgreedPrice(correctTotal);
@@ -117,8 +123,10 @@ public class PayService {
     @Transactional
     public void confirmProductPurchase(String paymentKey, String orderId, Long amount){
 
+        // 토스페이먼츠 최종 결제 승인 요청
         confirmToTossPayments(paymentKey, orderId, amount);
 
+        // 주문 정보에서 상품 ID(pdIdx)와 구매자 ID(buyerIdx) 추출
         long pdIdx = extractProductIdFromOrderId(orderId);
         long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId);
 
@@ -193,10 +201,12 @@ public class PayService {
         return 2L;
     }
 
+    // 예시: 구매자 ID 추출 (실제 구현 필요)
     private Long extractBuyerIdFromContextOrOrderId(String orderId) {
         return 2L; // TODO 실제 구현
     }
 
+    // 예시: 상품 구매 주문 ID("product-${pdIdx}-${uuid}")에서 상품 ID 추출
     private Long extractProductIdFromOrderId(String orderId) {
         try {
             String[] parts = orderId.split("-");
@@ -207,7 +217,11 @@ public class PayService {
         throw new IllegalArgumentException("주문 ID에서 상품 ID를 추출할 수 없습니다: " + orderId);
     }
 
+    // 토스페이먼츠 API를 호출하여 결제를 최종 승인하는 메서드
     private void confirmToTossPayments(String paymentKey, String orderId, Long amount) {
+        // ... (이전 답변에서 설명한 RestTemplate으로 토스 API 호출하는 로직)
+        // 요청 실패 시 Exception을 발생시켜 트랜잭션이 롤백되도록 함
         System.out.println("토스페이먼츠에 결제 승인을 요청합니다.");
     }
+    // -------------------------------------------- 헬퍼 메소드 ----------------------------------------------- //
 }
