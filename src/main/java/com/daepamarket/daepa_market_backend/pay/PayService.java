@@ -211,6 +211,42 @@ public class PayService {
         }
     }
 
+    @Transactional
+    public void confirmProductSecPurchase(String paymentKey, String orderId, Long amount){
+
+        // 토스페이먼츠 최종 결제 승인 요청
+        confirmToTossPayments(paymentKey, orderId, amount);
+
+        // 주문 정보에서 상품 ID(pdIdx)와 구매자 ID(buyerIdx) 추출
+        long pdIdx = extractProductIdFromOrderId(orderId);
+        long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId); // 실제 구매자 ID 가져오는 로직 필요
+
+        // 필요한 엔티티 조회
+        UserEntity buyer = userRepository.findById(buyerIdx)
+                .orElseThrow(() -> new RuntimeException("구매자 정보를 찾을 수 없습니다: " + buyerIdx));
+        DealEntity deal = dealRepository.findByProduct_PdIdx(pdIdx)
+                .orElseThrow(() -> new RuntimeException("해당 상품의 거래 정보를 찾을 수 없습니다: " + pdIdx));
+
+        // Deal 테이블 업데이트
+        deal.setAgreedPrice(amount); // 거래 가격
+        deal.setBuyer(buyer); // 거래 구매자
+        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
+        deal.setDBuy("구매확정 대기"); // 구매 상태 (예: 구매 확정 대기)
+        deal.setDSell("정산대기");    // 판매 상태
+        deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
+        deal.setPaymentKey(paymentKey);
+        deal.setOrderId(orderId);
+        dealRepository.save(deal);
+
+        // ✅ 채팅방 식별 후, 💸 시스템 메시지 발송
+        ProductEntity product = productRepository.findById(pdIdx)
+                .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + pdIdx));
+        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), pdIdx);
+        if (roomId != null) {
+            chatService.sendBuyerDeposited(roomId, buyerIdx, product.getPdTitle(), amount);
+        }
+    }
+
     // ✅ 판매자 “판매 확정” 시 시스템 메시지(📦) — 호출부에서 사용
     @Transactional
     public void confirmSellAndNotify(Long dealId, Long sellerId) {
