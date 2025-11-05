@@ -40,4 +40,9 @@ public class ProductDetailDTO {
     private String upperName;        // ✅ 상위 카테고리명
     private String middleName;       // ✅ 중위 카테고리명
     private String lowName;          // ✅ 하위 카테고리명
+
+    // 👇 추가
+    private Long upperId;
+    private Long middleId;
+    private Long lowId;
 }
