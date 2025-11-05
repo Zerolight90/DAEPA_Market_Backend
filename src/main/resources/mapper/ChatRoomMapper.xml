@@ -261,5 +261,13 @@
         ]]>
 </select>
 
+    <delete id="deleteRead">
+  <![CDATA[
+        DELETE FROM chat_reads
+        WHERE ch_idx = #{roomId}
+          AND cread_reader = #{userId}
+        ]]>
+</delete>
+
 
 </mapper>
