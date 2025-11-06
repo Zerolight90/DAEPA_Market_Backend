@@ -3,10 +3,6 @@ spring:
     activate:
       on-profile: dev
 
-  web:
-    resources:
-      static-locations: classpath:/static/, file:./${UPLOAD_DIR:uploads}/
-
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver # localhost:3306
     url: jdbc:mysql://${DB_HOST}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8&createDatabaseIfNotExist=true
@@ -47,7 +43,6 @@ app:
               - profile_image
             client-name: Naver
 
-
           # ✅ 카카오
           kakao:
             client-id: ${KAKAO_CLIENT_ID}          # 카카오 REST API 키
@@ -72,6 +67,3 @@ app:
             token-uri: https://kauth.kakao.com/oauth/token
             user-info-uri: https://kapi.kakao.com/v2/user/me
             user-name-attribute: id
-custom:
-  jwt:
-    secretKey: ${JWT_SECRET}
