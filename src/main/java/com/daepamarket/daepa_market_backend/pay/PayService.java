@@ -86,9 +86,6 @@ public class PayService {
         ProductEntity product = productRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + itemId));
 
-        UserEntity seller = product.getSeller();
-        Long sellerId = seller.getUIdx();
-
         long correctTotal = product.getPdPrice() * qty;
         if (!amountFromClient.equals(correctTotal)) {
             throw new IllegalArgumentException("요청된 결제 금액이 실제 상품 가격과 일치하지 않습니다.");
@@ -100,8 +97,8 @@ public class PayService {
                 .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
 
         // Deal 상태 검사
-        // d_status가 0L이 아니거나, d_sell이 판매완료인 경우
-        if (deal.getDStatus() != 0L || deal.getDSell() == 1L) {
+        // d_status가 0L이 아니거나, d_sell이 "판매완료"인 경우
+        if (deal.getDStatus() != 0L || "판매완료".equals(deal.getDSell())) {
             throw new IllegalStateException("이미 판매가 완료되었거나 거래가 불가능한 상품입니다.");
         }
 
@@ -112,40 +109,31 @@ public class PayService {
         }
 
         Long panprice = payRepository.calculateTotalBalanceByUserId(buyerId);
-        Long sellerPanprice = payRepository.calculateTotalBalanceByUserId(sellerId);
 
         // Pay 테이블에 사용 내역 기록
         PayEntity purchaseLog = new PayEntity();
         purchaseLog.setUser(buyer); // 구매자 유저 설정
         purchaseLog.setPaPrice(-correctTotal); // 사용 금액이므로 음수로 기록
-        purchaseLog.setPaNprice(panprice - correctTotal); // 현재 잔액 계산해 설정하기
+        purchaseLog.setPaNprice(panprice + correctTotal); // 현재 잔액 계산해 설정하기
         purchaseLog.setPaDate(LocalDate.now()); // 결제 날짜 저장
         payRepository.save(purchaseLog);
-
-        // Pay 테이블에 판매자 내역도 기록
-        PayEntity sellerLog = new PayEntity();
-        sellerLog.setUser(seller);
-        sellerLog.setPaPrice(correctTotal);
-        sellerLog.setPaNprice(sellerPanprice + correctTotal); // 현재 잔액 계산해 설정하기
-        sellerLog.setPaDate(LocalDate.now()); // 결제 날짜 저장
-        payRepository.save(sellerLog);
 
         // Deal 테이블 업데이트
         deal = dealRepository.findByProduct_PdIdx(product.getPdIdx())
                 .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
-        deal.setAgreedPrice(correctTotal); // 실제 거래된 가격
-        deal.setBuyer(buyer); // 구매자 설정
-        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각 설정
-        deal.setDBuy(1L); // 페이 구매 상태
-        deal.setDSell(1L); // 페이 판매 상태
-        deal.setDStatus(1L); // 결제 상태
+        deal.setAgreedPrice(correctTotal);
+        deal.setBuyer(buyer);
+        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now()));
+        deal.setDBuy("구매확정대기");
+        deal.setDSell("판매완료");
+        deal.setDStatus(1L);
         dealRepository.save(deal);
 
         // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
-//        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
-//        if (roomId != null) {
-//            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
-//        }
+        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
+        if (roomId != null) {
+            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
+        }
 
         return currentBalance - correctTotal;
     }
@@ -167,13 +155,12 @@ public class PayService {
         DealEntity deal = dealRepository.findByProduct_PdIdx(pdIdx)
                 .orElseThrow(() -> new RuntimeException("해당 상품의 거래 정보를 찾을 수 없습니다: " + pdIdx));
 
-        // Deal 테이블 업데이트
-        deal.setAgreedPrice(amount); // 거래 가격
-        deal.setBuyer(buyer); // 거래 구매자
-        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
-        deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
-        deal.setDSell(1L);    // 판매 상태
-        deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
+        deal.setAgreedPrice(amount);
+        deal.setBuyer(buyer);
+        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now()));
+        deal.setDBuy("구매확정 대기");
+        deal.setDSell("판매완료");
+        deal.setDStatus(0L);
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
         dealRepository.save(deal);
@@ -185,82 +172,6 @@ public class PayService {
         if (roomId != null) {
             chatService.sendBuyerDeposited(roomId, buyerIdx, product.getPdTitle(), amount);
         }
-    }
-
-    // 대파페이 안전결제
-    @Transactional
-    public long processSecPurchaseWithPoints(Long buyerId, Long itemId, int qty, Long amountFromClient) {
-        // 구매자 정보 받아오기
-        UserEntity buyer = userRepository.findById(buyerId)
-                .orElseThrow(() -> new RuntimeException("구매자 정보를 찾을 수 없습니다: " + buyerId));
-
-        // 상품 정보 가져오기 및 가격 검증
-        ProductEntity product = productRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + itemId));
-
-        UserEntity seller = product.getSeller();
-        Long sellerId = seller.getUIdx();
-
-        long correctTotal = product.getPdPrice() * qty;
-        if (!amountFromClient.equals(correctTotal)) {
-            throw new IllegalArgumentException("요청된 결제 금액이 실제 상품 가격과 일치하지 않습니다.");
-        }
-
-        // Deal 엔티티를 비관적 락으로 조회
-        // 이 시점부터 다른 트랜잭션이 이 Deal 레코드를 수정할 수 없음
-        DealEntity deal = dealRepository.findWithWriteLockByProduct_PdIdx(product.getPdIdx())
-                .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
-
-        // Deal 상태 검사
-        // d_status가 0L이 아니거나, d_sell이 판매완료인 경우
-        if (deal.getDStatus() != 0L || deal.getDSell() == 1L) {
-            throw new IllegalStateException("이미 판매가 완료되었거나 거래가 불가능한 상품입니다.");
-        }
-
-        // 현재 대파 페이 잔액 확인 (DB에서 다시 확인 - 동시성 문제 방지)
-        long currentBalance = getCurrentBalance(buyerId);
-        if (currentBalance < correctTotal) {
-            throw new IllegalArgumentException("페이 잔액이 부족합니다.");
-        }
-
-        // 일반결제와 다르게 구매자가 구매 확정을 누르는 부분에서 해당 내용이 수행되어야 함
-//        Long panprice = payRepository.calculateTotalBalanceByUserId(buyerId);
-//        Long sellerPanprice = payRepository.calculateTotalBalanceByUserId(sellerId);
-//
-//        // Pay 테이블에 사용 내역 기록
-//        PayEntity purchaseLog = new PayEntity();
-//        purchaseLog.setUser(buyer); // 구매자 유저 설정
-//        purchaseLog.setPaPrice(-correctTotal); // 사용 금액이므로 음수로 기록
-//        purchaseLog.setPaNprice(panprice - correctTotal); // 현재 잔액 계산해 설정하기
-//        purchaseLog.setPaDate(LocalDate.now()); // 결제 날짜 저장
-//        payRepository.save(purchaseLog);
-//
-//        // Pay 테이블에 판매자 내역도 기록
-//        PayEntity sellerLog = new PayEntity();
-//        sellerLog.setUser(seller);
-//        sellerLog.setPaPrice(correctTotal);
-//        sellerLog.setPaNprice(sellerPanprice + correctTotal); // 현재 잔액 계산해 설정하기
-//        sellerLog.setPaDate(LocalDate.now()); // 결제 날짜 저장
-//        payRepository.save(sellerLog);
-
-        // Deal 테이블 업데이트
-        deal = dealRepository.findByProduct_PdIdx(product.getPdIdx())
-                .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
-        deal.setAgreedPrice(correctTotal); // 실제 거래된 가격
-        deal.setBuyer(buyer); // 구매자 설정
-        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각 설정
-        deal.setDBuy(1L); // 페이 구매 상태
-        deal.setDSell(1L); // 페이 판매 상태
-        deal.setDStatus(1L); // 결제 상태
-        dealRepository.save(deal);
-
-        // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
-//        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
-//        if (roomId != null) {
-//            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
-//        }
-
-        return currentBalance - correctTotal;
     }
 
     @Transactional
@@ -283,8 +194,8 @@ public class PayService {
         deal.setAgreedPrice(amount); // 거래 가격
         deal.setBuyer(buyer); // 거래 구매자
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
-        deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
-        deal.setDSell(1L);    // 판매 상태
+        deal.setDBuy("구매확정 대기"); // 구매 상태 (예: 구매 확정 대기)
+        deal.setDSell("정산대기");    // 판매 상태
         deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
@@ -351,9 +262,7 @@ public class PayService {
 
     // 예시: 구매자 ID 추출 (실제 구현 필요)
     private Long extractBuyerIdFromContextOrOrderId(String orderId) {
-        // TODO: Spring Security Context Holder에서 현재 로그인 사용자 ID를 가져오거나,
-        // orderId 생성 시 구매자 정보를 포함시키는 등 실제 구매자 ID를 가져오는 로직 구현 필요
-        return 2L; // 임시 구매자 ID
+        return 2L; // TODO 실제 구현
     }
 
     // 예시: 상품 구매 주문 ID("product-${pdIdx}-${uuid}")에서 상품 ID 추출
@@ -373,4 +282,5 @@ public class PayService {
         // 요청 실패 시 Exception을 발생시켜 트랜잭션이 롤백되도록 함
         System.out.println("토스페이먼츠에 결제 승인을 요청합니다.");
     }
+    // -------------------------------------------- 헬퍼 메소드 ----------------------------------------------- //
 }
