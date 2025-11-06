@@ -349,7 +349,7 @@ public class ProductService {
                 .pdLocation(product.getPdLocation())
                 .location(product.getPdLocation())
                 .pdStatus(product.getPdStatus())
-                .dDeal(dDeal)
+                .ddeal(dDeal)
                 .pdThumb(product.getPdThumb())
                 .images(imageUrls)
                 .sellerId(seller != null ? seller.getUIdx() : null)
