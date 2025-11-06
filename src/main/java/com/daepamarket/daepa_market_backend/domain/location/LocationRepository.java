@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface LocationRepository extends JpaRepository<LocationEntity, Long> {
     List<LocationEntity> findByUser(UserEntity user);
+
+    long countByUser(UserEntity user);
 }

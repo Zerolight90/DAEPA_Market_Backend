@@ -33,5 +33,15 @@ public class LocationEntity {
 
     @Column(name = "loc_code", length = 100)
     private String locCode; // 우편번호
+
+    @Column(name = "loc_title", length = 100)
+    private String locTitle; // 제목
+
+    @Column(name = "loc_name", length = 100)
+    private String locName; // 받는분
+
+    @Column(name = "loc_num", length = 100)
+    private String locNum; // 받는분 전화번호
+
 }
 
