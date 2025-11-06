@@ -1,4 +1,3 @@
-// src/main/java/com/daepamarket/daepa_market_backend/product/ProductService.java
 package com.daepamarket.daepa_market_backend.product;
 
 import com.daepamarket.daepa_market_backend.S3Service;
@@ -27,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -44,7 +44,7 @@ public class ProductService {
     private final S3Service s3Service;
     private final AlarmService alarmService;
 
-    // 마이페이지 쪽에서 쓰던 것들
+    // 마이페이지 쪽
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
@@ -62,8 +62,7 @@ public class ProductService {
         List<String> urls = images.stream()
                 .map(file -> {
                     try {
-                        String folder = "products";
-                        return s3Service.uploadFile(file, folder);
+                        return s3Service.uploadFile(file, "products");
                     } catch (IOException e) {
                         throw new RuntimeException("S3 업로드 중 오류 발생: " + file.getOriginalFilename(), e);
                     }
@@ -75,38 +74,7 @@ public class ProductService {
     }
 
     // =========================================================
-    // 수정 (멀티파트) ← 새로 추가
-    // 이미지 바꾸면 기존 이미지 싹 지우고 새로 넣어준다
-    // =========================================================
-    @Transactional
-    public void updateMultipart(Long pdIdx, Long userIdx, ProductCreateDTO dto, List<MultipartFile> images) {
-        // 먼저 내 소유 상품인지 체크
-        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
-
-        // 이미지가 넘어왔으면 S3에 다시 올리고 dto 이미지 리스트를 새로 만든다
-        if (images != null && !images.isEmpty()) {
-            List<String> urls = images.stream()
-                    .map(file -> {
-                        try {
-                            return s3Service.uploadFile(file, "products");
-                        } catch (IOException e) {
-                            throw new RuntimeException("S3 업로드 중 오류 발생: " + file.getOriginalFilename(), e);
-                        }
-                    })
-                    .toList();
-            dto.setImageUrls(urls);
-
-            // 기존 이미지들은 일단 다 날린다 (물리 S3 삭제는 너네 정책대로)
-            List<ProductImageEntity> oldImages = imageRepo.findAllByProduct_PdIdx(pdIdx);
-            oldImages.forEach(imageRepo::delete);
-        }
-
-        // 공통 업데이트 로직 호출
-        updateProductInternal(product, dto);
-    }
-
-    // =========================================================
-    // 등록 (기존)
+    // 등록
     // =========================================================
     @Transactional
     public Long register(Long userIdx, ProductCreateDTO dto) {
@@ -114,7 +82,6 @@ public class ProductService {
         UserEntity seller = userRepo.findById(userIdx)
                 .orElseThrow(() -> new IllegalArgumentException("판매자를 찾을 수 없습니다."));
 
-        // 카테고리 검증
         CtLowEntity low = ctLowRepo.findById(dto.getLowId())
                 .orElseThrow(() -> new IllegalArgumentException("하위 카테고리를 찾을 수 없습니다."));
         CtMiddleEntity middle = low.getMiddle();
@@ -165,15 +132,14 @@ public class ProductService {
         ProductEntity savedProduct = productRepo.save(product);
         alarmService.createAlarmsForMatchingProduct(savedProduct);
 
-        // 거래 기본값 저장
+        // 거래 기본값
         DealEntity deal = DealEntity.builder()
                 .product(product)
                 .seller(seller)
                 .buyer(null)
                 .dDeal(dto.getDDeal())
-                .dStatus(0L) // 판매중
-                .dBuy(0L)
-                .dSell(0L)
+                .dStatus(0L)
+                .dSell(0L)             // ✅ 등록 시 기본값 0
                 .build();
         dealRepo.save(deal);
 
@@ -181,17 +147,122 @@ public class ProductService {
     }
 
     // =========================================================
-    // 목록 조회 (삭제 제외)
+    // ✅ 수정 (이미지 포함) – DTO는 그대로 사용
     // =========================================================
-    private Sort resolveSort(String sort) {
-        String key = (sort == null || sort.isBlank()) ? "recent" : sort;
-        return switch (key) {
-            case "price_asc"  -> Sort.by(Sort.Direction.ASC, "pdPrice");
-            case "price_desc" -> Sort.by(Sort.Direction.DESC, "pdPrice");
-            default           -> Sort.by(Sort.Direction.DESC, "pdCreate");
-        };
+    @Transactional
+    public void updateMultipart(Long pdIdx, Long userIdx, ProductCreateDTO dto, List<MultipartFile> images) {
+
+        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
+
+        // 프론트에서 안 지운 기존 이미지들
+        List<String> finalImageUrls = new ArrayList<>();
+        if (dto.getImageUrls() != null) {
+            finalImageUrls.addAll(dto.getImageUrls());
+        }
+
+        // 새 파일이 있으면 업로드해서 뒤에 붙인다
+        if (images != null && !images.isEmpty()) {
+            for (MultipartFile file : images) {
+                if (file.isEmpty()) continue;
+                try {
+                    String url = s3Service.uploadFile(file, "products");
+                    finalImageUrls.add(url);
+                } catch (IOException e) {
+                    throw new RuntimeException("이미지 업로드 실패: " + file.getOriginalFilename(), e);
+                }
+            }
+        }
+
+        // 공통 수정 로직
+        updateProductInternal(product, dto, finalImageUrls);
     }
 
+    // =========================================================
+    // 수정 (이미지 안 바꾸는 경우)
+    // =========================================================
+    @Transactional
+    public void updateProduct(Long pdIdx, Long userIdx, ProductCreateDTO dto) {
+        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
+
+        // DB에 있는 현재 이미지들 그대로 가져옴
+        List<String> currentImageUrls = imageRepo.findAllByProduct_PdIdx(pdIdx)
+                .stream()
+                .map(ProductImageEntity::getImageUrl)
+                .toList();
+
+        updateProductInternal(product, dto, new ArrayList<>(currentImageUrls));
+    }
+
+    // =========================================================
+    // 실제 수정 내부 로직 (카테고리/이미지/거래방식 다 여기서)
+    // =========================================================
+    private void updateProductInternal(ProductEntity product, ProductCreateDTO dto, List<String> finalImageUrls) {
+
+        // 카테고리 검증
+        CtLowEntity low = ctLowRepo.findById(dto.getLowId())
+                .orElseThrow(() -> new IllegalArgumentException("하위 카테고리를 찾을 수 없습니다."));
+        CtMiddleEntity middle = low.getMiddle();
+        if (middle == null || !middle.getMiddleIdx().equals(dto.getMiddleId())) {
+            throw new IllegalArgumentException("중위 카테고리가 하위와 일치하지 않습니다.");
+        }
+        if (middle.getUpper() == null || !middle.getUpper().getUpperIdx().equals(dto.getUpperId())) {
+            throw new IllegalArgumentException("상위 카테고리가 중위와 일치하지 않습니다.");
+        }
+
+        // 기본 필드
+        product.setCtLow(low);
+        product.setPdTitle(dto.getTitle());
+        product.setPdContent(dto.getContent());
+        product.setPdPrice(dto.getPrice());
+        product.setPdLocation(dto.getLocation());
+        product.setPdStatus(dto.getPdStatus());
+        product.setPdUpdate(LocalDateTime.now());
+
+        // 대표 이미지
+        if (!finalImageUrls.isEmpty()) {
+            product.setPdThumb(finalImageUrls.get(0));
+        } else {
+            product.setPdThumb(null);
+        }
+
+        // 이미지 테이블 동기화
+        List<ProductImageEntity> currentImages = imageRepo.findAllByProduct_PdIdx(product.getPdIdx());
+
+        // 1) 현재 DB에 있는데 프론트에서 안 보낸 건 삭제 (X 눌렀던 것들)
+        for (ProductImageEntity img : currentImages) {
+            if (!finalImageUrls.contains(img.getImageUrl())) {
+                imageRepo.delete(img);
+            }
+        }
+
+        // 2) 프론트에서 보냈는데 DB에 없는 건 새로 insert
+        for (String url : finalImageUrls) {
+            boolean exists = currentImages.stream()
+                    .anyMatch(ci -> ci.getImageUrl().equals(url));
+            if (!exists) {
+                imageRepo.save(
+                        ProductImageEntity.builder()
+                                .product(product)
+                                .imageUrl(url)
+                                .createdAt(LocalDateTime.now())
+                                .updatedAt(LocalDateTime.now())
+                                .build()
+                );
+            }
+        }
+
+        productRepo.save(product);
+
+        // ✅ 거래방식도 같이 반영
+        dealRepo.findByProduct_PdIdx(product.getPdIdx()).ifPresent(deal -> {
+            deal.setDDeal(dto.getDDeal());
+            dealRepo.save(deal);
+        });
+    }
+
+    // =========================================================
+    // 이하 원래 있는 메소드들
+    // =========================================================
     @Transactional(readOnly = true)
     public Page<ProductEntity> getProductsByIds(
             Long upperId, Long middleId, Long lowId,
@@ -210,26 +281,15 @@ public class ProductService {
         return productRepo.findAllByNames(big, mid, sub, pageable);
     }
 
-    // =========================================================
-    // 내 상품 목록
-    // =========================================================
     public List<productMyPageDTO> getMyProductByUIdx(Long uIdx, Integer status) {
         UserEntity user = userRepository.findById(uIdx)
-                .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                "해당 회원이 없습니다. u_idx=" + uIdx)
-                );
-
-        log.info("/mypage uIdx={} -> user.u_id={}", uIdx, user.getUid());
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 회원이 없습니다. u_idx=" + uIdx));
 
         List<ProductEntity> products;
-
         if (status != null && (status == 0 || status == 1)) {
             products = productRepository.findBySellerAndPdStatus(user, status);
-            log.info("status={} 인 상품 {}개", status, products.size());
         } else {
             products = productRepository.findBySeller(user);
-            log.info("전체 상품 {}개", products.size());
         }
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -279,10 +339,7 @@ public class ProductService {
         DealEntity deal = dealRepo.findByProduct_PdIdx(pdIdx).orElse(null);
         String dDeal = (deal != null) ? deal.getDDeal() : null;
 
-        Double sellerManner = null;
-        if (seller != null) {
-            sellerManner = seller.getUManner();
-        }
+        Double sellerManner = seller != null ? seller.getUManner() : null;
 
         return ProductDetailDTO.builder()
                 .pdIdx(product.getPdIdx())
@@ -292,18 +349,24 @@ public class ProductService {
                 .pdLocation(product.getPdLocation())
                 .location(product.getPdLocation())
                 .pdStatus(product.getPdStatus())
-                .dDeal(dDeal)
+                .ddeal(dDeal)
                 .pdThumb(product.getPdThumb())
                 .images(imageUrls)
                 .sellerId(seller != null ? seller.getUIdx() : null)
-                // 프론트에서 sellerName 쓴다 했으니까 닉네임 넣어줌
                 .sellerName(seller != null ? seller.getUnickname() : null)
                 .sellerAvatar(seller != null ? seller.getUProfile() : null)
                 .sellerManner(sellerManner)
                 .upperName(upperName)
                 .middleName(middleName)
                 .lowName(lowName)
+                .upperId(middle != null && middle.getUpper() != null ? middle.getUpper().getUpperIdx() : null)
+                .middleId(middle != null ? middle.getMiddleIdx() : null)
+                .lowId(low != null ? low.getLowIdx() : null)
                 .pdCreate(product.getPdCreate() != null ? product.getPdCreate().toString() : null)
+                // 👇 여기 세 줄이 포인트
+                .ddeal(deal != null ? deal.getDDeal() : null)
+                .dsell(deal != null ? deal.getDSell() : null)
+                .dstatus(deal != null ? deal.getDStatus() : null)
                 .build();
     }
 
@@ -329,7 +392,42 @@ public class ProductService {
     }
 
     // =========================================================
-    // 오너 전용 액션들
+    // 소프트 삭제
+    // =========================================================
+    @Transactional
+    public void softDeleteProduct(Long pdIdx, Long userIdx) {
+        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
+        product.setPdDel(true);
+        productRepo.save(product);
+    }
+
+    // =========================================================
+    // 끌어올리기
+    // =========================================================
+    @Transactional
+    public void bumpProduct(Long pdIdx, Long userIdx) {
+        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
+        product.setPdRefdate(LocalDateTime.now());
+        productRepo.save(product);
+    }
+
+    // =========================================================
+    // 판매완료
+    // =========================================================
+    @Transactional
+    public void completeProduct(Long pdIdx, Long userIdx) {
+        // 본인 상품인지 확인
+        getOwnedProduct(pdIdx, userIdx);
+
+        dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
+            deal.setDSell(1L);
+            deal.setDStatus(1L);
+            dealRepo.save(deal);
+        });
+    }
+
+    // =========================================================
+    // 공통: 내 상품인지 확인
     // =========================================================
     private ProductEntity getOwnedProduct(Long pdIdx, Long userIdx) {
         ProductEntity product = productRepo.findById(pdIdx)
@@ -340,80 +438,16 @@ public class ProductService {
         return product;
     }
 
-    @Transactional
-    public void softDeleteProduct(Long pdIdx, Long userIdx) {
-        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
-        product.setPdDel(true);
-        productRepo.save(product);
-    }
-
-    @Transactional
-    public void bumpProduct(Long pdIdx, Long userIdx) {
-        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
-        product.setPdRefdate(LocalDateTime.now());
-        productRepo.save(product);
-    }
-
-    @Transactional
-    public void completeProduct(Long pdIdx, Long userIdx) {
-        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
-        product.setPdStatus(1); // 판매완료
-        productRepo.save(product);
-
-        dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
-            deal.setDSell(1L);
-            deal.setDStatus(1L);
-            dealRepo.save(deal);
-        });
-    }
-
-    // JSON으로만 수정할 때 여기로 옴
-    @Transactional
-    public void updateProduct(Long pdIdx, Long userIdx, ProductCreateDTO dto) {
-        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
-        updateProductInternal(product, dto);
-    }
-
-    /**
-     * 등록/수정 공통 내부 로직
-     */
-    private void updateProductInternal(ProductEntity product, ProductCreateDTO dto) {
-        // 카테고리도 바꿀 수 있게 등록 때랑 똑같이 검증
-        CtLowEntity low = ctLowRepo.findById(dto.getLowId())
-                .orElseThrow(() -> new IllegalArgumentException("하위 카테고리를 찾을 수 없습니다."));
-        CtMiddleEntity middle = low.getMiddle();
-        if (middle == null || !middle.getMiddleIdx().equals(dto.getMiddleId())) {
-            throw new IllegalArgumentException("중위 카테고리가 하위와 일치하지 않습니다.");
-        }
-        if (middle.getUpper() == null || !middle.getUpper().getUpperIdx().equals(dto.getUpperId())) {
-            throw new IllegalArgumentException("상위 카테고리가 중위와 일치하지 않습니다.");
-        }
-
-        product.setCtLow(low);
-        product.setPdTitle(dto.getTitle());
-        product.setPdContent(dto.getContent());
-        product.setPdPrice(dto.getPrice());
-        product.setPdLocation(dto.getLocation());
-        product.setPdStatus(dto.getPdStatus());
-        product.setPdUpdate(LocalDateTime.now());
-
-        // 이미지가 dto 안에 있으면 그걸로 교체 (멀티파트 수정에서 들어온다)
-        if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) {
-            product.setPdThumb(dto.getImageUrls().get(0));
-
-            // 기존 이미지 전부 삭제 후 다시 저장하는 경우는 위의 updateMultipart 에서 한다
-            dto.getImageUrls().stream()
-                    .limit(10)
-                    .forEach(url -> imageRepo.save(
-                            ProductImageEntity.builder()
-                                    .product(product)
-                                    .imageUrl(url)
-                                    .createdAt(LocalDateTime.now())
-                                    .updatedAt(LocalDateTime.now())
-                                    .build()
-                    ));
-        }
-
-        productRepo.save(product);
+    // =========================================================
+    // 정렬 기준
+    // =========================================================
+    private Sort resolveSort(String sort) {
+        String key = (sort == null || sort.isBlank()) ? "recent" : sort;
+        return switch (key) {
+            case "price_asc"  -> Sort.by(Sort.Direction.ASC, "pdPrice");
+            case "price_desc" -> Sort.by(Sort.Direction.DESC, "pdPrice");
+            default -> Sort.by(Sort.Direction.DESC, "pdRefdate")
+                    .and(Sort.by(Sort.Direction.DESC, "pdCreate"));
+        };
     }
 }

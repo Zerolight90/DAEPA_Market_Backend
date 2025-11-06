@@ -1,0 +1,44 @@
+package com.daepamarket.daepa_market_backend.admin.naga;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/admin/reports")
+public class NagaReportController {
+
+    private final NagaReportService reportService;
+
+    @GetMapping
+    public ResponseEntity<List<NagaReportDTO>> getReports() {
+        return ResponseEntity.ok(reportService.getAllReports());
+    }
+
+    @PostMapping("/{reportId}/suspend")
+    public ResponseEntity<?> suspendUser(
+            @PathVariable Long reportId,
+            @RequestBody StopDTO dto
+    ) {
+        reportService.suspendUser(reportId, dto);
+        return ResponseEntity.ok("정지 처리 완료");
+    }
+
+    @PostMapping("/{reportId}/activate")
+    public ResponseEntity<?> activateUser(@PathVariable Long reportId) {
+        reportService.activateUser(reportId);
+        return ResponseEntity.ok("사용자 활성화 완료");
+    }
+
+    @PostMapping("/{reportId}/ban")
+    public ResponseEntity<?> banUser(
+            @PathVariable Long reportId,
+            @RequestBody GetOutDTO dto
+    ) {
+        reportService.banUser(reportId, dto);
+        return ResponseEntity.ok("탈퇴 처리 완료");
+    }
+}
