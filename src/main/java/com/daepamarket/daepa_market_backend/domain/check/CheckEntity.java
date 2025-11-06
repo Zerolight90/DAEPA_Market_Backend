@@ -12,9 +12,6 @@ public class CheckEntity {
     @Column(name = "ck_idx")
     private Long ckIdx;
 
-    @Column(name = "d_idx")
-    private Long dIdx;
-
     @Column(name = "ck_status")
     private Integer ckStatus;
 }

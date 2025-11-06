@@ -139,6 +139,7 @@ public class ProductService {
                 .buyer(null)
                 .dDeal(dto.getDDeal())
                 .dStatus(0L)
+                .dSell(0L)             // ✅ 등록 시 기본값 0
                 .build();
         dealRepo.save(deal);
 
@@ -262,21 +263,6 @@ public class ProductService {
     // =========================================================
     // 이하 원래 있는 메소드들
     // =========================================================
-    private Sort resolveSort(String sort) {
-        String key = (sort == null || sort.isBlank()) ? "recent" : sort;
-        return switch (key) {
-            case "price_asc"  -> Sort.by(Sort.Direction.ASC, "pdPrice");
-            case "price_desc" -> Sort.by(Sort.Direction.DESC, "pdPrice");
-            default ->
-                // 👇 끌어올린 시간 먼저, 그 다음 등록일
-                    Sort.by(Sort.Direction.DESC, "pdRefdate")
-                            .and(Sort.by(Sort.Direction.DESC, "pdCreate"));
-        };
-    }
-
-
-
-
     @Transactional(readOnly = true)
     public Page<ProductEntity> getProductsByIds(
             Long upperId, Long middleId, Long lowId,
@@ -322,6 +308,9 @@ public class ProductService {
                 .toList();
     }
 
+    // =========================================================
+    // 단건 상세
+    // =========================================================
     @Transactional(readOnly = true)
     public ProductDetailDTO getProductDetail(Long pdIdx) {
 
@@ -350,10 +339,7 @@ public class ProductService {
         DealEntity deal = dealRepo.findByProduct_PdIdx(pdIdx).orElse(null);
         String dDeal = (deal != null) ? deal.getDDeal() : null;
 
-        Double sellerManner = null;
-        if (seller != null) {
-            sellerManner = seller.getUManner();
-        }
+        Double sellerManner = seller != null ? seller.getUManner() : null;
 
         return ProductDetailDTO.builder()
                 .pdIdx(product.getPdIdx())
@@ -363,7 +349,7 @@ public class ProductService {
                 .pdLocation(product.getPdLocation())
                 .location(product.getPdLocation())
                 .pdStatus(product.getPdStatus())
-                .dDeal(dDeal)
+                .ddeal(dDeal)
                 .pdThumb(product.getPdThumb())
                 .images(imageUrls)
                 .sellerId(seller != null ? seller.getUIdx() : null)
@@ -377,9 +363,16 @@ public class ProductService {
                 .middleId(middle != null ? middle.getMiddleIdx() : null)
                 .lowId(low != null ? low.getLowIdx() : null)
                 .pdCreate(product.getPdCreate() != null ? product.getPdCreate().toString() : null)
+                // 👇 여기 세 줄이 포인트
+                .ddeal(deal != null ? deal.getDDeal() : null)
+                .dsell(deal != null ? deal.getDSell() : null)
+                .dstatus(deal != null ? deal.getDStatus() : null)
                 .build();
     }
 
+    // =========================================================
+    // 연관 상품
+    // =========================================================
     @Transactional(readOnly = true)
     public List<ProductEntity> getRelatedProducts(Long pdIdx, int limit) {
         ProductEntity base = productRepo.findById(pdIdx)
@@ -398,6 +391,9 @@ public class ProductService {
         ).getContent();
     }
 
+    // =========================================================
+    // 소프트 삭제
+    // =========================================================
     @Transactional
     public void softDeleteProduct(Long pdIdx, Long userIdx) {
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
@@ -405,6 +401,9 @@ public class ProductService {
         productRepo.save(product);
     }
 
+    // =========================================================
+    // 끌어올리기
+    // =========================================================
     @Transactional
     public void bumpProduct(Long pdIdx, Long userIdx) {
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
@@ -412,19 +411,24 @@ public class ProductService {
         productRepo.save(product);
     }
 
+    // =========================================================
+    // 판매완료
+    // =========================================================
     @Transactional
     public void completeProduct(Long pdIdx, Long userIdx) {
-        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
-        product.setPdStatus(1);
-        productRepo.save(product);
+        // 본인 상품인지 확인
+        getOwnedProduct(pdIdx, userIdx);
 
         dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
-            deal.setDSell("1");
+            deal.setDSell(1L);
             deal.setDStatus(1L);
             dealRepo.save(deal);
         });
     }
 
+    // =========================================================
+    // 공통: 내 상품인지 확인
+    // =========================================================
     private ProductEntity getOwnedProduct(Long pdIdx, Long userIdx) {
         ProductEntity product = productRepo.findById(pdIdx)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."));
@@ -432,5 +436,18 @@ public class ProductService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 상품만 처리할 수 있습니다.");
         }
         return product;
+    }
+
+    // =========================================================
+    // 정렬 기준
+    // =========================================================
+    private Sort resolveSort(String sort) {
+        String key = (sort == null || sort.isBlank()) ? "recent" : sort;
+        return switch (key) {
+            case "price_asc"  -> Sort.by(Sort.Direction.ASC, "pdPrice");
+            case "price_desc" -> Sort.by(Sort.Direction.DESC, "pdPrice");
+            default -> Sort.by(Sort.Direction.DESC, "pdRefdate")
+                    .and(Sort.by(Sort.Direction.DESC, "pdCreate"));
+        };
     }
 }
