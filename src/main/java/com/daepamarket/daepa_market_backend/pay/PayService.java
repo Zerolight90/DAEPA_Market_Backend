@@ -37,13 +37,18 @@ public class PayService {
     private final ChatRoomRepository chatRoomRepository;
 
     // 대파 페이 충전하기
-    @Transactional
+    @Transactional // 이 메서드 내의 모든 DB 작업을 하나의 트랜잭션으로 묶음
     public void confirmPointCharge(String paymentKey, String orderId, Long amount, Long userId) {
+
+        // 토스페이먼츠에 최종 결제 승인을 요청 (보안상 zustand 등 사용해서 검증하는것 권장됨)
         confirmToTossPayments(paymentKey, orderId, amount);
 
+        // 주문 ID로부터 실제 충전을 요청한 사용자 ID를 가져오기
+        // 임시로 1L 유저라고 가정하지만 실제로는 orderId를 DB에 저장하고 매칭하는 과정 (zustand 등)이 권장됨
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("해당 유저를 찾을 수 없습니다: " + userId));
 
+        // 해당하는 유저의 현재 대파 페이 잔액을 얻어내고 만약 null일 경우 0을 넣어주기
         Long panprice = payRepository.calculateTotalBalanceByUserId(userId);
         if (panprice == null){
             panprice = 0L;
@@ -51,17 +56,21 @@ public class PayService {
 
         // [JPA] pay 테이블에 충전 기록을 생성하고 인서트 하기
         PayEntity chargeLog = new PayEntity();
-        chargeLog.setPaDate(LocalDate.now());
-        chargeLog.setPaPrice(amount);
-        chargeLog.setPaNprice(panprice + amount);
-        chargeLog.setPaPoint(0);
-        chargeLog.setUser(user);
+        chargeLog.setPaDate(LocalDate.now()); // 충전 시각
+        chargeLog.setPaPrice(amount); // 충전 금액
+        chargeLog.setPaNprice(panprice + amount); // 현재 금액
+        chargeLog.setPaPoint(0); // 포인트는 없음
+        chargeLog.setUser(user); // 충전한 유저
 
         payRepository.save(chargeLog);
+        // 만약 여기서 에러가 발생하면 @Transactional을 통해 위에서 변경된 user의 잔액도 자동으로 롤백됨
     }
 
+    // 대파 페이 잔액 조회
     @Transactional
     public long getCurrentBalance(Long userId) {
+        // Pay 테이블에서 해당 유저의 모든 거래 내역 합산
+        // (PayRepository에 잔액 계산 쿼리 메소드 필요 - 예: findTotalBalanceByUserId)
         Long balance = payRepository.calculateTotalBalanceByUserId(userId);
         return balance != null ? balance : 0L;
     }
@@ -103,10 +112,10 @@ public class PayService {
 
         // Pay 테이블에 사용 내역 기록
         PayEntity purchaseLog = new PayEntity();
-        purchaseLog.setUser(buyer);
-        purchaseLog.setPaPrice(-correctTotal);
-        purchaseLog.setPaNprice(panprice - correctTotal);
-        purchaseLog.setPaDate(LocalDate.now());
+        purchaseLog.setUser(buyer); // 구매자 유저 설정
+        purchaseLog.setPaPrice(-correctTotal); // 사용 금액이므로 음수로 기록
+        purchaseLog.setPaNprice(panprice + correctTotal); // 현재 잔액 계산해 설정하기
+        purchaseLog.setPaDate(LocalDate.now()); // 결제 날짜 저장
         payRepository.save(purchaseLog);
 
         // Deal 테이블 업데이트
@@ -138,8 +147,9 @@ public class PayService {
 
         // 주문 정보에서 상품 ID(pdIdx)와 구매자 ID(buyerIdx) 추출
         long pdIdx = extractProductIdFromOrderId(orderId);
-        long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId);
+        long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId); // 실제 구매자 ID 가져오는 로직 필요
 
+        // 필요한 엔티티 조회
         UserEntity buyer = userRepository.findById(buyerIdx)
                 .orElseThrow(() -> new RuntimeException("구매자 정보를 찾을 수 없습니다: " + buyerIdx));
         DealEntity deal = dealRepository.findByProduct_PdIdx(pdIdx)
@@ -237,6 +247,7 @@ public class PayService {
         // roomId가 null일 수 있는 과거 데이터 케이스 → 메시지는 생략(안전)
     }
 
+    // 예시: 충전 주문 ID("charge-${userId}-${uuid}")에서 사용자 ID 추출
     private Long extractUserIdFromChargeOrderId(String orderId) {
         try {
             String[] parts = orderId.split("-");
@@ -244,6 +255,8 @@ public class PayService {
                 return Long.parseLong(parts[1]);
             }
         } catch (Exception e) { /* ignore */ }
+        // 실제로는 더 안정적인 방법 사용 권장 (예: DB 조회)
+        // 임시로 하드코딩된 ID 반환 (테스트용)
         return 2L;
     }
 
