@@ -14,5 +14,9 @@ public class ProductListDTO {
     private String pdThumb;  // pdThumb
     private String pdLocation;   // pdLocation
     private String pdCreate;  // ISO 문자열 (pdCreate)
+
+    private Long dstatus;
+    private Long dsell; // deal.d_status 있으면 같이
+
 }
 

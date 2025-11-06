@@ -21,6 +21,4 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
     // 상품 기준으로 Deal을 찾되, 비관적 쓰기 락(PESSIMISTIC_WRITE)을 거는 메소드
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<DealEntity> findWithWriteLockByProduct_PdIdx(Long pdIdx);
-
-
 }
