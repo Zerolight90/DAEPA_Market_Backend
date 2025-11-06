@@ -1,11 +1,15 @@
 package com.daepamarket.daepa_market_backend.domain.deal;
 
+import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
+import org.apache.ibatis.annotations.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
+@Repository
 public interface DealRepository extends JpaRepository<DealEntity, Long> {
 
     Optional<DealEntity> findByProduct_PdIdx(Long pdIdx);
@@ -16,5 +20,15 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
     @Query("SELECT d FROM DealEntity d JOIN FETCH d.product WHERE d.seller.uIdx = :uIdx")
     List<DealEntity> findBySeller_uIdx(Long uIdx);
 
+    // 안전결제 내역
+    @Query("""
+           select d
+           from DealEntity d
+           join fetch d.product p
+           where d.seller = :seller
+           """)
+    List<DealEntity> findWithProductBySeller(@Param("seller") UserEntity seller);
+
+    List<DealEntity> findBySeller(UserEntity seller);
 
 }

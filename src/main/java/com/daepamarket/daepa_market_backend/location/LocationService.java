@@ -55,10 +55,10 @@ public class LocationService {
 
         // 3) 바디 파싱
         String title = (String) body.getOrDefault("title", "");
-        String name   = (String) body.getOrDefault("name", "");
-        String phone  = (String) body.getOrDefault("phone", "");
+        String name = (String) body.getOrDefault("name", "");
+        String phone = (String) body.getOrDefault("phone", "");
         String region = (String) body.getOrDefault("region", "");
-        String addr2  = (String) body.getOrDefault("addr2", "");
+        String addr2 = (String) body.getOrDefault("addr2", "");
         String zipcode = (String) body.getOrDefault("zipcode", "");
         Boolean primary = (Boolean) body.getOrDefault("primary", false);
 
@@ -105,26 +105,85 @@ public class LocationService {
     }
 
     //삭제
-//    @Transactional
-//    public ResponseEntity<?> deleteLocation(HttpServletRequest request, Long locKey) {
-//        // 1) 토큰 꺼내기
-//        String auth = request.getHeader("Authorization");
-//        if (auth == null || !auth.startsWith("Bearer ")) {
-//            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
-//        }
-//        String token = auth.substring(7);
-//        if (jwtProvider.isExpired(token)) {
-//            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 만료되었습니다.");
-//        }
-//
-//        Long uIdx = Long.valueOf(jwtProvider.getUid(token));
-//
-//        // 2) 사용자 찾기
-//        UserEntity user = userRepository.findById(uIdx)
-//                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "사용자를 찾을 수 없습니다."));
-//
-//        // 삭제할 배송지
-//        LocationEntity location = locationRepository.findById(locKey)
-//    }
+    @Transactional
+    public ResponseEntity<?> deleteLocation(HttpServletRequest request, Long locKey) {
+        // 토큰 꺼내기
+        String auth = request.getHeader("Authorization");
+        if (auth == null || !auth.startsWith("Bearer ")) {
+            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
+        }
+        String token = auth.substring(7);
+        if (jwtProvider.isExpired(token)) {
+            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 만료되었습니다.");
+        }
 
+        Long uIdx = Long.valueOf(jwtProvider.getUid(token));
+
+        // 사용자 찾기
+        UserEntity user = userRepository.findById(uIdx)
+                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "사용자를 찾을 수 없습니다."));
+
+        // 삭제할 배송지
+        LocationEntity location = locationRepository.findById(locKey).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "배송지를 찾을 수 없습니다."));
+
+        //대표 배송지는 삭제 불가
+        if (!location.isLocDefault()) { // loc_default = false(0) → 대표
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "대표 배송지는 삭제할 수 없습니다.");
+        }
+
+        locationRepository.delete(location);
+
+        return ResponseEntity.ok(Map.of("message", "배송지가 삭제되었습니다."));
+    }
+
+    // 수정 -> 대표배송지 클릭하면 정보 수정
+    @Transactional
+    public ResponseEntity<?> updateLocation(HttpServletRequest request, Long locKey) {
+        // 토큰 꺼내기
+        String auth = request.getHeader("Authorization");
+        if (auth == null || !auth.startsWith("Bearer ")) {
+            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
+        }
+        String token = auth.substring(7);
+        if (jwtProvider.isExpired(token)) {
+            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 만료되었습니다.");
+        }
+
+        Long uIdx = Long.valueOf(jwtProvider.getUid(token));
+
+        // 사용자 찾기
+        UserEntity user = userRepository.findById(uIdx)
+                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "사용자를 찾을 수 없습니다."));
+
+        //배송지 찾기
+        LocationEntity location = locationRepository.findById(locKey).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "배송지를 찾을 수 없습니다."));
+
+        // 기존 대표 전부 일반화 (loc_default = 1)
+        List<LocationEntity> oldList = locationRepository.findByUser(user);
+        for (LocationEntity loc : oldList) {
+            loc.setLocDefault(true); // 일반
+        }
+
+        // 새 대표 설정 (loc_default = 0)
+        location.setLocDefault(false);
+        locationRepository.saveAll(oldList);
+
+        // 저장 후 전체 리스트 반환
+        List<LocationEntity> updated = locationRepository.findByUser(user);
+        return ResponseEntity.ok(Map.of(
+                "message", "대표 배송지가 변경되었습니다.",
+                "locations", updated.stream().map(loc -> Map.of(
+                        "locKey", loc.getLocKey(),
+                        "locAddress", loc.getLocAddress(),
+                        "locDetail", loc.getLocDetail(),
+                        "locCode", loc.getLocCode(),
+                        "locDefault", loc.isLocDefault(),
+                        "locTitle", loc.getLocTitle(),
+                        "locName", loc.getLocName(),
+                        "locNum", loc.getLocNum()
+                )).toList()
+        ));
+
+
+    }
 }

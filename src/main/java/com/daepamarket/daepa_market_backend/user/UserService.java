@@ -18,6 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -122,6 +123,10 @@ public class UserService {
 
         if (!passwordEncoder.matches(dto.getU_pw(), user.getUPw())) {
             throw new ResponseStatusException(UNAUTHORIZED, "비밀번호 불일치");
+        }
+
+        if (user.getUStatus() == 2) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "탈퇴한 회원입니다.");
         }
 
         String role = user.getUType() != null ? user.getUType() : "USER";

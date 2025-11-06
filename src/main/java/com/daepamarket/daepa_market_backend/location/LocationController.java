@@ -22,10 +22,16 @@ public class LocationController {
     }
 
     // 삭제
-//    @DeleteMapping("/location/{locKey}")
-//    public ResponseEntity<?> deleteLocation(HttpServletRequest request, @PathVariable Long locKey) {
-//        locationService.deleteLocation(request, locKey);
-//        return ResponseEntity.ok(Map.of("message", "배송지가 삭제되었습니다."));
-//    }
+    @DeleteMapping("/location/{locKey}")
+    public ResponseEntity<?> deleteLocation(HttpServletRequest request, @PathVariable Long locKey) {
+        locationService.deleteLocation(request, locKey);
+        return ResponseEntity.ok(Map.of("message", "배송지가 삭제되었습니다."));
+    }
+
+    @PutMapping("/location/{locKey}/update")
+    public ResponseEntity<?> updateLocation(HttpServletRequest request, @PathVariable Long locKey) {
+        return locationService.updateLocation(request, locKey);
+
+    }
 
 }
