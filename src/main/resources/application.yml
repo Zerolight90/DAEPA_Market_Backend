@@ -7,7 +7,6 @@ spring:
 
   profiles:
     default: dev
-    active: prod
 
   jackson:
     serialization:
@@ -24,6 +23,10 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
+
+  sql:
+    init:
+      mode: never
 
   # 📧 메일 설정
   mail:

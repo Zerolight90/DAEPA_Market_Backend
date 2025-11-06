@@ -32,8 +32,7 @@ public class ProductDetailDTO {
     // user 테이블의 u_manner 그대로 보내줄 거야
     private Double sellerManner;
     // 거래/상태
-    private Integer pdStatus;        // ✅ 0=중고, 1=새상품
-    private String dDeal;            // ✅ "DELIVERY" | "MEET"
+    private Integer pdStatus;        // ✅ 0=중고, 1=새상품// ✅ "DELIVERY" | "MEET"
     private String location;         // ✅ 프론트에서 meetLocation 으로도 쓰려고 한 번 더 준 값
 
     // 카테고리 이름
@@ -45,4 +44,9 @@ public class ProductDetailDTO {
     private Long upperId;
     private Long middleId;
     private Long lowId;
+
+    private Long dstatus;
+    private Long dsell;
+    private String ddeal;
+
 }
