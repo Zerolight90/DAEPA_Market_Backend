@@ -419,7 +419,7 @@ public class ProductService {
         productRepo.save(product);
 
         dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
-            deal.setDSell("1");
+            deal.setDSell(1l);
             deal.setDStatus(1L);
             dealRepo.save(deal);
         });
