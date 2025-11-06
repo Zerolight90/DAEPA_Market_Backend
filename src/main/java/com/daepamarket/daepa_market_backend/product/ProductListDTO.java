@@ -14,5 +14,6 @@ public class ProductListDTO {
     private String pdThumb;  // pdThumb
     private String pdLocation;   // pdLocation
     private String pdCreate;  // ISO 문자열 (pdCreate)
+    private Long dStatus; // 0=판매중,1=판매완료
 }
 

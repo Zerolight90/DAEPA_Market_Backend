@@ -45,4 +45,6 @@ public class ProductDetailDTO {
     private Long upperId;
     private Long middleId;
     private Long lowId;
+
+    private Long dStatus;
 }

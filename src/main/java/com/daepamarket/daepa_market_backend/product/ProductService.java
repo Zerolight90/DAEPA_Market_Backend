@@ -349,6 +349,7 @@ public class ProductService {
 
         DealEntity deal = dealRepo.findByProduct_PdIdx(pdIdx).orElse(null);
         String dDeal = (deal != null) ? deal.getDDeal() : null;
+        Long dStatus = (deal != null) ? deal.getDStatus() : 0L; // 없으면 판매중으로
 
         Double sellerManner = null;
         if (seller != null) {
@@ -364,6 +365,7 @@ public class ProductService {
                 .location(product.getPdLocation())
                 .pdStatus(product.getPdStatus())
                 .dDeal(dDeal)
+                .dStatus(dStatus)
                 .pdThumb(product.getPdThumb())
                 .images(imageUrls)
                 .sellerId(seller != null ? seller.getUIdx() : null)

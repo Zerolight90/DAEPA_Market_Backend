@@ -1,5 +1,7 @@
 package com.daepamarket.daepa_market_backend.product;
 
+import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
+import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
 import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
 import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
@@ -31,6 +33,7 @@ public class ProductController {
     private final ProductRepository productRepository;
     private final JwtProvider jwtProvider;
     private final CookieUtil cookieUtil;
+    private final DealRepository dealRepository;
 
     // ==========================
     // 등록 (멀티파트)
@@ -281,6 +284,10 @@ public class ProductController {
         if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
             thumb = p.getImages().get(0).getImageUrl();
         }
+        // 👇 이 상품의 deal 을 찾아서 상태만 빼 온다
+        Long dStatus = dealRepository.findByProduct_PdIdx(p.getPdIdx())
+                .map(DealEntity::getDStatus)
+                .orElse(0L);
         return ProductListDTO.builder()
                 .pdIdx(p.getPdIdx())
                 .pdTitle(p.getPdTitle())
@@ -288,6 +295,7 @@ public class ProductController {
                 .pdThumb(thumb)
                 .pdLocation(p.getPdLocation())
                 .pdCreate(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
+                .dStatus(dStatus) // 👈 목록에도 실어보내기
                 .build();
     }
 }
