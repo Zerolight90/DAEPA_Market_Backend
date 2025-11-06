@@ -125,7 +125,7 @@ public class PayService {
         deal.setBuyer(buyer); // 구매자 설정
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각 설정
         deal.setDBuy(1L); // 페이 구매 상태
-        deal.setDSell(1l); // 페이 판매 상태
+        deal.setDSell(1L); // 페이 판매 상태
         deal.setDStatus(1L); // 결제 상태
         dealRepository.save(deal);
 
@@ -159,8 +159,8 @@ public class PayService {
         deal.setAgreedPrice(amount); // 거래 가격
         deal.setBuyer(buyer); // 거래 구매자
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
-        deal.setDBuy(1l); // 구매 상태 (예: 구매 확정 대기)
-        deal.setDSell(1l);    // 판매 상태
+        deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
+        deal.setDSell(1L);    // 판매 상태
         deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
@@ -195,8 +195,8 @@ public class PayService {
         deal.setAgreedPrice(amount); // 거래 가격
         deal.setBuyer(buyer); // 거래 구매자
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
-        deal.setDBuy(1l); // 구매 상태 (예: 구매 확정 대기)
-        deal.setDSell(1l);    // 판매 상태
+        deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
+        deal.setDSell(1L);    // 판매 상태
         deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);

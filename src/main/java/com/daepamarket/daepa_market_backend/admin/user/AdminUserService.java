@@ -1,5 +1,7 @@
 package com.daepamarket.daepa_market_backend.admin.user;
 
+import com.daepamarket.daepa_market_backend.admin.review.SaleReviewDTO;
+import com.daepamarket.daepa_market_backend.admin.review.SaleReviewRepository;
 import com.daepamarket.daepa_market_backend.domain.naga.NagaRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
@@ -19,6 +21,8 @@ public class AdminUserService {
     private final UserRepository userRepository;
     private final DealRepository dealRepository;
     private final NagaRepository nagaRepository;
+    private final SaleReviewRepository saleReviewRepository;
+
 
     public UserDetailDTO getUserDetail(Long uIdx) {
         UserEntity user = userRepository.findById(uIdx)
@@ -58,4 +62,10 @@ public class AdminUserService {
         user.setUManner(manner);
         userRepository.save(user);
     }
+
+    // 판매 후기 조회
+    public List<SaleReviewDTO> getUserSaleReviews(Long userId) {
+        return saleReviewRepository.findSaleReviewsBySeller(userId);
+    }
+
 }

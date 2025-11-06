@@ -4,6 +4,7 @@ import com.daepamarket.daepa_market_backend.admin.oneonone.DTO.OneOnOneResponseD
 import com.daepamarket.daepa_market_backend.admin.oneonone.Service.OneOnOneService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
@@ -32,4 +33,20 @@ public class OneOnOneController {
                 .build()
         ).toList();
     }
+
+    @GetMapping("/{id}")
+    public OneOnOneResponseDTO getDetail(@PathVariable Long id) {
+        var i = service.getById(id); // 서비스에서 조회
+
+        return OneOnOneResponseDTO.builder()
+                .id(i.getOoIdx())
+                .name(i.getUser().getUname())
+                .title(i.getOoTitle())
+                .content(i.getOoContent())
+                .photo(i.getOoPhoto())
+                .category(i.getOoStatus()) // oo_status = category
+                .date(i.getOoDate())
+                .build();
+    }
+
 }
