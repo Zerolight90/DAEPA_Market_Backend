@@ -9,13 +9,19 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
@@ -214,7 +220,60 @@ public class PayController {
         }
     }
 
+    /**
+     * ✅ [신규] 상품 구매 취소 (환불) API
+     * @param dIdx 취소할 거래(Deal)의 ID
+     * @param cancelDto 취소 사유가 담긴 DTO
+     * @param request 토큰 검증을 위한 HttpServletRequest
+     */
+    @PostMapping("/api/{dIdx}/payCancel")
+    public ResponseEntity<?> handlePayCancel(
+            @PathVariable Long dIdx,
+            @RequestBody CancelRequestDto cancelDto, // {"cancelReason": "사유"}
+            HttpServletRequest request
+    ) {
+        Long userId;
+        try {
+            // ===== 1. 토큰 검증 및 사용자 ID 추출 =====
+            String token = resolveAccessToken(request);
+            if (token == null) { throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."); }
+            if (jwtProvider.isExpired(token)) { throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다."); }
+            userId = Long.valueOf(jwtProvider.getUid(token));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "유효하지 않은 토큰입니다."));
+        }
 
+        try {
+            // ===== 2. 서비스 로직 호출 =====
+            payService.cancelProductPurchase(dIdx, userId, cancelDto.getCancelReason());
+            return ResponseEntity.ok(Map.of("message", "결제가 성공적으로 취소되었습니다."));
+
+        } catch (IllegalStateException e) { // 이미 취소된 경우 등
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (AccessDeniedException e) { // 권한 없는 경우
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) { // 기타 서버 오류
+            System.err.println("결제 취소 처리 중 오류 발생: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "결제 취소 중 오류가 발생했습니다."));
+        }
+//        HttpRequest request = HttpRequest.newBuilder()
+//                .uri(URI.create("https://api.tosspayments.com/v1/payments/tviva20251031143331MUp15/cancel"))
+//                .header("Authorization", "Basic dGVzdF9za196WExrS0V5cE5BcldtbzUwblgzbG1lYXhZRzVSOg==")
+//                .header("Content-Type", "application/json")
+//                .method("POST", HttpRequest.BodyPublishers.ofString("{\"cancelReason\":\"구매자 변심\"}"))
+//                .build();
+//        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+//        System.out.println(response.body());
+
+
+    }
+
+
+    @Getter
+    @NoArgsConstructor
+    static class CancelRequestDto {
+        private String cancelReason;
+    }
 
     // --- 에러 처리 헬퍼 메소드 (리다이렉트용) ---
     private void handleAuthError(HttpServletResponse response, String message) throws IOException {

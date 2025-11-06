@@ -3,6 +3,8 @@ package com.daepamarket.daepa_market_backend.pay;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.Map;
 import java.util.Optional;
 
 import com.daepamarket.daepa_market_backend.chat.service.ChatService;
@@ -19,6 +21,11 @@ import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 
 import jakarta.transaction.Transactional;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -35,6 +42,9 @@ public class PayService {
     private final ProductRepository productRepository;
     private final ChatService chatService;
     private final ChatRoomRepository chatRoomRepository;
+
+    @Value("${TOSS_SECRET_KEY}")
+    private String tossSecretKey;
 
     // 대파 페이 충전하기
     @Transactional // 이 메서드 내의 모든 DB 작업을 하나의 트랜잭션으로 묶음
@@ -86,6 +96,9 @@ public class PayService {
         ProductEntity product = productRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + itemId));
 
+        UserEntity seller = product.getSeller();
+        Long sellerId = seller.getUIdx();
+
         long correctTotal = product.getPdPrice() * qty;
         if (!amountFromClient.equals(correctTotal)) {
             throw new IllegalArgumentException("요청된 결제 금액이 실제 상품 가격과 일치하지 않습니다.");
@@ -97,8 +110,8 @@ public class PayService {
                 .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
 
         // Deal 상태 검사
-        // d_status가 0L이 아니거나, d_sell이 "판매완료"인 경우
-        if (deal.getDStatus() != 0L || "판매완료".equals(deal.getDSell())) {
+        // d_status가 0L이 아니거나, d_sell이 판매완료인 경우
+        if (deal.getDStatus() != 0L || deal.getDSell() == 1L) {
             throw new IllegalStateException("이미 판매가 완료되었거나 거래가 불가능한 상품입니다.");
         }
 
@@ -109,14 +122,23 @@ public class PayService {
         }
 
         Long panprice = payRepository.calculateTotalBalanceByUserId(buyerId);
+        Long sellerPanprice = payRepository.calculateTotalBalanceByUserId(sellerId);
 
         // Pay 테이블에 사용 내역 기록
         PayEntity purchaseLog = new PayEntity();
         purchaseLog.setUser(buyer); // 구매자 유저 설정
         purchaseLog.setPaPrice(-correctTotal); // 사용 금액이므로 음수로 기록
-        purchaseLog.setPaNprice(panprice + correctTotal); // 현재 잔액 계산해 설정하기
+        purchaseLog.setPaNprice(panprice - correctTotal); // 현재 잔액 계산해 설정하기
         purchaseLog.setPaDate(LocalDate.now()); // 결제 날짜 저장
         payRepository.save(purchaseLog);
+
+        // Pay 테이블에 판매자 내역도 기록
+        PayEntity sellerLog = new PayEntity();
+        sellerLog.setUser(seller);
+        sellerLog.setPaPrice(correctTotal);
+        sellerLog.setPaNprice(sellerPanprice + correctTotal); // 현재 잔액 계산해 설정하기
+        sellerLog.setPaDate(LocalDate.now()); // 결제 날짜 저장
+        payRepository.save(sellerLog);
 
         // Deal 테이블 업데이트
         deal = dealRepository.findByProduct_PdIdx(product.getPdIdx())
@@ -130,10 +152,10 @@ public class PayService {
         dealRepository.save(deal);
 
         // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
-        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
-        if (roomId != null) {
-            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
-        }
+//        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
+//        if (roomId != null) {
+//            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
+//        }
 
         return currentBalance - correctTotal;
     }
@@ -173,6 +195,82 @@ public class PayService {
         if (roomId != null) {
             chatService.sendBuyerDeposited(roomId, buyerIdx, product.getPdTitle(), amount);
         }
+    }
+
+    // 대파페이 안전결제
+    @Transactional
+    public long processSecPurchaseWithPoints(Long buyerId, Long itemId, int qty, Long amountFromClient) {
+        // 구매자 정보 받아오기
+        UserEntity buyer = userRepository.findById(buyerId)
+                .orElseThrow(() -> new RuntimeException("구매자 정보를 찾을 수 없습니다: " + buyerId));
+
+        // 상품 정보 가져오기 및 가격 검증
+        ProductEntity product = productRepository.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + itemId));
+
+        UserEntity seller = product.getSeller();
+        Long sellerId = seller.getUIdx();
+
+        long correctTotal = product.getPdPrice() * qty;
+        if (!amountFromClient.equals(correctTotal)) {
+            throw new IllegalArgumentException("요청된 결제 금액이 실제 상품 가격과 일치하지 않습니다.");
+        }
+
+        // Deal 엔티티를 비관적 락으로 조회
+        // 이 시점부터 다른 트랜잭션이 이 Deal 레코드를 수정할 수 없음
+        DealEntity deal = dealRepository.findWithWriteLockByProduct_PdIdx(product.getPdIdx())
+                .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
+
+        // Deal 상태 검사
+        // d_status가 0L이 아니거나, d_sell이 판매완료인 경우
+        if (deal.getDStatus() != 0L || deal.getDSell() == 1L) {
+            throw new IllegalStateException("이미 판매가 완료되었거나 거래가 불가능한 상품입니다.");
+        }
+
+        // 현재 대파 페이 잔액 확인 (DB에서 다시 확인 - 동시성 문제 방지)
+        long currentBalance = getCurrentBalance(buyerId);
+        if (currentBalance < correctTotal) {
+            throw new IllegalArgumentException("페이 잔액이 부족합니다.");
+        }
+
+        // 일반결제와 다르게 구매자가 구매 확정을 누르는 부분에서 해당 내용이 수행되어야 함
+//        Long panprice = payRepository.calculateTotalBalanceByUserId(buyerId);
+//        Long sellerPanprice = payRepository.calculateTotalBalanceByUserId(sellerId);
+//
+//        // Pay 테이블에 사용 내역 기록
+//        PayEntity purchaseLog = new PayEntity();
+//        purchaseLog.setUser(buyer); // 구매자 유저 설정
+//        purchaseLog.setPaPrice(-correctTotal); // 사용 금액이므로 음수로 기록
+//        purchaseLog.setPaNprice(panprice - correctTotal); // 현재 잔액 계산해 설정하기
+//        purchaseLog.setPaDate(LocalDate.now()); // 결제 날짜 저장
+//        payRepository.save(purchaseLog);
+//
+//        // Pay 테이블에 판매자 내역도 기록
+//        PayEntity sellerLog = new PayEntity();
+//        sellerLog.setUser(seller);
+//        sellerLog.setPaPrice(correctTotal);
+//        sellerLog.setPaNprice(sellerPanprice + correctTotal); // 현재 잔액 계산해 설정하기
+//        sellerLog.setPaDate(LocalDate.now()); // 결제 날짜 저장
+//        payRepository.save(sellerLog);
+
+        // Deal 테이블 업데이트
+        deal = dealRepository.findByProduct_PdIdx(product.getPdIdx())
+                .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
+        deal.setAgreedPrice(correctTotal); // 실제 거래된 가격
+        deal.setBuyer(buyer); // 구매자 설정
+        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각 설정
+        deal.setDBuy(1L); // 페이 구매 상태
+        deal.setDSell(1L); // 페이 판매 상태
+        deal.setDStatus(1L); // 결제 상태
+        dealRepository.save(deal);
+
+        // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
+//        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
+//        if (roomId != null) {
+//            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
+//        }
+
+        return currentBalance - correctTotal;
     }
 
     @Transactional
@@ -232,6 +330,42 @@ public class PayService {
         }
     }
 
+    @Transactional
+    public void cancelProductPurchase(Long dealId, Long currentUserId, String cancelReason) throws AccessDeniedException {
+
+        // 1. 거래(Deal) 정보 조회 (비관적 락 추천)
+        DealEntity deal = dealRepository.findWithWriteLockByDIdx(dealId) // (findWithWriteLockByProduct_PdIdx는 DealRepository에 @Lock 추가 필요)
+                .orElseThrow(() -> new RuntimeException("취소할 거래 정보를 찾을 수 없습니다: " + dealId));
+
+        // 2. 권한 검증: 현재 로그인한 사용자가 구매자가 맞는지 확인
+        if (deal.getBuyer() == null || !deal.getBuyer().getUIdx().equals(currentUserId)) {
+            throw new AccessDeniedException("이 거래를 취소할 권한이 없습니다.");
+        }
+
+        // 3. 상태 검증: 이미 취소되었는지 확인
+        // (DealEntity의 dBuy, dStatus 컬럼 타입과 취소 상태값 확인 필요)
+        if (deal.getDBuy() == 3L || deal.getDStatus() == 2L) { // 2L = 취소 상태 (예시)
+            throw new IllegalStateException("이미 취소된 거래입니다.");
+        }
+
+        // 4. Deal에 저장된 paymentKey 가져오기
+        String paymentKey = deal.getPaymentKey();
+        if (paymentKey == null || paymentKey.isBlank()) {
+            throw new RuntimeException("결제 정보(paymentKey)가 없어 취소가 불가능합니다.");
+        }
+
+        // 5. 토스페이먼츠 환불 API 호출
+        callTossCancelApi(paymentKey, (cancelReason != null ? cancelReason : "고객 변심"));
+
+        // 6. Deal 테이블 상태 업데이트 (취소 상태로 변경)
+        deal.setDBuy(3L);
+        deal.setDSell(2L); // 또는 판매자가 다시 판매할 수 있도록 "판매중"
+        deal.setDStatus(2L); // 2 = 취소 (예시)
+        // deal.setDEdate(null); // 거래 완료 시간 초기화 (선택 사항)
+
+        // dealRepository.save(deal); // @Transactional이므로 Dirty Checking에 의해 자동 저장
+    }
+
     // -------------------------------------------- 헬퍼 ----------------------------------------------- //
 
     // ✅ dealId 우선으로 roomId를 찾고, 없으면 상품 기준 최신 채팅방으로 fallback
@@ -284,5 +418,31 @@ public class PayService {
         // ... (이전 답변에서 설명한 RestTemplate으로 토스 API 호출하는 로직)
         // 요청 실패 시 Exception을 발생시켜 트랜잭션이 롤백되도록 함
         System.out.println("토스페이먼츠에 결제 승인을 요청합니다.");
+    }
+
+    private void callTossCancelApi(String paymentKey, String cancelReason) {
+        String url = "https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel";
+
+        // 1. HTTP 헤더 설정 (Basic Auth)
+        HttpHeaders headers = new HttpHeaders();
+        String encodedKey = Base64.getEncoder().encodeToString((tossSecretKey + ":").getBytes());
+        headers.setBasicAuth(encodedKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        // 2. HTTP 바디 설정 (전액 취소 시 cancelAmount 불필요)
+        Map<String, String> bodyMap = Map.of("cancelReason", cancelReason);
+        HttpEntity<Map<String, String>> request = new HttpEntity<>(bodyMap, headers);
+
+        try {
+            // 3. API 호출
+            restTemplate.postForEntity(url, request, String.class);
+            // 성공 시 Toss에서 200 OK와 취소 내역 JSON 반환
+
+        } catch (Exception e) {
+            // API 호출 실패 (Toss에서 4xx/5xx 에러 반환)
+            System.err.println("Toss Payments 환불 API 호출 실패: " + e.getMessage());
+            // TODO: Toss API 에러 메시지를 파싱하여 사용자에게 더 친절한 메시지 반환
+            throw new RuntimeException("결제 취소(환불)에 실패했습니다. (API 오류)");
+        }
     }
 }

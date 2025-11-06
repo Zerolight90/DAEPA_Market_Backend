@@ -172,6 +172,8 @@ public class ProductService {
                 .buyer(null)
                 .dDeal(dto.getDDeal())
                 .dStatus(0L) // 판매중
+                .dBuy(0L)
+                .dSell(0L)
                 .build();
         dealRepo.save(deal);
 
@@ -359,7 +361,7 @@ public class ProductService {
         productRepo.save(product);
 
         dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
-            deal.setDSell("1");
+            deal.setDSell(1L);
             deal.setDStatus(1L);
             dealRepo.save(deal);
         });
