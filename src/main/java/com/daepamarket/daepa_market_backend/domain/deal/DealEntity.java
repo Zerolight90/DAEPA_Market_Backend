@@ -43,10 +43,10 @@ public class DealEntity {
     private Long agreedPrice;
 
     @Column(name = "d_sell", length = 20)
-    private String dSell;
+    private Long dSell;
 
     @Column(name = "d_buy", length = 20)
-    private String dBuy;
+    private Long dBuy;
 
     @Column(name = "payment_key", length = 255)
     private String paymentKey;
