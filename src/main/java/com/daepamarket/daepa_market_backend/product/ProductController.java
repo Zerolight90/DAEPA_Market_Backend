@@ -1,5 +1,7 @@
 package com.daepamarket.daepa_market_backend.product;
 
+import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
+import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
 import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
 import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
@@ -29,12 +31,11 @@ public class ProductController {
 
     private final ProductService productService;
     private final ProductRepository productRepository;
+    private final DealRepository dealRepository;
     private final JwtProvider jwtProvider;
     private final CookieUtil cookieUtil;
 
-    // ==========================
-    // 등록 (멀티파트)
-    // ==========================
+    // 등록
     @PostMapping(value = "/create-multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createMultipart(
             HttpServletRequest request,
@@ -63,12 +64,7 @@ public class ProductController {
         return ResponseEntity.ok(id);
     }
 
-    /**
-     * ✅ 수정 (이미지 포함) - 프론트에서 POST /api/products/{id}/edit-multipart 로 보내는 걸 받는 엔드포인트
-     *    Content-Type: multipart/form-data
-     *    part dto: 기존 ProductCreateDTO 그대로
-     *    part images: 새로 업로드하는 파일들
-     */
+    // 수정 (멀티파트)
     @PostMapping(value = "/{id}/edit-multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateMultipart(
             @PathVariable("id") Long id,
@@ -94,9 +90,6 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * 쿠키나 Authorization 헤더에서 accessToken 추출
-     */
     private String resolveAccessToken(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
@@ -114,9 +107,7 @@ public class ProductController {
         return null;
     }
 
-    // ==========================
     // 목록 조회 (id 기준)
-    // ==========================
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByIds(
@@ -133,9 +124,7 @@ public class ProductController {
         return ResponseEntity.ok(mapped);
     }
 
-    // ==========================
     // 목록 조회 (이름 기준)
-    // ==========================
     @GetMapping("/by-name")
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByNames(
@@ -152,19 +141,25 @@ public class ProductController {
         return ResponseEntity.ok(mapped);
     }
 
-    // ==========================
     // 단건 상세 조회
-    // ==========================
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     public ResponseEntity<ProductDetailDTO> getProduct(@PathVariable("id") Long id) {
         ProductDetailDTO dto = productService.getProductDetail(id);
+
+        // 여기서 deal 찍어서 넣어주기 (소문자 필드로)
+        dealRepository.findByProduct_PdIdx(id).ifPresent(deal -> {
+            dto.setDsell(deal.getDSell());
+            dto.setDstatus(deal.getDStatus());
+            if (dto.getDdeal() == null) {
+                dto.setDdeal(deal.getDDeal());
+            }
+        });
+
         return ResponseEntity.ok(dto);
     }
 
-    // ==========================
-    // 연관 상품 조회
-    // ==========================
+    // 연관 상품
     @GetMapping("/{id}/related")
     @Transactional(readOnly = true)
     public ResponseEntity<List<ProductListDTO>> getRelated(
@@ -178,9 +173,7 @@ public class ProductController {
         return ResponseEntity.ok(dtoList);
     }
 
-    // ==========================
-    // 내 상품 조회
-    // ==========================
+    // 내 상품
     @GetMapping("/mypage")
     public List<productMyPageDTO> myProduct(
             HttpServletRequest request,
@@ -200,9 +193,7 @@ public class ProductController {
         return productService.getMyProductByUIdx(uIdx, status);
     }
 
-    // ==========================
-    // 수정 (이미지 안 바꾸는 경우)
-    // ==========================
+    // 수정 (JSON)
     @PutMapping("/{id}")
     public ResponseEntity<?> updateProduct(
             @PathVariable("id") Long id,
@@ -219,9 +210,7 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    // ==========================
     // 소프트 삭제
-    // ==========================
     @PostMapping("/{id}/delete")
     public ResponseEntity<?> deleteProduct(
             @PathVariable("id") Long id,
@@ -237,9 +226,7 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    // ==========================
     // 끌어올리기
-    // ==========================
     @PostMapping("/{id}/bump")
     public ResponseEntity<?> bumpProduct(
             @PathVariable("id") Long id,
@@ -255,9 +242,7 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    // ==========================
     // 판매완료
-    // ==========================
     @PostMapping("/{id}/complete")
     public ResponseEntity<?> completeProduct(
             @PathVariable("id") Long id,
@@ -273,14 +258,21 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    // ==========================
-    // Entity -> 리스트 DTO 변환
-    // ==========================
+    // Entity -> ListDTO
     private ProductListDTO toListDTO(ProductEntity p) {
         String thumb = p.getPdThumb();
         if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
             thumb = p.getImages().get(0).getImageUrl();
         }
+
+        Long dsell = null;
+        Long dstatus = null;
+        var dealOpt = dealRepository.findByProduct_PdIdx(p.getPdIdx());
+        if (dealOpt.isPresent()) {
+            dsell = dealOpt.get().getDSell();
+            dstatus = dealOpt.get().getDStatus();
+        }
+
         return ProductListDTO.builder()
                 .pdIdx(p.getPdIdx())
                 .pdTitle(p.getPdTitle())
@@ -288,6 +280,8 @@ public class ProductController {
                 .pdThumb(thumb)
                 .pdLocation(p.getPdLocation())
                 .pdCreate(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
+                .dsell(dsell)
+                .dstatus(dstatus)
                 .build();
     }
 }
