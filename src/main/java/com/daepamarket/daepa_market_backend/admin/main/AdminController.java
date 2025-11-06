@@ -4,6 +4,7 @@ import com.daepamarket.daepa_market_backend.admin.user.UserResponseDTO;
 import com.daepamarket.daepa_market_backend.domain.admin.*;
 import com.daepamarket.daepa_market_backend.user.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,10 +12,8 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 
-@RestController
-@RequiredArgsConstructor
-@RequestMapping("/api/admin")
-@CrossOrigin(origins = "*") // Next.js 프론트와 통신 허용
+@Slf4j
+@RestController @RequiredArgsConstructor @RequestMapping("/api/admin")
 public class AdminController {
 
     private final AdminRepository adminRepository;
@@ -22,7 +21,7 @@ public class AdminController {
     private final AdminService adminService;
 
     @PostMapping("/add-admin")
-    public String addAdmin(@RequestBody AdminDTO request) {
+    public String addAdmin( @RequestBody AdminDTO request) {
         if (request.getAdId() == null || request.getAdPw() == null ||
                 request.getAdName() == null || request.getAdBirth() == null) {
             return "필수 항목이 누락되었습니다.";
@@ -49,7 +48,9 @@ public class AdminController {
 
     // 관리자 로그인
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AdminLoginDTO req) {
+    public ResponseEntity<?> login( @RequestBody AdminLoginDTO req) {
+        log.info(">>> Admin Login 시도: ID=[{}], PW=[{}]", req.getAdminId(), req.getPassword());
+
         AdminEntity admin = adminRepository.findByAdId(req.getAdminId())
                 .orElseThrow(() -> new RuntimeException("존재하지 않는 관리자 ID입니다."));
 
@@ -65,12 +66,12 @@ public class AdminController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<AdminDTO> getMyProfile(@RequestParam Long adIdx) {
+    public ResponseEntity<AdminDTO> getMyProfile( @RequestParam Long adIdx) {
         return ResponseEntity.ok(adminService.getMyProfile(adIdx));
     }
 
     @PutMapping("/me")
-    public ResponseEntity<AdminDTO> updateMyProfile(@RequestBody AdminUpdateDTO req) {
+    public ResponseEntity<AdminDTO> updateMyProfile( @RequestBody AdminUpdateDTO req) {
         return ResponseEntity.ok(adminService.updateMyProfile(req));
     }
 

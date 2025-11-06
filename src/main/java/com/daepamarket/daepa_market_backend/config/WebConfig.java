@@ -20,20 +20,20 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
 
-//    // ✅ CORS 정확히 추가 (콜론 포함)
-//    @Override
-//    public void addCorsMappings(CorsRegistry registry) {
-//        registry.addMapping("/api/**")
-//                .allowedOrigins(
-//                        "http://localhost:3000"  // ← 반드시 콜론 포함!
-//                        // 필요 시, 배포 도메인도 여기에 추가
-//                )
-//                .allowedMethods("GET","POST","PUT","PATCH","DELETE","OPTIONS")
-//                .allowedHeaders("*")
-//                .exposedHeaders("Authorization", "Set-Cookie", "Content-Disposition")
-//                .allowCredentials(true)
-//                .maxAge(3600);
-//    }
+    // ✅ CORS 정확히 추가 (콜론 포함)
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+                .allowedOrigins(
+                        "http://3.34.181.73"  // ← 반드시 콜론 포함!
+                        // 필요 시, 배포 도메인도 여기에 추가
+                )
+                .allowedMethods("GET","POST","PUT","PATCH","DELETE","OPTIONS")
+                .allowedHeaders("*")
+                .exposedHeaders("Authorization", "Set-Cookie", "Content-Disposition")
+                .allowCredentials(true)
+                .maxAge(3600);
+    }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
