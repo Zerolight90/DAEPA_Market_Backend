@@ -2,9 +2,9 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [ 1105JongMin ] #d
+    branches: [ main ] #d
   pull_request:
-    branches: [ 1105JongMin ]
+    branches: [ main ]
 
 env:
   DOCKER_IMAGE: ${{ secrets.DOCKER_USERNAME }}/elearning-backend
