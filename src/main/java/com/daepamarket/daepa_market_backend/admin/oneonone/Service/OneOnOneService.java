@@ -15,4 +15,10 @@ public class OneOnOneService {
     public List<OneOnOneEntity> getList(){
         return repository.findAllWithUser();
     }
+
+    // 문의 상세 조회
+    public OneOnOneEntity getById(Long id){
+        return repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("문의 내역을 찾을 수 없습니다"));
+    }
 }

@@ -15,5 +15,6 @@ public class ChatRoomOpenDto {
         private Long roomId;
         private boolean created;
         private String identifier;
+        private Long dealId;
     }
 }
