@@ -1,0 +1,53 @@
+package com.daepamarket.daepa_market_backend.domain.delivery;
+
+import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
+import org.apache.ibatis.annotations.Param;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+
+public interface DeliveryRepository extends JpaRepository<DealEntity, Long> {
+    // 보낸 택배 거래의 배송/검수 상태 조회
+    @Query("""
+        select new com.daepamarket.daepa_market_backend.domain.delivery.DeliveryDTO(
+            d.dIdx,
+            dv.dvIdx,
+            dv.dvStatus,
+            ck.ckStatus,
+            ck.ckResult,
+            loc.locKey,
+            d.agreedPrice,
+            d.product.pdTitle
+        )
+        from DeliveryEntity dv
+        join dv.deal d
+        left join dv.location loc
+        left join dv.checkEntity ck
+        where d.seller.uIdx = :uIdx
+        """)
+    List<DeliveryDTO> findSentParcelsBySeller(@Param("uIdx") Long uIdx);
+
+    // [받은 택배]
+    @Query("""
+        select new com.daepamarket.daepa_market_backend.domain.delivery.DeliveryDTO(
+            d.dIdx,
+            dv.dvIdx,
+            dv.dvStatus,
+            ck.ckStatus,
+            ck.ckResult,
+            loc.locKey,
+            d.agreedPrice,
+            d.product.pdTitle
+        )
+        from DeliveryEntity dv
+        join dv.deal d
+        left join dv.location loc
+        left join dv.checkEntity ck
+        where d.buyer.uIdx = :uIdx
+        """)
+    List<DeliveryDTO> findReceivedParcelsByBuyer(@Param("uIdx") Long uIdx);
+
+}
+
+
