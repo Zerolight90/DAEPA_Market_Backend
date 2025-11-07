@@ -5,7 +5,7 @@ import lombok.*;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @Entity
-@Table(name = "check")
+@Table(name = "`check`")
 public class CheckEntity {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -14,4 +14,7 @@ public class CheckEntity {
 
     @Column(name = "ck_status")
     private Integer ckStatus;
+
+    @Column(name = "ck_result")
+    private Integer ckResult;
 }
