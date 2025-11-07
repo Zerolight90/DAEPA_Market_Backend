@@ -39,4 +39,8 @@ public interface ChatRoomMapper {
 
     /** ✅ 방에서 현재 참여자 수(= chat_reads 행 수) */
     Integer countParticipants(@Param("roomId") Long roomId);
+
+    boolean isParticipant(@Param("roomId") Long roomId, @Param("userId") Long userId);
+
+    Long findDealId(@Param("productId") Long productId, @Param("sellerId") Long sellerId, @Param("buyerId") Long buyerId);
 }

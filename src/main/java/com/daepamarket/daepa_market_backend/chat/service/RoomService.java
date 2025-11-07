@@ -39,16 +39,12 @@ public class RoomService {
 
     @Transactional(readOnly = true)
     public boolean isParticipant(Long roomId, Long userId) {
-        Object exists = em.createNativeQuery("""
-            SELECT 1 FROM chat_reads
-             WHERE ch_idx = :roomId AND cread_reader = :userId
-             LIMIT 1
-        """).setParameter("roomId", roomId)
-                .setParameter("userId", userId)
-                .getResultStream().findFirst().orElse(null);
+        // 1) chat_reads 테이블에 직접 참여자로 있는지 확인 (가장 흔한 케이스)
+        if (chatRoomMapper.isParticipant(roomId, userId)) {
+            return true;
+        }
 
-        if (exists != null) return true;
-
+        // 2) deal의 판매자/구매자로 간접 참여자인지 확인
         Object[] row = (Object[]) em.createNativeQuery("""
             SELECT d.buyer_idx, d.seller_idx2
               FROM chat_rooms r
@@ -64,48 +60,8 @@ public class RoomService {
         return (buyer != null && buyer.equals(userId)) || (seller != null && seller.equals(userId));
     }
 
-    /**
-     * deal(d_idx) 매핑 우선순위:
-     *  1) 동일 상품(pd_idx) + 동일 판매자(seller_idx2) + 동일 구매자(buyer_idx)
-     *  2) 동일 상품(pd_idx) + 동일 판매자(seller_idx2) (buyer 미정인 deal 존재 시)
-     *  3) 동일 상품(pd_idx) (상품당 1건 unique 제약이 있으므로 이것만으로도 대부분 1건)
-     */
     private Long findDealId(Long productId, Long sellerId, Long buyerId) {
-        // 1) pd + seller + buyer 정확 일치
-        Object r1 = em.createNativeQuery("""
-        SELECT d_idx FROM deal
-         WHERE pd_idx = :pd AND seller_idx2 = :seller AND buyer_idx = :buyer
-           AND d_status = 0
-         LIMIT 1
-    """).setParameter("pd", productId)
-                .setParameter("seller", sellerId)
-                .setParameter("buyer", buyerId)
-                .getResultStream().findFirst().orElse(null);
-        if (r1 != null) return ((Number) r1).longValue();
-
-        // 2) pd + seller + 진행중 (buyer 미정 포함)
-        Object r2 = em.createNativeQuery("""
-        SELECT d_idx FROM deal
-         WHERE pd_idx = :pd AND seller_idx2 = :seller
-           AND d_status = 0
-         LIMIT 1
-    """).setParameter("pd", productId)
-                .setParameter("seller", sellerId)
-                .getResultStream().findFirst().orElse(null);
-        if (r2 != null) return ((Number) r2).longValue();
-
-        // 3) pd + 진행중
-        Object r3 = em.createNativeQuery("""
-        SELECT d_idx FROM deal
-         WHERE pd_idx = :pd
-           AND d_status = 0
-         LIMIT 1
-    """).setParameter("pd", productId)
-                .getResultStream().findFirst().orElse(null);
-        if (r3 != null) return ((Number) r3).longValue();
-
-        // 진행중 deal이 없다면 연결하지 않음 (null 반환)
-        return null;
+        return chatRoomMapper.findDealId(productId, sellerId, buyerId);
     }
 
     @Transactional

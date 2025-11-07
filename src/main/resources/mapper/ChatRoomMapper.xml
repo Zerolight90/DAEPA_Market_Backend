@@ -11,98 +11,63 @@
         </if>
 
         <if test="userId != null">
-            <![CDATA[
-    SELECT
-      r.ch_idx AS roomId,
-
-      /* 참여자: 나 제외 다른 사람 한 명 */
-      u_other.u_idx AS counterpartyId,
-      COALESCE(u_other.u_nickname, u_other.u_name, '탈퇴한 사용자') AS counterpartyName,
-
-      COALESCE(p.pd_title, '(삭제된 상품)') AS productTitle,
-
-      COALESCE(
-        p.pd_thumb,
-        (SELECT pi.image_url FROM product_image pi
-          WHERE pi.pd_idx = p.pd_idx
-          ORDER BY pi.pi_idx
-          LIMIT 1),
-        '/images/placeholder.jpg'
-      ) AS productThumb,
-
-      /* --- 판매자/구매자 판별: product.u_idx(상품 소유자) 기준 보정 유지 --- */
-      CASE
-        WHEN COALESCE(d.seller_idx2, p.u_idx) = #{userId} THEN '판매자'
-        WHEN COALESCE(d.buyer_idx,  NULL)     = #{userId} THEN '구매자'
-        WHEN d.d_idx IS NULL AND p.u_idx = #{userId} THEN '판매자'
-        ELSE '구매자'
-      END AS myRole,
-
-      /* ✅ 상태 배지: d_status만 사용 (0=판매중, 1=판매완료) */
-      CASE
-        WHEN COALESCE(d.d_status, 0) = 1 THEN '판매완료'
-        ELSE '판매중'
-      END AS statusBadge,
-
-      /* ✅ 표시 가격: 판매완료면 합의가 우선, 아니면 상품가 */
-      CASE
-        WHEN COALESCE(d.d_status, 0) = 1
-          THEN COALESCE(d.agreed_price, p.pd_price)
-        ELSE p.pd_price
-      END AS displayPrice,
-
-      (SELECT m.cm_content
-         FROM chat_messages m
-        WHERE m.ch_idx = r.ch_idx
-          AND m.message_type <> 'SYSTEM'
-        ORDER BY m.cm_idx DESC
-        LIMIT 1) AS lastMessage,
-
-      (SELECT m2.cm_date
-         FROM chat_messages m2
-        WHERE m2.ch_idx = r.ch_idx
-        ORDER BY m2.cm_idx DESC
-        LIMIT 1) AS lastAt,
-
-      (
-        SELECT COUNT(*)
-          FROM chat_messages m3
-         WHERE m3.ch_idx = r.ch_idx
-           AND m3.cm_idx > COALESCE((
-               SELECT cr2.last_seen_message_id
-                 FROM chat_reads cr2
-                WHERE cr2.ch_idx = r.ch_idx
-                  AND cr2.cread_reader = #{userId}
-                LIMIT 1
-           ), 0)
-           AND COALESCE(m3.sender_id, -1) != #{userId}
-      ) AS unread
-
-    FROM chat_reads me
-    JOIN chat_rooms r   ON r.ch_idx = me.ch_idx
-    LEFT JOIN product p ON p.pd_idx = r.pd_idx
-    LEFT JOIN deal d    ON d.d_idx  = r.d_idx
-
-    /* 나 제외 다른 참여자 1명 뽑기 */
-    LEFT JOIN (
-      SELECT ch_idx, MAX(cread_reader) AS other_reader
-        FROM chat_reads
-       WHERE cread_reader != #{userId}
-       GROUP BY ch_idx
-    ) o ON o.ch_idx = r.ch_idx
-    LEFT JOIN `user` u_other ON u_other.u_idx = o.other_reader
-
-    WHERE me.cread_reader = #{userId}
-    GROUP BY r.ch_idx
-
-    ORDER BY
-      (SELECT m4.cm_idx
-         FROM chat_messages m4
-        WHERE m4.ch_idx = r.ch_idx
-        ORDER BY m4.cm_idx DESC
-        LIMIT 1) DESC,
-      r.ch_idx DESC
-    ]]>
+            WITH LastMessageInfo AS (
+                SELECT
+                    ch_idx,
+                    cm_content,
+                    cm_date,
+                    cm_idx,
+                    ROW_NUMBER() OVER (PARTITION BY ch_idx ORDER BY cm_idx DESC) as rn
+                FROM chat_messages
+            )
+            SELECT
+                r.ch_idx AS roomId,
+                u_other.u_idx AS counterpartyId,
+                COALESCE(u_other.u_nickname, u_other.u_name, '탈퇴한 사용자') AS counterpartyName,
+                COALESCE(p.pd_title, '(삭제된 상품)') AS productTitle,
+                COALESCE(
+                    p.pd_thumb,
+                    (SELECT pi.image_url FROM product_image pi WHERE pi.pd_idx = p.pd_idx ORDER BY pi.pi_idx LIMIT 1),
+                    '/images/placeholder.jpg'
+                ) AS productThumb,
+                CASE
+                    WHEN COALESCE(d.seller_idx2, p.u_idx) = #{userId} THEN '판매자'
+                    WHEN COALESCE(d.buyer_idx,  NULL)     = #{userId} THEN '구매자'
+                    WHEN d.d_idx IS NULL AND p.u_idx = #{userId} THEN '판매자'
+                    ELSE '구매자'
+                END AS myRole,
+                CASE
+                    WHEN COALESCE(d.d_status, 0) = 1 THEN '판매완료'
+                    ELSE '판매중'
+                END AS statusBadge,
+                CASE
+                    WHEN COALESCE(d.d_status, 0) = 1 THEN COALESCE(d.agreed_price, p.pd_price)
+                    ELSE p.pd_price
+                END AS displayPrice,
+                lmi.cm_content AS lastMessage,
+                lmi.cm_date AS lastAt,
+                (
+                    SELECT COUNT(*)
+                    FROM chat_messages m3
+                    WHERE m3.ch_idx = r.ch_idx
+                      AND m3.cm_idx > me.last_seen_message_id
+                      AND COALESCE(m3.sender_id, -1) != #{userId}
+                ) AS unread
+            FROM chat_reads me
+            JOIN chat_rooms r ON r.ch_idx = me.ch_idx
+            LEFT JOIN product p ON p.pd_idx = r.pd_idx
+            LEFT JOIN deal d ON d.d_idx = r.d_idx
+            LEFT JOIN LastMessageInfo lmi ON lmi.ch_idx = r.ch_idx AND lmi.rn = 1
+            LEFT JOIN (
+                SELECT ch_idx, MAX(cread_reader) AS other_reader
+                FROM chat_reads
+                WHERE cread_reader != #{userId}
+                GROUP BY ch_idx
+            ) o ON o.ch_idx = r.ch_idx
+            LEFT JOIN `user` u_other ON u_other.u_idx = o.other_reader
+            WHERE me.cread_reader = #{userId}
+            GROUP BY r.ch_idx, lmi.cm_idx, lmi.cm_content, lmi.cm_date
+            ORDER BY lmi.cm_idx DESC, r.ch_idx DESC
         </if>
     </select>
 
@@ -268,6 +233,33 @@
           AND cread_reader = #{userId}
         ]]>
 </delete>
+
+    <select id="isParticipant" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM chat_reads
+            WHERE ch_idx = #{roomId} AND cread_reader = #{userId}
+            LIMIT 1
+        )
+    </select>
+
+    <select id="findDealId" resultType="long">
+        SELECT d_idx FROM deal
+        WHERE pd_idx = #{productId} AND seller_idx2 = #{sellerId} AND buyer_idx = #{buyerId} AND d_status = 0
+        LIMIT 1
+
+        UNION ALL
+
+        SELECT d_idx FROM deal
+        WHERE pd_idx = #{productId} AND seller_idx2 = #{sellerId} AND d_status = 0
+        LIMIT 1
+
+        UNION ALL
+
+        SELECT d_idx FROM deal
+        WHERE pd_idx = #{productId} AND d_status = 0
+        LIMIT 1
+    </select>
+
 
 
 </mapper>
