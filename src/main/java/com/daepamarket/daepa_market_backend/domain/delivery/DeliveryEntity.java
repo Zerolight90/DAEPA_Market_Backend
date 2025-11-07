@@ -6,6 +6,8 @@ import com.daepamarket.daepa_market_backend.domain.location.LocationEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.sql.Timestamp;
+
 @Entity
 @Table(name = "delivery")
 @Getter
@@ -38,11 +40,14 @@ public class DeliveryEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ck_idx", referencedColumnName = "ck_idx",
             foreignKey = @ForeignKey(name = "fk_delivery_check"))
-    private CheckEntity check;
+    private CheckEntity checkEntity;
 
     // 배송 상태
     @Column(name = "dv_status")
     private Integer dvStatus;
+
+    @Column(name = "dv_date")
+    private Timestamp dv_date;
 
     // ---------------------- 헬퍼 메서드 ----------------------
     public void updateStatus(Integer newStatus) {
