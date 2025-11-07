@@ -10,6 +10,7 @@ public interface BuyReviewRepository extends JpaRepository<BuyReviewEntity, Long
     @Query("""
         SELECT new com.daepamarket.daepa_market_backend.admin.review.AllReviewDTO(
             CONCAT('B-', br.reIdx),
+            br.reIdx,
             p.pdTitle,
             buyer.unickname,
             seller.unickname,
