@@ -33,8 +33,6 @@ public class DealEntity {
     @Column(name = "d_deal", length = 20)
     private String dDeal;
 
-    @Column(name = "d_status")
-    private Long dStatus;
 
     @Column(name = "d_edate")
     private Timestamp dEdate;
@@ -42,8 +40,12 @@ public class DealEntity {
     @Column(name = "agreed_price")
     private Long agreedPrice;
 
-    @Column(name = "d_sell")
-    private Long dSell;
+    @Column(name = "d_sell", nullable = false, columnDefinition = "BIGINT DEFAULT 0")
+    private Long dSell = 0L;
+
+    @Column(name = "d_status", nullable = false, columnDefinition = "BIGINT DEFAULT 0")
+    private Long dStatus = 0L;
+
 
     @Column(name = "d_buy")
     private Long dBuy;
