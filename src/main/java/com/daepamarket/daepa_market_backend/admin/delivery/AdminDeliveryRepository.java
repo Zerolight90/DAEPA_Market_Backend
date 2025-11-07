@@ -1,0 +1,38 @@
+package com.daepamarket.daepa_market_backend.admin.delivery;
+
+import com.daepamarket.daepa_market_backend.domain.delivery.DeliveryEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface AdminDeliveryRepository extends JpaRepository<DeliveryEntity, Long> {
+    @Query("SELECT d FROM DeliveryEntity d WHERE d.checkEntity.ckIdx = :ckIdx")
+    Optional<DeliveryEntity> findByCheckCkIdx(@Param("ckIdx") Long ckIdx);
+
+    @Query(value = """
+        SELECT 
+            dl.dv_idx,
+            d.d_idx,
+            p.pd_title,
+            seller.u_name AS seller_name,
+            buyer.u_name AS buyer_name,
+            loc.loc_address,
+            loc.loc_detail,
+            dl.dv_status,
+            d.d_deal,
+            d.d_edate
+        FROM delivery dl
+        JOIN deal d ON dl.d_idx = d.d_idx
+        JOIN product p ON d.pd_idx = p.pd_idx
+        JOIN `user` seller ON d.seller_idx2 = seller.u_idx
+        JOIN `user` buyer ON d.buyer_idx = buyer.u_idx
+        JOIN location loc ON dl.loc_key = loc.loc_key
+        JOIN `check` c ON dl.ck_idx = c.ck_idx
+        WHERE c.ck_status = 1 AND d.d_deal = 'DELIVERY'
+        ORDER BY dl.dv_idx DESC
+        """, nativeQuery = true)
+    List<Object[]> findAllWithDetails();
+}

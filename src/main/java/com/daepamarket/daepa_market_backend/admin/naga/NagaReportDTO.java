@@ -12,4 +12,6 @@ public class NagaReportDTO {
     private String type;          // 신고 종류
     private String content;       // 신고 내용
     private String createdAt;     // 신고 날짜
+    private String status;        // 처리 상태: "pending", "suspended", "activated", "banned"
+    private String actionType;    // 조치 유형: "suspend", "activate", "ban"
 }

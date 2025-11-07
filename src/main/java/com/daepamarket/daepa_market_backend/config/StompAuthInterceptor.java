@@ -19,7 +19,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private final RoomService roomService;
 
     // 개발 중에는 true → 운영에서 false (혹은 프로필로 분기 추천)
-    private static final boolean DEV_ALLOW_ALL = true;
+    private static final boolean DEV_ALLOW_ALL = false;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
