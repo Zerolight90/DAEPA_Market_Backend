@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface DeliveryRepository extends JpaRepository<DealEntity, Long> {
     // 보낸 택배 거래의 배송/검수 상태 조회
@@ -48,6 +49,9 @@ public interface DeliveryRepository extends JpaRepository<DealEntity, Long> {
         """)
     List<DeliveryDTO> findReceivedParcelsByBuyer(@Param("uIdx") Long uIdx);
 
+    // 판매 내역에서 배송 보냄 확인 버튼
+    @Query("select d from DeliveryEntity d where d.deal.dIdx = :dealId")
+    Optional<DeliveryEntity> findByDealId(@Param("dealId") Long dealId);
 }
 
 
