@@ -2,11 +2,13 @@ package com.daepamarket.daepa_market_backend.delivery;
 
 import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
 import com.daepamarket.daepa_market_backend.domain.delivery.DeliveryDTO;
+import com.daepamarket.daepa_market_backend.domain.delivery.DeliveryEntity;
 import com.daepamarket.daepa_market_backend.domain.delivery.DeliveryRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -66,4 +68,25 @@ public class deliveryService {
             return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
         }
     }
+
+    // 판매 내역 배송 보냄 확인 버튼
+    @Transactional
+    public void markAsSent(Long dealId) {
+        DeliveryEntity delivery = deliveryRepository.findByDealId(dealId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 거래의 배송 정보를 찾을 수 없습니다. dealId=" + dealId));
+
+        // dv_status 업데이트
+        delivery.updateStatus(1);
+    }
+
+    @Transactional
+    public void updateStatus(Long dealId) {
+        DeliveryEntity delivery = deliveryRepository.findByDealId(dealId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 거래의 배송 정보를 찾을 수 없습니다. dealId=" + dealId));
+
+        // dv_status 업데이트
+        delivery.updateStatus( 5);
+    }
+
+
 }
