@@ -58,7 +58,6 @@ public class UserEntity {
     @Column(name = "u_phone", length = 20)
     private String uphone;
 
-
     @Column(name = "u_type", length = 20)
     private String uType;
 }

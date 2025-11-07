@@ -293,7 +293,30 @@ public class UserService {
     public List<UserResponseDTO> findAllUsers() {
         return userRepository.findAll()
                 .stream()
-                .map(UserResponseDTO::of)
+                .map(user -> {
+                    // 사용자의 기본 주소 찾기 (uIdx로 직접 조회)
+                    List<LocationEntity> locations = locationRepository.findByUserId(user.getUIdx());
+                    String locationStr = "";
+                    
+                    if (locations != null && !locations.isEmpty()) {
+                        // 기본 주소가 있으면 사용, 없으면 첫 번째 주소 사용
+                        LocationEntity defaultLocation = locations.stream()
+                                .filter(LocationEntity::isLocDefault)
+                                .findFirst()
+                                .orElse(locations.get(0));
+                        
+                        if (defaultLocation != null) {
+                            String address = defaultLocation.getLocAddress() != null ? defaultLocation.getLocAddress().trim() : "";
+                            
+                            if (!address.isEmpty()) {
+                                locationStr = address;
+                            }
+                        }
+                    }
+                    
+                    // 빈 문자열이면 null로 설정 (프론트엔드에서 "-"로 표시)
+                    return UserResponseDTO.of(user, locationStr.isEmpty() ? null : locationStr);
+                })
                 .toList();
     }
 

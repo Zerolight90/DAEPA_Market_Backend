@@ -25,6 +25,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
                 .allowedOrigins(
+                        "http://localhost:3000",
                         "http://3.34.181.73"  // ← 반드시 콜론 포함!
                         // 필요 시, 배포 도메인도 여기에 추가
                 )

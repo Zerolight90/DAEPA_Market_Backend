@@ -54,6 +54,42 @@ public class NagaReportService {
                 dto.setCreatedAt(r.getNgDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
             }
 
+            // 신고 처리 상태 확인 - 해당 신고에 대한 조치가 있는지 확인
+            Long reportedUserId = r.getBIdx2();
+            var reportedUser = userRepository.findById(reportedUserId).orElse(null);
+            
+            if (reportedUser != null) {
+                Integer userStatus = reportedUser.getUStatus();
+                
+                // 해당 사용자에 대한 조치 확인 (최신 조치 우선)
+                boolean hasGetout = getoutRepository.existsByUserUIdx(reportedUserId);
+                boolean hasStop = stopRepository.existsByUserUIdx(reportedUserId);
+                
+                // 탈퇴 상태이고 탈퇴 기록이 있으면 탈퇴 처리됨
+                if (userStatus == 3 && hasGetout) {
+                    dto.setStatus("banned");
+                    dto.setActionType("ban");
+                } 
+                // 정지 상태이고 정지 기록이 있으면 정지 처리됨
+                else if (userStatus == 0 && hasStop) {
+                    dto.setStatus("suspended");
+                    dto.setActionType("suspend");
+                } 
+                // 활성 상태이지만 이전에 조치가 있었으면 활성화 처리됨
+                else if (userStatus == 1 && (hasStop || hasGetout)) {
+                    dto.setStatus("activated");
+                    dto.setActionType("activate");
+                } 
+                // 조치 없음
+                else {
+                    dto.setStatus("pending");
+                    dto.setActionType(null);
+                }
+            } else {
+                dto.setStatus("pending");
+                dto.setActionType(null);
+            }
+
             return dto;
         }).collect(Collectors.toList());
     }
