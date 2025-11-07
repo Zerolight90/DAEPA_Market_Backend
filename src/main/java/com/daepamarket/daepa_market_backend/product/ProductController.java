@@ -146,18 +146,9 @@ public class ProductController {
     @Transactional(readOnly = true)
     public ResponseEntity<ProductDetailDTO> getProduct(@PathVariable("id") Long id) {
         ProductDetailDTO dto = productService.getProductDetail(id);
-
-        // 여기서 deal 찍어서 넣어주기 (소문자 필드로)
-        dealRepository.findByProduct_PdIdx(id).ifPresent(deal -> {
-            dto.setDsell(deal.getDSell());
-            dto.setDstatus(deal.getDStatus());
-            if (dto.getDdeal() == null) {
-                dto.setDdeal(deal.getDDeal());
-            }
-        });
-
         return ResponseEntity.ok(dto);
     }
+
 
     // 연관 상품
     @GetMapping("/{id}/related")
@@ -265,12 +256,14 @@ public class ProductController {
             thumb = p.getImages().get(0).getImageUrl();
         }
 
-        Long dsell = null;
-        Long dstatus = null;
+        Long dsell = 0L;
+        Long dstatus = 0L;
         var dealOpt = dealRepository.findByProduct_PdIdx(p.getPdIdx());
         if (dealOpt.isPresent()) {
-            dsell = dealOpt.get().getDSell();
-            dstatus = dealOpt.get().getDStatus();
+            var d = dealOpt.get();
+            // 🔥 여기서 null 방어
+            dsell = (d.getDSell() != null) ? d.getDSell() : 0L;
+            dstatus = (d.getDStatus() != null) ? d.getDStatus() : 0L;
         }
 
         return ProductListDTO.builder()
@@ -280,8 +273,9 @@ public class ProductController {
                 .pdThumb(thumb)
                 .pdLocation(p.getPdLocation())
                 .pdCreate(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
-                .dsell(dsell)
-                .dstatus(dstatus)
+                .dsell(dsell)     // ← 이제 절대 null 아님
+                .dstatus(dstatus) // ← 이것도
                 .build();
     }
+
 }
