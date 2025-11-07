@@ -253,11 +253,6 @@ public class ProductService {
 
         productRepo.save(product);
 
-        // ✅ 거래방식도 같이 반영
-        dealRepo.findByProduct_PdIdx(product.getPdIdx()).ifPresent(deal -> {
-            deal.setDDeal(dto.getDDeal());
-            dealRepo.save(deal);
-        });
     }
 
     // =========================================================
@@ -322,7 +317,6 @@ public class ProductService {
         }
 
         UserEntity seller = product.getSeller();
-
         CtLowEntity low = product.getCtLow();
         CtMiddleEntity middle = low != null ? low.getMiddle() : null;
         String upperName = middle != null && middle.getUpper() != null
@@ -336,8 +330,11 @@ public class ProductService {
                 .map(ProductImageEntity::getImageUrl)
                 .toList();
 
+        // ✅ deal 정보 함께 조회
         DealEntity deal = dealRepo.findByProduct_PdIdx(pdIdx).orElse(null);
-        String dDeal = (deal != null) ? deal.getDDeal() : null;
+        Long dSell = deal != null ? deal.getDSell() : 0L;
+        Long dStatus = deal != null ? deal.getDStatus() : 0L;
+        String dDeal = deal != null ? deal.getDDeal() : null;
 
         Double sellerManner = seller != null ? seller.getUManner() : null;
 
@@ -349,7 +346,6 @@ public class ProductService {
                 .pdLocation(product.getPdLocation())
                 .location(product.getPdLocation())
                 .pdStatus(product.getPdStatus())
-                .ddeal(dDeal)
                 .pdThumb(product.getPdThumb())
                 .images(imageUrls)
                 .sellerId(seller != null ? seller.getUIdx() : null)
@@ -363,12 +359,13 @@ public class ProductService {
                 .middleId(middle != null ? middle.getMiddleIdx() : null)
                 .lowId(low != null ? low.getLowIdx() : null)
                 .pdCreate(product.getPdCreate() != null ? product.getPdCreate().toString() : null)
-                // 👇 여기 세 줄이 포인트
-                .ddeal(deal != null ? deal.getDDeal() : null)
-                .dsell(deal != null ? deal.getDSell() : null)
-                .dstatus(deal != null ? deal.getDStatus() : null)
+                // ✅ 여기 세 줄이 항상 deal에서 오는 값
+                .ddeal(dDeal)
+                .dsell(dSell)
+                .dstatus(dStatus)
                 .build();
     }
+
 
     // =========================================================
     // 연관 상품
