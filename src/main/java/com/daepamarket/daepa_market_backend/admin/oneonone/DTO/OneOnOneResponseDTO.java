@@ -19,4 +19,5 @@ public class OneOnOneResponseDTO {
     private Integer category;
     private LocalDate date;
     private String status; // 프론트에서 쓰는 상태값
+    private String reply; // 답변 내용
 }

@@ -67,4 +67,12 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             @Param("excludeId") Long excludeId,
             Pageable pageable
     );
+
+    // 최근 등록 상품 조회 (관리자 대시보드용)
+    @Query("""
+        SELECT p FROM ProductEntity p
+        WHERE p.pdDel = false
+        ORDER BY p.pdCreate DESC
+        """)
+    List<ProductEntity> findRecentProducts(Pageable pageable);
 }

@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class AllReviewDTO {
     private String id;  // Long → String으로 변경
+    private Long realId;
     private String product;
     private String buyer;
     private String seller;

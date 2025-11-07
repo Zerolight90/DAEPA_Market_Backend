@@ -1,13 +1,12 @@
 package com.daepamarket.daepa_market_backend.domain.delivery;
 
-import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
 import org.apache.ibatis.annotations.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
-public interface DeliveryRepository extends JpaRepository<DealEntity, Long> {
+public interface DeliveryRepository extends JpaRepository<DeliveryEntity, Long> {
     // 보낸 택배 거래의 배송/검수 상태 조회
     @Query("""
         select new com.daepamarket.daepa_market_backend.domain.delivery.DeliveryDTO(
@@ -49,5 +48,6 @@ public interface DeliveryRepository extends JpaRepository<DealEntity, Long> {
     List<DeliveryDTO> findReceivedParcelsByBuyer(@Param("uIdx") Long uIdx);
 
 }
+
 
 

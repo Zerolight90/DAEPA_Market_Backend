@@ -1,17 +1,14 @@
 package com.daepamarket.daepa_market_backend.domain.deal;
 
 import jakarta.persistence.LockModeType;
-import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
-import org.apache.ibatis.annotations.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
 
-@Repository
 public interface DealRepository extends JpaRepository<DealEntity, Long> {
 
     Optional<DealEntity> findByProduct_PdIdx(Long pdIdx);
@@ -60,4 +57,5 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
         order by d.dEdate desc
         """)
     List<DealSellHistoryDTO> findSellHistoryBySeller(@Param("sellerIdx") Long sellerIdx);
+
 }

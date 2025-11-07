@@ -32,4 +32,7 @@ public class OneOnOneEntity {
 
     @Column(name = "oo_date")
     private LocalDate ooDate;
+
+    @Column(name = "oo_re", length = 250)
+    private String ooRe;
 }

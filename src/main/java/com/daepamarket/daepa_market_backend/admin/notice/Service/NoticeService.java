@@ -79,8 +79,10 @@ public class NoticeService {
         if (req.getNCategory() != null) {origin.setNCategory(req.getNCategory());}
         origin.setNSubject(req.getNSubject());
         origin.setNContent(req.getNContent());
+        // 수정 시 등록 날짜를 현재 날짜로 업데이트
+        origin.setNDate(LocalDate.now());
 
-        return toDTO(origin);
+        return toDTO(noticeRepository.save(origin));
     }
 
     /** 삭제 */
