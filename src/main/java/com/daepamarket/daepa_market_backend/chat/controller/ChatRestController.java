@@ -39,7 +39,7 @@ public class ChatRestController {
     private final ChatService chatService;
     private final S3Service s3Service; // ✅ 추가됨
     private final SimpMessagingTemplate broker;
-   
+
 
     /** 내 채팅방 목록 */
     @GetMapping("/my-rooms")
@@ -49,14 +49,7 @@ public class ChatRestController {
             Principal principal,
             HttpServletRequest request
     ) {
-        Long effectiveUserId =
-                userId != null ? userId :
-                        userIdHeader != null ? userIdHeader :
-                                (principal != null ? parseLongOrNull(principal.getName()) : null);
-
-        if (effectiveUserId == null) {
-            effectiveUserId = jwtSupport.resolveUserIdFromCookie(request);
-        }
+        Long effectiveUserId = jwtSupport.resolveUserIdFromCookie(request);
         if (effectiveUserId == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
         }
@@ -84,8 +77,7 @@ public class ChatRestController {
     public OpenChatRoomRes open(@RequestBody OpenChatRoomReq req,
                                 Principal principal,
                                 HttpServletRequest http) {
-        Long buyerId = (principal != null) ? parseLongOrNull(principal.getName()) : null;
-        if (buyerId == null) buyerId = jwtSupport.resolveUserIdFromCookie(http);
+        Long buyerId = jwtSupport.resolveUserIdFromCookie(http);
         if (buyerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
 
         return roomService.openOrGetRoom(req, buyerId);
@@ -97,9 +89,7 @@ public class ChatRestController {
                                           @RequestBody ChatDto.SendMessageReq req,
                                           Principal principal,
                                           HttpServletRequest http) {
-        Long senderId = req.getSenderId();
-        if (senderId == null && principal != null) senderId = parseLongOrNull(principal.getName());
-        if (senderId == null) senderId = jwtSupport.resolveUserIdFromCookie(http);
+        Long senderId = jwtSupport.resolveUserIdFromCookie(http);
         if (senderId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
 
         return chatService.sendMessage(roomId, senderId, req.getText(), req.getImageUrl(), req.getTempId());
@@ -112,9 +102,7 @@ public class ChatRestController {
                                       @RequestBody(required = false) ChatDto.ReadEvent body,
                                       Principal principal,
                                       HttpServletRequest http) {
-        Long readerId = (body != null && body.getReaderId() != null) ? body.getReaderId() : null;
-        if (readerId == null && principal != null) readerId = parseLongOrNull(principal.getName());
-        if (readerId == null) readerId = jwtSupport.resolveUserIdFromCookie(http);
+        Long readerId = jwtSupport.resolveUserIdFromCookie(http);
         if (readerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
 
         Long targetUpTo = (upTo != null) ? upTo : (body != null ? body.getLastSeenMessageId() : null);
@@ -293,9 +281,4 @@ public class ChatRestController {
 
         return ResponseEntity.ok(ev);
     }
-
-
-
-
-
 }

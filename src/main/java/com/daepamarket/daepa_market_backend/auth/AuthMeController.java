@@ -19,13 +19,17 @@ public class AuthMeController {
     @GetMapping("/me")
     public ResponseEntity<MeRes> me(HttpServletRequest request) {
         Long uid = jwtSupport.resolveUserIdFromCookie(request);
-        if (uid == null) return ResponseEntity.ok(new MeRes(null, false));
-        return ResponseEntity.ok(new MeRes(uid, true));
+        if (uid == null) {
+            return ResponseEntity.ok(new MeRes(null, null, false));
+        }
+        return ResponseEntity.ok(new MeRes(uid, uid, true));
     }
 
-    @Data @AllArgsConstructor
+    @Data
+    @AllArgsConstructor
     static class MeRes {
-        private Long userId;
+        private Long userId; // 기존 코드를 위해 유지
+        private Long u_idx;  // 새로운 요구사항을 위해 추가
         private boolean authenticated;
     }
 }
