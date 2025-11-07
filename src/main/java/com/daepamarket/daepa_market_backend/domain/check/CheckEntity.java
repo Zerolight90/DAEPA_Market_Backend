@@ -13,8 +13,9 @@ public class CheckEntity {
     private Long ckIdx;
 
     @Column(name = "ck_status")
-    private Integer ckStatus;
+    private Integer ckStatus;  // 0: 검수중, 1: 완료
 
     @Column(name = "ck_result")
-    private Integer ckResult;
+    private Integer ckResult;  // 0: 불합격, 1: 합격
+
 }

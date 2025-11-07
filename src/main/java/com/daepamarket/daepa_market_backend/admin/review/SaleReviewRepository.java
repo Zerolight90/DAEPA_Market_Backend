@@ -32,6 +32,7 @@ public interface SaleReviewRepository extends JpaRepository<SaleReviewEntity, Lo
     @Query("""
         SELECT new com.daepamarket.daepa_market_backend.admin.review.AllReviewDTO(
             CONCAT('S-', sr.srIdx),
+            sr.srIdx,
             p.pdTitle,
             buyer.unickname,
             seller.unickname,
