@@ -13,7 +13,7 @@ public class DealSellHistoryDTO {
     private Long productId;    // pd_idx
 
     private String title;      // pd_title
-    private LocalDate productEndDate; // pd_edate  ← 엔티티가 LocalDate니까 이걸로
+    private LocalDateTime productEndDate; // pd_edate  ← 엔티티가 LocalDate니까 이걸로
 
     private Long agreedPrice;   // Long으로
 
@@ -29,7 +29,7 @@ public class DealSellHistoryDTO {
             Long dealId,
             Long productId,
             String title,
-            LocalDate productEndDate,
+            LocalDateTime productEndDate,
             Long agreedPrice,
             Long dSell,
             Long dBuy,
