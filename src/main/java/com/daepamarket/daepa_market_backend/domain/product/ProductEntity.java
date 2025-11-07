@@ -62,7 +62,7 @@ public class ProductEntity {
     private LocalDateTime pdRefdate;
 
     @Column(name = "pd_edate")
-    private LocalDate pdEdate;
+    private LocalDateTime pdEdate;
 
     @Column(name = "pd_ip", length = 50)
     private String pdIp;

@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "delivery")
@@ -47,7 +48,7 @@ public class DeliveryEntity {
     private Integer dvStatus;
 
     @Column(name = "dv_date")
-    private Timestamp dv_date;
+    private LocalDateTime dv_date;
 
     // ---------------------- 헬퍼 메서드 ----------------------
     public void updateStatus(Integer newStatus) {
