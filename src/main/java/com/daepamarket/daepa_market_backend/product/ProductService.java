@@ -263,8 +263,19 @@ public class ProductService {
             Long upperId, Long middleId, Long lowId,
             String sort, int page, int size
     ) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(3);
+
+        if ("favorite".equalsIgnoreCase(sort)) {
+            // 이 메서드를 ProductRepository 에 만들 거야
+            return productRepo.findAllByCategoryIdsOrderByFavoriteDesc(
+                    upperId, middleId, lowId, cutoff,
+                    PageRequest.of(page, size)
+            );
+        }
+
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        return productRepo.findAllByCategoryIds(upperId, middleId, lowId, pageable);
+
+        return productRepo.findAllByCategoryIds(upperId, middleId, lowId, cutoff, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -272,8 +283,18 @@ public class ProductService {
             String big, String mid, String sub,
             String sort, int page, int size
     ) {
+
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(3);
+
+        if ("favorite".equalsIgnoreCase(sort)) {
+            return productRepo.findAllByNamesOrderByFavoriteDesc(
+                    big, mid, sub, cutoff,
+                    PageRequest.of(page, size)
+            );
+        }
+
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        return productRepo.findAllByNames(big, mid, sub, pageable);
+        return productRepo.findAllByNames(big, mid, sub, cutoff, pageable);
     }
 
     public List<productMyPageDTO> getMyProductByUIdx(Long uIdx, Integer status) {
@@ -415,12 +436,14 @@ public class ProductService {
     public void completeProduct(Long pdIdx, Long userIdx) {
         // 본인 상품인지 확인
         getOwnedProduct(pdIdx, userIdx);
-
+        ProductEntity product = getOwnedProduct(pdIdx, userIdx);
         dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
             deal.setDSell(1L);
             deal.setDStatus(1L);
             dealRepo.save(deal);
         });
+        product.setPdEdate(LocalDateTime.now());
+        productRepo.save(product);
     }
 
     // =========================================================
