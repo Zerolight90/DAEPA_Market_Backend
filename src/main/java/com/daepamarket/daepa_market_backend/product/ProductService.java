@@ -439,7 +439,6 @@ public class ProductService {
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
         dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
             deal.setDSell(1L);
-            deal.setDStatus(1L);
             dealRepo.save(deal);
         });
         product.setPdEdate(LocalDateTime.now());
