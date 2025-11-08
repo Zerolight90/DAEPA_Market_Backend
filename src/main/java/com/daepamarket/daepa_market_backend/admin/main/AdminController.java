@@ -1,5 +1,8 @@
 package com.daepamarket.daepa_market_backend.admin.main;
 
+import com.daepamarket.daepa_market_backend.admin.analytics.AnalyticsService;
+import com.daepamarket.daepa_market_backend.admin.analytics.DailyTransactionDTO;
+import com.daepamarket.daepa_market_backend.admin.analytics.DashboardStatsDTO;
 import com.daepamarket.daepa_market_backend.admin.user.UserResponseDTO;
 import com.daepamarket.daepa_market_backend.domain.admin.*;
 import com.daepamarket.daepa_market_backend.user.UserService;
@@ -14,11 +17,13 @@ import java.util.List;
 
 @Slf4j
 @RestController @RequiredArgsConstructor @RequestMapping("/api/admin")
+@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 public class AdminController {
 
     private final AdminRepository adminRepository;
     private final UserService userService;
     private final AdminService adminService;
+    private final AnalyticsService analyticsService;
 
     @PostMapping("/add-admin")
     public String addAdmin( @RequestBody AdminDTO request) {
@@ -73,6 +78,25 @@ public class AdminController {
     @PutMapping("/me")
     public ResponseEntity<AdminDTO> updateMyProfile( @RequestBody AdminUpdateDTO req) {
         return ResponseEntity.ok(adminService.updateMyProfile(req));
+    }
+
+    // 일간 거래 추이 (주간)
+    @GetMapping("/analytics/daily-transactions")
+    public ResponseEntity<List<DailyTransactionDTO>> getDailyTransactions() {
+        return ResponseEntity.ok(analyticsService.getWeeklyTransactionTrend());
+    }
+
+    // 대시보드 통계
+    @GetMapping("/analytics/stats")
+    public ResponseEntity<DashboardStatsDTO> getDashboardStats() {
+        return ResponseEntity.ok(analyticsService.getDashboardStats());
+    }
+
+    // 최근 등록 상품 조회
+    @GetMapping("/analytics/recent-products")
+    public ResponseEntity<List<com.daepamarket.daepa_market_backend.admin.analytics.RecentProductDTO>> getRecentProducts(
+            @RequestParam(defaultValue = "5") int limit) {
+        return ResponseEntity.ok(analyticsService.getRecentProducts(limit));
     }
 
 }

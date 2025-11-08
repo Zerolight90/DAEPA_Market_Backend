@@ -1,6 +1,8 @@
 package com.daepamarket.daepa_market_backend.user;
 
 import com.daepamarket.daepa_market_backend.admin.user.UserResponseDTO;
+import com.daepamarket.daepa_market_backend.domain.getout.GetoutEntity;
+import com.daepamarket.daepa_market_backend.domain.getout.GetoutRepository;
 import com.daepamarket.daepa_market_backend.domain.location.LocationEntity;
 import com.daepamarket.daepa_market_backend.domain.location.LocationRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
@@ -16,6 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,6 +45,7 @@ public class UserService {
     private final CookieUtil cookieUtil;
     private final CookieProps cookieProps;
     private final JwtProvider jwtProvider;
+    private final GetoutRepository getoutRepository;
 
     public boolean existsByuId(String uId) {
         return userRepository.existsByUid(uId);
@@ -119,6 +123,10 @@ public class UserService {
 
         if (!passwordEncoder.matches(dto.getU_pw(), user.getUPw())) {
             throw new ResponseStatusException(UNAUTHORIZED, "비밀번호 불일치");
+        }
+
+        if (user.getUStatus() == 2) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "탈퇴한 회원입니다.");
         }
 
         String role = user.getUType() != null ? user.getUType() : "USER";
@@ -263,7 +271,11 @@ public class UserService {
                     "locAddress", loc.getLocAddress(),
                     "locCode", loc.getLocCode(),
                     "locDetail", loc.getLocDetail(),
-                    "locDefault", loc.isLocDefault()
+                    "locDefault", loc.isLocDefault(),
+                    "locTitle", loc.getLocTitle(),
+                    "locName", loc.getLocName(),
+                    "locNum", loc.getLocNum()
+
             )).toList());
             return ResponseEntity.ok(result);
 
@@ -281,7 +293,30 @@ public class UserService {
     public List<UserResponseDTO> findAllUsers() {
         return userRepository.findAll()
                 .stream()
-                .map(UserResponseDTO::of)
+                .map(user -> {
+                    // 사용자의 기본 주소 찾기 (uIdx로 직접 조회)
+                    List<LocationEntity> locations = locationRepository.findByUserId(user.getUIdx());
+                    String locationStr = "";
+                    
+                    if (locations != null && !locations.isEmpty()) {
+                        // 기본 주소가 있으면 사용, 없으면 첫 번째 주소 사용
+                        LocationEntity defaultLocation = locations.stream()
+                                .filter(LocationEntity::isLocDefault)
+                                .findFirst()
+                                .orElse(locations.get(0));
+                        
+                        if (defaultLocation != null) {
+                            String address = defaultLocation.getLocAddress() != null ? defaultLocation.getLocAddress().trim() : "";
+                            
+                            if (!address.isEmpty()) {
+                                locationStr = address;
+                            }
+                        }
+                    }
+                    
+                    // 빈 문자열이면 null로 설정 (프론트엔드에서 "-"로 표시)
+                    return UserResponseDTO.of(user, locationStr.isEmpty() ? null : locationStr);
+                })
                 .toList();
     }
 
@@ -297,6 +332,8 @@ public class UserService {
         return userRepository.findByUidAndUnameAndUphone(uid, uname, phoneNumber);
     }
 
+
+    //비밀번호 재설정
     public void reset_password(String uId, String newPw) {
         //아이디로 사용자 조회
         UserEntity user = userRepository.findByUid(uId).orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
@@ -307,6 +344,85 @@ public class UserService {
 
         userRepository.save(user);
     }
+
+    //탈퇴
+    @Transactional
+    public void bye(HttpServletRequest request, Map<String, Object> body) {
+        // 1) 토큰에서 유저 아이디 꺼내기
+        String auth = request.getHeader("Authorization");
+
+        if (auth == null || !auth.startsWith("Bearer ")) {
+            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
+        }
+        String token = auth.substring(7);
+
+        if (jwtProvider.isExpired(token)) {
+            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 만료되었습니다.");
+        }
+
+        Long uIdx = Long.valueOf(jwtProvider.getUid(token));
+
+        // 실제 유저 가져오기
+        UserEntity user = userRepository.findById(uIdx)
+                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "사용자를 찾을 수 없습니다."));
+
+        // 프론트에서 온 데이터 파싱
+        @SuppressWarnings("unchecked")
+        var reasons = (java.util.List<String>) body.getOrDefault("reasons", java.util.List.of());
+        String etc = (String) body.getOrDefault("etc", "");
+
+        // 여러 개 선택한 거 전부 저장하는 버전
+        String goStatus = mapReasonsToStatusMulti(reasons, etc);
+
+        // getout 테이블에 기록 저장
+        GetoutEntity log = GetoutEntity.builder()
+                .user(user)
+                .goStatus(goStatus)
+                .goOutdata(LocalDateTime.now().toLocalDate())
+                .build();
+        getoutRepository.save(log);
+
+        // 6) 사용자 상태 변경
+        user.setUStatus(2);  // 탈퇴
+        userRepository.save(user);
+    }
+
+    /**
+     * 여러 개 체크했을 때 전부 저장하는 버전
+     * 예) ["low_usage","ux_issues"]  → "1,3"
+     * 예) ["low_usage","etc"] + etc="기타 사유" → "1,기타 사유"
+     */
+    private String mapReasonsToStatusMulti(java.util.List<String> reasons, String etc) {
+        if (reasons == null || reasons.isEmpty()) {
+            return "0";
+        }
+
+        java.util.List<String> mapped = new java.util.ArrayList<>();
+
+        for (String r : reasons) {
+            switch (r) {
+                case "low_usage" -> mapped.add("1");
+                case "bad_users" -> mapped.add("2");
+                case "ux_issues" -> mapped.add("3");
+                case "temporary" -> mapped.add("4");
+                case "etc" -> {
+                    // 기타 선택했고 내용이 있으면 그걸 그대로 넣기
+                    if (etc != null && !etc.isBlank()) {
+                        mapped.add(etc.trim());
+                    } else {
+                        mapped.add("기타");
+                    }
+                }
+                default -> mapped.add("0");
+            }
+        }
+
+        // "1,2,3" 이런 식으로 저장
+        return String.join(",", mapped);
+    }
+
+
+
 
 
 

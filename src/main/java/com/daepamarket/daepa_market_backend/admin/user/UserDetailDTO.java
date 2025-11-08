@@ -1,6 +1,7 @@
 package com.daepamarket.daepa_market_backend.admin.user;
 
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 import java.util.List;
@@ -9,17 +10,40 @@ import java.util.List;
 @Setter
 public class UserDetailDTO {
 
+    @JsonProperty("uidx")
     private Long uIdx;
+    
+    @JsonProperty("uid")
     private String uId;
+    
+    @JsonProperty("uname")
     private String uName;
+    
+    @JsonProperty("unickname")
     private String uNickname;
+    
+    @JsonProperty("ugender")
     private String uGender;
+    
+    @JsonProperty("ulocation")
     private String uLocation;
+    
+    @JsonProperty("uphone")
     private String uPhone;
+    
+    @JsonProperty("umanner")
     private Double uManner;
+    
+    @JsonProperty("uwarn")
     private Integer uWarn;
+    
+    @JsonProperty("ustatus")
     private Integer uStatus;
+    
+    @JsonProperty("udate")
     private String uDate;
+    
+    @JsonProperty("ubirth")
     private String uBirth;
 
     // 거래 내역

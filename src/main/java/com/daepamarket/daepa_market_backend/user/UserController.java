@@ -4,8 +4,14 @@ import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserSignUpDTO;
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
+import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,10 +27,13 @@ import java.util.Optional;
 @RequestMapping("/api/sing")
 public class UserController {
     private final UserService userService;
+    private final UserRepository userRepository;
+    private final JwtProvider jwtProvider;
+    private final CookieUtil cookieUtil;
 
 
     @PostMapping("/join/signup")
-    public String signup(@RequestBody UserSignUpDTO userSigndto) throws Exception{
+    public String signup(@RequestBody UserSignUpDTO userSigndto) throws Exception {
         userService.signup(userSigndto);
         return "회원가입 성공";
     }
@@ -79,7 +88,7 @@ public class UserController {
 
         Optional<UserEntity> result = userService.findByUNameAndUphone(uName, uPhone);
 
-        if(result.isPresent()) {
+        if (result.isPresent()) {
             UserEntity user = result.get();
 
             DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -90,8 +99,7 @@ public class UserController {
             map.put("uDate", formatdate);
 
             return ResponseEntity.ok(map);
-        }
-        else {
+        } else {
             return ResponseEntity.status(404).body(Map.of("message", "일치하는 회원 정보가 없습니다."));
         }
     }
@@ -107,20 +115,39 @@ public class UserController {
 
     }
 
-    @PutMapping ("/login/find_password/reset")
-    public ResponseEntity<Map<String, String>> reset_password(@RequestBody Map<String, String> requestData){
+    @PutMapping("/login/find_password/reset")
+    public ResponseEntity<Map<String, String>> reset_password(@RequestBody Map<String, String> requestData) {
         String uId = requestData.get("u_id");
         String newPw = requestData.get("new_password");
 
-        try{
+        try {
             //성공했을 때
             userService.reset_password(uId, newPw);
 
             return ResponseEntity.ok(Map.of("message", "비밀번호가 성공적으로 변경되었습니다."));
         }
         //사용자를 찾지 못함
-        catch (IllegalArgumentException e){
+        catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
     }
+
+    //탈퇴
+    @PostMapping("/bye")
+    public ResponseEntity<?> bye(HttpServletRequest request, HttpServletResponse response, @RequestBody Map<String, Object> body) {
+        userService.bye(request, body);
+
+        // 2) 쿠키 비우기 (로그아웃과 동일하게)
+        ResponseCookie clearAccess = cookieUtil.clear(CookieUtil.ACCESS);
+        ResponseCookie clearRefresh = cookieUtil.clear(CookieUtil.REFRESH);
+
+        return ResponseEntity.ok()
+                .headers(h -> {
+                    h.add(HttpHeaders.SET_COOKIE, clearAccess.toString());
+                    h.add(HttpHeaders.SET_COOKIE, clearRefresh.toString());
+                })
+                .body(Map.of("message", "탈퇴가 완료되었습니다."));
+
+    }
+    
 }

@@ -23,6 +23,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * 웹소켓(STOMP) 기반의 실시간 채팅 요청을 처리하는 컨트롤러입니다.
+ * 클라이언트로부터 메시지를 받아 서비스 로직을 수행하고, 결과를 구독자들에게 브로드캐스트합니다.
+ */
 @Controller
 @RequiredArgsConstructor
 public class ChatWsController {
@@ -47,11 +51,10 @@ public class ChatWsController {
                             SimpMessageHeaderAccessor accessor,
                             Principal principal) {
 
-        Long senderId = sanitizeId(req.getSenderId());
-        if (senderId == null) senderId = parseLongSafe(accessor.getFirstNativeHeader("x-user-id"));
-        if (senderId == null && principal != null) senderId = parseLongSafe(principal.getName());
-        if (senderId == null) senderId = jwtSupport.resolveUserIdFromHeaderOrCookie(accessor);
-        if (senderId == null) return;
+        Long senderId = resolveUserId(req.getSenderId(), accessor, principal);
+        if (senderId == null) {
+            throw new org.springframework.messaging.MessageDeliveryException("Unauthorized: Sender ID could not be resolved.");
+        }
 
         req.setRoomId(roomId);
         req.setSenderId(senderId);
@@ -69,11 +72,10 @@ public class ChatWsController {
                          SimpMessageHeaderAccessor accessor,
                          Principal principal) {
 
-        Long readerId = sanitizeId(readEvent.getReaderId());
-        if (readerId == null) readerId = parseLongSafe(accessor.getFirstNativeHeader("x-user-id"));
-        if (readerId == null && principal != null) readerId = parseLongSafe(principal.getName());
-        if (readerId == null) readerId = jwtSupport.resolveUserIdFromHeaderOrCookie(accessor);
-        if (readerId == null) return;
+        Long readerId = resolveUserId(readEvent.getReaderId(), accessor, principal);
+        if (readerId == null) {
+            throw new org.springframework.messaging.MessageDeliveryException("Unauthorized: Reader ID could not be resolved.");
+        }
 
         Long appliedUpTo = chatService.markRead(roomId, readerId, readEvent.getLastSeenMessageId());
 
@@ -147,6 +149,14 @@ public class ChatWsController {
        🧩 유틸 메서드들
        ===================================================== */
 
+    private Long resolveUserId(Long idFromPayload, SimpMessageHeaderAccessor accessor, Principal principal) {
+        Long userId = sanitizeId(idFromPayload);
+        if (userId == null) userId = parseLongSafe(accessor.getFirstNativeHeader("x-user-id"));
+        if (userId == null && principal != null) userId = parseLongSafe(principal.getName());
+        if (userId == null) userId = jwtSupport.resolveUserIdFromHeaderOrCookie(accessor);
+        return userId;
+    }
+
     @SuppressWarnings("unchecked")
     private List<Long> findParticipants(Long roomId) {
         List<?> resultList = em.createNativeQuery(
@@ -193,10 +203,10 @@ public class ChatWsController {
                           SimpMessageHeaderAccessor accessor,
                           Principal principal) {
 
-        Long me = parseLongSafe(accessor.getFirstNativeHeader("x-user-id"));
-        if (me == null && principal != null) me = parseLongSafe(principal.getName());
-        if (me == null) me = jwtSupport.resolveUserIdFromHeaderOrCookie(accessor);
-        if (me == null) return;
+        Long me = resolveUserId(null, accessor, principal);
+        if (me == null) {
+            throw new org.springframework.messaging.MessageDeliveryException("Unauthorized: User ID could not be resolved for leaveRoom.");
+        }
 
         // 참여자인지 확인
         // (RoomService의 isParticipant 재사용)
