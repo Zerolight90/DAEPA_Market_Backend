@@ -2,6 +2,11 @@ package com.daepamarket.daepa_market_backend.product;
 
 import com.daepamarket.daepa_market_backend.S3Service;
 import com.daepamarket.daepa_market_backend.alarm.AlarmService;
+
+import com.daepamarket.daepa_market_backend.chat.service.ChatService;
+import com.daepamarket.daepa_market_backend.domain.chat.ChatRoomEntity;
+import com.daepamarket.daepa_market_backend.domain.chat.repository.ChatRoomRepository;
+
 import com.daepamarket.daepa_market_backend.domain.Category.CtLowEntity;
 import com.daepamarket.daepa_market_backend.domain.Category.CtLowRepository;
 import com.daepamarket.daepa_market_backend.domain.Category.CtMiddleEntity;
@@ -24,10 +29,13 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -43,6 +51,11 @@ public class ProductService {
 
     private final S3Service s3Service;
     private final AlarmService alarmService;
+
+    // 판매 완료 메시지 관련 서비스
+    private final ChatService chatService;
+    private final ChatRoomRepository chatRoomRepository;
+
 
     // 마이페이지 쪽
     private final ProductRepository productRepository;
@@ -439,6 +452,20 @@ public class ProductService {
         dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
             deal.setDSell(1L);
             dealRepo.save(deal);
+
+            // 채팅 알림 로직
+            try {
+                Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), pdIdx);
+                if (roomId != null) {
+                    UserEntity seller = deal.getSeller();
+                    String sellerName = seller != null ? seller.getUnickname() : "판매자";
+                    String message = String.format("📦 판매 완료 알림\n\n판매자가 상품을 [판매 완료] 상태로 변경했습니다.\n물품을 안전하게 전달받으셨다면, [구매 확정]을 눌러 거래를 완료해주세요! 👍", sellerName);
+                    chatService.sendMessage(roomId, userIdx, message, null, null);
+                }
+            } catch (Exception e) {
+                log.error("판매 완료 채팅 알림 전송 중 오류 발생", e);
+            }
+            // 채팅 알림 로직
         });
         product.setPdEdate(LocalDateTime.now());
         productRepo.save(product);
@@ -462,4 +489,18 @@ public class ProductService {
                     .and(Sort.by(Sort.Direction.DESC, "pdCreate"));
         };
     }
+
+    // 헬퍼 메소드
+    private Long resolveRoomIdByDealOrProduct(Long dealId, Long productId) {
+        if (dealId != null) {
+            Optional<ChatRoomEntity> byDeal = chatRoomRepository.findByDealId(dealId);
+            if (byDeal.isPresent()) return byDeal.get().getChIdx();
+        }
+        if (productId != null) {
+            Optional<ChatRoomEntity> byProduct = chatRoomRepository.findLatestByProductId(productId);
+            if (byProduct.isPresent()) return byProduct.get().getChIdx();
+        }
+        return null;
+    }
+
 }
