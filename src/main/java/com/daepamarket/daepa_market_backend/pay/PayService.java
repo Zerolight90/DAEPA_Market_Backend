@@ -182,7 +182,7 @@ public class PayService {
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
         deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
         deal.setDSell(1L);    // 판매 상태
-        deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
+        deal.setDStatus(0L);         // 거래 상태 (예: 2 = 결제완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
         dealRepository.save(deal);
@@ -293,7 +293,7 @@ public class PayService {
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
         deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
         deal.setDSell(1L);    // 판매 상태
-        deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
+        deal.setDStatus(0L);         // 거래 상태 (3L = 구매 확정 대기)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
         dealRepository.save(deal);
@@ -326,6 +326,53 @@ public class PayService {
             Long price = (deal.getAgreedPrice() != null ? deal.getAgreedPrice() : product.getPdPrice());
             chatService.sendSellerConfirmed(roomId, sellerId, product.getPdTitle(), price);
         }
+    }
+
+    /**
+     * ✅ [신규] 구매 확정 처리 (안전결제)
+     * @param dealId 확정할 거래 ID
+     * @param buyerId 확정을 요청한 사용자 ID (구매자)
+     */
+    @Transactional
+    public void finalizePurchase(Long dealId, Long buyerId) {
+        // 1. 거래 정보 조회 (비관적 락으로 동시성 제어)
+        DealEntity deal = dealRepository.findWithWriteLockByDIdx(dealId)
+                .orElseThrow(() -> new IllegalStateException("거래 정보를 찾을 수 없습니다."));
+
+        // 2. 권한 검증: 요청한 사용자가 실제 구매자인지 확인
+        if (deal.getBuyer() == null || !deal.getBuyer().getUIdx().equals(buyerId)) {
+            throw new AccessDeniedException("이 거래를 확정할 권한이 없습니다.");
+        }
+
+        // 3. 상태 검증: '구매 확정 대기' 상태가 맞는지 확인
+        if (deal.getDStatus() != 3L) {
+            throw new IllegalStateException("이미 처리되었거나 구매 확정 대기 상태가 아닌 거래입니다.");
+        }
+
+        // 4. 거래 상태 '거래 완료'로 변경
+        deal.setDStatus(1L); // 1L = 거래 완료
+        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 완료 시각 기록
+
+        // 5. 판매자에게 정산 처리
+        UserEntity seller = deal.getSeller();
+        Long sellerId = seller.getUIdx();
+        Long price = deal.getAgreedPrice();
+
+        // 판매자의 현재 페이 잔액 조회
+        Long sellerBalance = payRepository.calculateTotalBalanceByUserId(sellerId);
+        if (sellerBalance == null) {
+            sellerBalance = 0L;
+        }
+
+        // Pay 테이블에 판매자 입금 내역 기록
+        PayEntity sellerLog = new PayEntity();
+        sellerLog.setUser(seller);
+        sellerLog.setPaPrice(price); // 판매 금액 (양수)
+        sellerLog.setPaNprice(sellerBalance + price); // 새로운 잔액
+        sellerLog.setPaDate(LocalDate.now());
+        payRepository.save(sellerLog);
+
+        // @Transactional에 의해 deal과 sellerLog는 자동으로 저장/커밋됨
     }
 
     @Transactional
