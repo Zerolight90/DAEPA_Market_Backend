@@ -152,10 +152,10 @@ public class PayService {
         dealRepository.save(deal);
 
         // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
-//        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
-//        if (roomId != null) {
-//            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
-//        }
+        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
+        if (roomId != null) {
+            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
+        }
 
         return currentBalance - correctTotal;
     }
