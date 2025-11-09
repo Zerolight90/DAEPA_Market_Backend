@@ -152,7 +152,7 @@ public class ProductService {
                 .buyer(null)
                 .dDeal(dto.getDDeal())
                 .dStatus(0L)
-                .dSell(0L)             // ✅ 등록 시 기본값 0
+                .dSell(0L)
                 .build();
         dealRepo.save(deal);
 
@@ -160,7 +160,7 @@ public class ProductService {
     }
 
     // =========================================================
-    // ✅ 수정 (이미지 포함) – DTO는 그대로 사용
+    // 수정 (멀티파트)
     // =========================================================
     @Transactional
     public void updateMultipart(Long pdIdx, Long userIdx, ProductCreateDTO dto, List<MultipartFile> images) {
@@ -186,7 +186,6 @@ public class ProductService {
             }
         }
 
-        // 공통 수정 로직
         updateProductInternal(product, dto, finalImageUrls);
     }
 
@@ -197,7 +196,6 @@ public class ProductService {
     public void updateProduct(Long pdIdx, Long userIdx, ProductCreateDTO dto) {
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
 
-        // DB에 있는 현재 이미지들 그대로 가져옴
         List<String> currentImageUrls = imageRepo.findAllByProduct_PdIdx(pdIdx)
                 .stream()
                 .map(ProductImageEntity::getImageUrl)
@@ -206,12 +204,9 @@ public class ProductService {
         updateProductInternal(product, dto, new ArrayList<>(currentImageUrls));
     }
 
-    // =========================================================
-    // 실제 수정 내부 로직 (카테고리/이미지/거래방식 다 여기서)
-    // =========================================================
+    // 실제 수정 내부 로직
     private void updateProductInternal(ProductEntity product, ProductCreateDTO dto, List<String> finalImageUrls) {
 
-        // 카테고리 검증
         CtLowEntity low = ctLowRepo.findById(dto.getLowId())
                 .orElseThrow(() -> new IllegalArgumentException("하위 카테고리를 찾을 수 없습니다."));
         CtMiddleEntity middle = low.getMiddle();
@@ -222,7 +217,6 @@ public class ProductService {
             throw new IllegalArgumentException("상위 카테고리가 중위와 일치하지 않습니다.");
         }
 
-        // 기본 필드
         product.setCtLow(low);
         product.setPdTitle(dto.getTitle());
         product.setPdContent(dto.getContent());
@@ -231,24 +225,20 @@ public class ProductService {
         product.setPdStatus(dto.getPdStatus());
         product.setPdUpdate(LocalDateTime.now());
 
-        // 대표 이미지
         if (!finalImageUrls.isEmpty()) {
             product.setPdThumb(finalImageUrls.get(0));
         } else {
             product.setPdThumb(null);
         }
 
-        // 이미지 테이블 동기화
         List<ProductImageEntity> currentImages = imageRepo.findAllByProduct_PdIdx(product.getPdIdx());
 
-        // 1) 현재 DB에 있는데 프론트에서 안 보낸 건 삭제 (X 눌렀던 것들)
         for (ProductImageEntity img : currentImages) {
             if (!finalImageUrls.contains(img.getImageUrl())) {
                 imageRepo.delete(img);
             }
         }
 
-        // 2) 프론트에서 보냈는데 DB에 없는 건 새로 insert
         for (String url : finalImageUrls) {
             boolean exists = currentImages.stream()
                     .anyMatch(ci -> ci.getImageUrl().equals(url));
@@ -269,17 +259,23 @@ public class ProductService {
     }
 
     // =========================================================
-    // 이하 원래 있는 메소드들
+    // ✅ 목록 조회 (id 기준) - min/max 추가
     // =========================================================
     @Transactional(readOnly = true)
     public Page<ProductEntity> getProductsByIds(
-            Long upperId, Long middleId, Long lowId,
-            String sort, int page, int size
+            Long upperId,
+            Long middleId,
+            Long lowId,
+            Long min,
+            Long max,
+            String sort,
+            int page,
+            int size
     ) {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(3);
 
+        // 찜 많은 순은 그대로 냅두고
         if ("favorite".equalsIgnoreCase(sort)) {
-            // 이 메서드를 ProductRepository 에 만들 거야
             return productRepo.findAllByCategoryIdsOrderByFavoriteDesc(
                     upperId, middleId, lowId, cutoff,
                     PageRequest.of(page, size)
@@ -287,16 +283,31 @@ public class ProductService {
         }
 
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-
-        return productRepo.findAllByCategoryIds(upperId, middleId, lowId, cutoff, pageable);
+        return productRepo.findAllByCategoryIds(
+                upperId,
+                middleId,
+                lowId,
+                min,
+                max,
+                cutoff,
+                pageable
+        );
     }
 
+    // =========================================================
+    // ✅ 목록 조회 (이름 기준) - min/max 추가
+    // =========================================================
     @Transactional(readOnly = true)
     public Page<ProductEntity> getProductsByNames(
-            String big, String mid, String sub,
-            String sort, int page, int size
+            String big,
+            String mid,
+            String sub,
+            Long min,
+            Long max,
+            String sort,
+            int page,
+            int size
     ) {
-
         LocalDateTime cutoff = LocalDateTime.now().minusDays(3);
 
         if ("favorite".equalsIgnoreCase(sort)) {
@@ -307,7 +318,13 @@ public class ProductService {
         }
 
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        return productRepo.findAllByNames(big, mid, sub, cutoff, pageable);
+        return productRepo.findAllByNames(
+                big, mid, sub,
+                min,
+                max,
+                cutoff,
+                pageable
+        );
     }
 
     public List<productMyPageDTO> getMyProductByUIdx(Long uIdx, Integer status) {
@@ -337,12 +354,10 @@ public class ProductService {
                 .toList();
     }
 
-    // =========================================================
-    // 단건 상세
-    // =========================================================
+    // 이하 상세/연관/삭제/완료 등은 네가 보낸 그대로 ↓↓↓
+
     @Transactional(readOnly = true)
     public ProductDetailDTO getProductDetail(Long pdIdx) {
-
         ProductEntity product = productRepo.findById(pdIdx)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
 
@@ -364,7 +379,6 @@ public class ProductService {
                 .map(ProductImageEntity::getImageUrl)
                 .toList();
 
-        // ✅ deal 정보 함께 조회
         DealEntity deal = dealRepo.findByProduct_PdIdx(pdIdx).orElse(null);
         Long dSell = deal != null ? deal.getDSell() : 0L;
         Long dStatus = deal != null ? deal.getDStatus() : 0L;
@@ -393,17 +407,12 @@ public class ProductService {
                 .middleId(middle != null ? middle.getMiddleIdx() : null)
                 .lowId(low != null ? low.getLowIdx() : null)
                 .pdCreate(product.getPdCreate() != null ? product.getPdCreate().toString() : null)
-                // ✅ 여기 세 줄이 항상 deal에서 오는 값
                 .ddeal(dDeal)
                 .dsell(dSell)
                 .dstatus(dStatus)
                 .build();
     }
 
-
-    // =========================================================
-    // 연관 상품
-    // =========================================================
     @Transactional(readOnly = true)
     public List<ProductEntity> getRelatedProducts(Long pdIdx, int limit) {
         ProductEntity base = productRepo.findById(pdIdx)
@@ -422,9 +431,6 @@ public class ProductService {
         ).getContent();
     }
 
-    // =========================================================
-    // 소프트 삭제
-    // =========================================================
     @Transactional
     public void softDeleteProduct(Long pdIdx, Long userIdx) {
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
@@ -432,9 +438,6 @@ public class ProductService {
         productRepo.save(product);
     }
 
-    // =========================================================
-    // 끌어올리기
-    // =========================================================
     @Transactional
     public void bumpProduct(Long pdIdx, Long userIdx) {
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
@@ -442,12 +445,8 @@ public class ProductService {
         productRepo.save(product);
     }
 
-    // =========================================================
-    // 판매완료
-    // =========================================================
     @Transactional
     public void completeProduct(Long pdIdx, Long userIdx) {
-        // 본인 상품인지 확인
         getOwnedProduct(pdIdx, userIdx);
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
         dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
@@ -472,9 +471,6 @@ public class ProductService {
         productRepo.save(product);
     }
 
-    // =========================================================
-    // 공통: 내 상품인지 확인
-    // =========================================================
     private ProductEntity getOwnedProduct(Long pdIdx, Long userIdx) {
         ProductEntity product = productRepo.findById(pdIdx)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."));
@@ -484,9 +480,6 @@ public class ProductService {
         return product;
     }
 
-    // =========================================================
-    // 정렬 기준
-    // =========================================================
     private Sort resolveSort(String sort) {
         String key = (sort == null || sort.isBlank()) ? "recent" : sort;
         return switch (key) {
