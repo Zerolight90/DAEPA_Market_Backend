@@ -162,14 +162,13 @@ public class PayService {
 
     // ✅✅ 일반(외부 PG) 결제시: 결제 승인 직후 💸 SYSTEM 메시지 발송
     @Transactional
-    public void confirmProductPurchase(String paymentKey, String orderId, Long amount){
+    public void confirmProductPurchase(String paymentKey, String orderId, Long amount, Long buyerIdx){
 
         // 토스페이먼츠 최종 결제 승인 요청
         confirmToTossPayments(paymentKey, orderId, amount);
 
         // 주문 정보에서 상품 ID(pdIdx)와 구매자 ID(buyerIdx) 추출
         long pdIdx = extractProductIdFromOrderId(orderId);
-        long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId); // 실제 구매자 ID 가져오는 로직 필요
 
         // 필요한 엔티티 조회
         UserEntity buyer = userRepository.findById(buyerIdx)
@@ -274,14 +273,13 @@ public class PayService {
     }
 
     @Transactional
-    public void confirmProductSecPurchase(String paymentKey, String orderId, Long amount){
+    public void confirmProductSecPurchase(String paymentKey, String orderId, Long amount, Long buyerIdx){
 
         // 토스페이먼츠 최종 결제 승인 요청
         confirmToTossPayments(paymentKey, orderId, amount);
 
         // 주문 정보에서 상품 ID(pdIdx)와 구매자 ID(buyerIdx) 추출
         long pdIdx = extractProductIdFromOrderId(orderId);
-        long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId); // 실제 구매자 ID 가져오는 로직 필요
 
         // 필요한 엔티티 조회
         UserEntity buyer = userRepository.findById(buyerIdx)
@@ -380,26 +378,6 @@ public class PayService {
         }
         return null;
         // roomId가 null일 수 있는 과거 데이터 케이스 → 메시지는 생략(안전)
-    }
-
-    // 예시: 충전 주문 ID("charge-${userId}-${uuid}")에서 사용자 ID 추출
-    private Long extractUserIdFromChargeOrderId(String orderId) {
-        try {
-            String[] parts = orderId.split("-");
-            if (parts.length > 1 && "charge".equals(parts[0])) {
-                return Long.parseLong(parts[1]);
-            }
-        } catch (Exception e) { /* ignore */ }
-        // 실제로는 더 안정적인 방법 사용 권장 (예: DB 조회)
-        // 임시로 하드코딩된 ID 반환 (테스트용)
-        return 2L;
-    }
-
-    // 예시: 구매자 ID 추출 (실제 구현 필요)
-    private Long extractBuyerIdFromContextOrOrderId(String orderId) {
-        // TODO: Spring Security Context Holder에서 현재 로그인 사용자 ID를 가져오거나,
-        // orderId 생성 시 구매자 정보를 포함시키는 등 실제 구매자 ID를 가져오는 로직 구현 필요
-        return 2L; // 임시 구매자 ID
     }
 
     // 예시: 상품 구매 주문 ID("product-${pdIdx}-${uuid}")에서 상품 ID 추출

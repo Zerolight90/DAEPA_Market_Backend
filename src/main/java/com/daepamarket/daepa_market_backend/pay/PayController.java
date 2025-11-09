@@ -183,10 +183,33 @@ public class PayController {
             @RequestParam String paymentKey,
             @RequestParam String orderId,
             @RequestParam Long amount,
-            HttpServletResponse httpServletResponse) throws IOException {
+            HttpServletResponse httpServletResponse,
+            HttpServletRequest request) throws IOException { // ✅ HttpServletRequest 추가
         try {
-            // 실제 로직은 Service 계층에 위임
-            payService.confirmProductPurchase(paymentKey, orderId, amount);
+            // ===== 1. 토큰 추출 및 검증 =====
+            String token = resolveAccessToken(request);
+            if (token == null) {
+                handleAuthError(httpServletResponse, "로그인이 필요합니다 (토큰 없음).");
+                return;
+            }
+            if (jwtProvider.isExpired(token)) {
+                handleAuthError(httpServletResponse, "토큰이 만료되었습니다.");
+                return;
+            }
+
+            // ===== 2. 토큰에서 사용자 ID 추출 =====
+            Long userId;
+            try {
+                userId = Long.valueOf(jwtProvider.getUid(token));
+            } catch (Exception e) {
+                handleAuthError(httpServletResponse, "유효하지 않은 토큰입니다.");
+                return;
+            }
+            // =======================================================
+
+            // 실제 로직은 Service 계층에 위임 (✅ userId 전달)
+            payService.confirmProductPurchase(paymentKey, orderId, amount, userId);
+
             // 성공 시 사용자에게 보여줄 페이지로 리다이렉트
             String redirectUrl = "http://localhost:3000/pay/success?amount=" + amount + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
@@ -204,10 +227,32 @@ public class PayController {
             @RequestParam String paymentKey,
             @RequestParam String orderId,
             @RequestParam Long amount,
-            HttpServletResponse httpServletResponse) throws IOException {
+            HttpServletResponse httpServletResponse,
+            HttpServletRequest request) throws IOException { // ✅ HttpServletRequest 추가
         try {
-            // 실제 로직은 Service 계층에 위임
-            payService.confirmProductPurchase(paymentKey, orderId, amount);
+            // ===== 1. 토큰 추출 및 검증 =====
+            String token = resolveAccessToken(request);
+            if (token == null) {
+                handleAuthError(httpServletResponse, "로그인이 필요합니다 (토큰 없음).");
+                return;
+            }
+            if (jwtProvider.isExpired(token)) {
+                handleAuthError(httpServletResponse, "토큰이 만료되었습니다.");
+                return;
+            }
+
+            // ===== 2. 토큰에서 사용자 ID 추출 =====
+            Long userId;
+            try {
+                userId = Long.valueOf(jwtProvider.getUid(token));
+            } catch (Exception e) {
+                handleAuthError(httpServletResponse, "유효하지 않은 토큰입니다.");
+                return;
+            }
+            // =======================================================
+
+            // 실제 로직은 Service 계층에 위임 (✅ userId 전달)
+            payService.confirmProductSecPurchase(paymentKey, orderId, amount, userId);
             // 성공 시 사용자에게 보여줄 페이지로 리다이렉트
             String redirectUrl = "http://localhost:3000/pay/sec/success?amount=" + amount + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
