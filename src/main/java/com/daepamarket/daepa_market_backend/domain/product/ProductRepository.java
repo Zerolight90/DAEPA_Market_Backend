@@ -13,6 +13,7 @@ import java.util.List;
 
 public interface ProductRepository extends JpaRepository<ProductEntity, Long>, JpaSpecificationExecutor<ProductEntity> {
 
+    // ✅ 카테고리 id + 가격 필터
     @Query("""
         SELECT p FROM ProductEntity p
           JOIN p.ctLow l
@@ -21,6 +22,8 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
         WHERE (:upperId  IS NULL OR u.upperIdx   = :upperId)
           AND (:middleId IS NULL OR m.middleIdx  = :middleId)
           AND (:lowId    IS NULL OR l.lowIdx     = :lowId)
+          AND (:min IS NULL OR p.pdPrice >= :min)
+          AND (:max IS NULL OR p.pdPrice <= :max)
           AND p.pdDel = false
           AND (p.pdEdate IS NULL OR p.pdEdate >= :cutoff)
         """)
@@ -28,15 +31,20 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             @Param("upperId")  Long upperId,
             @Param("middleId") Long middleId,
             @Param("lowId")    Long lowId,
-            @Param("cutoff") LocalDateTime cutoff,
+            @Param("min")      Long min,
+            @Param("max")      Long max,
+            @Param("cutoff")   LocalDateTime cutoff,
             Pageable pageable
     );
 
+    // ✅ 카테고리 이름 + 가격 필터
     @Query("""
            SELECT p FROM ProductEntity p
            WHERE (:big IS NULL OR p.ctLow.middle.upper.upperCt = :big)
              AND (:mid IS NULL OR p.ctLow.middle.middleCt     = :mid)
              AND (:sub IS NULL OR p.ctLow.lowCt               = :sub)
+             AND (:min IS NULL OR p.pdPrice >= :min)
+             AND (:max IS NULL OR p.pdPrice <= :max)
              AND p.pdDel = false
              AND (p.pdEdate IS NULL OR p.pdEdate >= :cutoff)
            """)
@@ -44,6 +52,8 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             @Param("big") String big,
             @Param("mid") String mid,
             @Param("sub") String sub,
+            @Param("min") Long min,
+            @Param("max") Long max,
             @Param("cutoff") LocalDateTime cutoff,
             Pageable pageable
     );
@@ -73,8 +83,7 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
-    // ✅ 새로 넣는 "찜 많은 순" 버전
-    // ─────────────────────────────────────────
+    // 찜 많은 순 (id 기준)
     @Query("""
         select p
         from ProductEntity p
@@ -98,9 +107,7 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
-    // ─────────────────────────────────────────
-    // 이름으로 찾는 애도 하나 더 (홈에서 혹시 쓸 수도 있으니까)
-    // ─────────────────────────────────────────
+    // 찜 많은 순 (이름 기준)
     @Query("""
         select p
         from ProductEntity p
@@ -124,7 +131,6 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
-    // 최근 등록 상품 조회 (관리자 대시보드용)
     @Query("""
         SELECT p FROM ProductEntity p
         WHERE p.pdDel = false
