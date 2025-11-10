@@ -3,6 +3,8 @@ package com.daepamarket.daepa_market_backend.userpick;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.daepamarket.daepa_market_backend.domain.alarm.AlarmEntity;
+import com.daepamarket.daepa_market_backend.domain.alarm.AlarmRepository;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
 import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
 import com.daepamarket.daepa_market_backend.domain.userpick.UserPickEntity;
@@ -30,6 +32,7 @@ public class UserPickService {
 
     private final UserPickRepository userPickRepository;
     private final ProductRepository productRepository;
+    private final AlarmRepository alarmRepository;
 
     private final CtUpperRepository ctUpperRepository;
     private final CtMiddleRepository ctMiddleRepository;
@@ -85,18 +88,20 @@ public class UserPickService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProductNotificationDTO> getNotificationsForPick(UserPickDTO pick) {
-        List<ProductEntity> products = productRepository.findMatchingProducts(
+    public List<ProductNotificationDTO> getNotificationsForPick(UserPickDTO pick, Long uIdx) {
+        List<AlarmEntity> alarms = alarmRepository.findMatchingAlarmsForUser(
+                uIdx,
                 pick.getUpperCategory(),
                 pick.getMiddleCategory(),
                 pick.getLowCategory(),
                 pick.getMinPrice(),
-                pick.getMaxPrice(),
-                LocalDateTime.now()
+                pick.getMaxPrice()
         );
 
-        return products.stream()
-                .map(product -> new ProductNotificationDTO(product.getPdIdx(), product.getPdTitle()))
+        return alarms.stream()
+                .map(alarm -> new ProductNotificationDTO(
+                        alarm.getProduct().getPdIdx(),
+                        alarm.getProduct().getPdTitle()))
                 .collect(Collectors.toList());
     }
 

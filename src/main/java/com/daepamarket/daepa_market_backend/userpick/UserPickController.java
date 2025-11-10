@@ -139,8 +139,9 @@ public class UserPickController {
         if (token == null || jwtProvider.isExpired(token)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "인증이 필요합니다."));
         }
+        Long userId = Long.valueOf(jwtProvider.getUid(token));
 
-        List<ProductNotificationDTO> notifications = userPickService.getNotificationsForPick(pick);
+        List<ProductNotificationDTO> notifications = userPickService.getNotificationsForPick(pick, userId);
         return ResponseEntity.ok(notifications);
     }
 
