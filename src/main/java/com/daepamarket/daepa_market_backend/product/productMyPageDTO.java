@@ -11,12 +11,14 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class productMyPageDTO {
+    private Long pd_idx;
     private Long u_idx;
     private String pd_status;
     private String pd_create;
     private String pd_title;
     private int pd_price;
     private String pd_thumb;
+    private Long d_status;
 }
 
 
