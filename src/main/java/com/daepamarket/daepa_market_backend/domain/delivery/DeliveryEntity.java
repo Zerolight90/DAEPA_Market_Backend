@@ -48,7 +48,7 @@ public class DeliveryEntity {
     private Integer dvStatus;
 
     @Column(name = "dv_date")
-    private LocalDateTime dv_date;
+    private LocalDateTime dvDate;
 
     // ---------------------- 헬퍼 메서드 ----------------------
     public void updateStatus(Integer newStatus) {
