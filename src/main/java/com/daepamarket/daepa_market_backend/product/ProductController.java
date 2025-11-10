@@ -1,6 +1,5 @@
 package com.daepamarket.daepa_market_backend.product;
 
-import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
 import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
 import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
@@ -35,7 +34,7 @@ public class ProductController {
     private final JwtProvider jwtProvider;
     private final CookieUtil cookieUtil;
 
-    // 등록
+    // 등록 (멀티파트)
     @PostMapping(value = "/create-multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createMultipart(
             HttpServletRequest request,
@@ -59,7 +58,6 @@ public class ProductController {
         }
 
         Long userId = Long.valueOf(jwtProvider.getUid(token));
-
         Long id = productService.registerMultipart(userId, dto, images);
         return ResponseEntity.ok(id);
     }
@@ -107,40 +105,66 @@ public class ProductController {
         return null;
     }
 
-    // ✅ 목록 조회 (id 기준) - min/max 추가
+    // 목록 조회 (id 기준) - 가격 + 거래방식 + 판매완료 제외
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByIds(
             @RequestParam(required = false) Long upperId,
-            @RequestParam(name = "mid", required = false) Long middleId,  // ✅ 이렇게 변경
-            @RequestParam(name = "low", required = false) Long lowId,     // ✅ 이렇게 변경
+            @RequestParam(name = "mid", required = false) Long middleId,
+            @RequestParam(name = "low", required = false) Long lowId,
             @RequestParam(required = false) Long min,
             @RequestParam(required = false) Long max,
+            @RequestParam(required = false) String dDeal,
+            @RequestParam(required = false, defaultValue = "false") boolean excludeSold,
             @RequestParam(defaultValue = "recent") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         Page<ProductListDTO> mapped = productService
-                .getProductsByIds(upperId, middleId, lowId, min, max, sort, page, size)
+                .getProductsByIds(
+                        upperId,
+                        middleId,
+                        lowId,
+                        min,
+                        max,
+                        dDeal,
+                        excludeSold,
+                        sort,
+                        page,
+                        size
+                )
                 .map(this::toListDTO);
         return ResponseEntity.ok(mapped);
     }
 
-    // ✅ 목록 조회 (이름 기준) - min/max 추가
+    // 목록 조회 (이름 기준) - 가격 + 거래방식 + 판매완료 제외
     @GetMapping("/by-name")
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByNames(
             @RequestParam(required = false) String big,
             @RequestParam(required = false) String mid,
             @RequestParam(required = false) String sub,
-            @RequestParam(required = false) Long min,   // ← 추가
-            @RequestParam(required = false) Long max,   // ← 추가
+            @RequestParam(required = false) Long min,
+            @RequestParam(required = false) Long max,
+            @RequestParam(required = false) String dDeal,
+            @RequestParam(required = false, defaultValue = "false") boolean excludeSold,
             @RequestParam(defaultValue = "recent") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         Page<ProductListDTO> mapped = productService
-                .getProductsByNames(big, mid, sub, min, max, sort, page, size)
+                .getProductsByNames(
+                        big,
+                        mid,
+                        sub,
+                        min,
+                        max,
+                        dDeal,
+                        excludeSold,
+                        sort,
+                        page,
+                        size
+                )
                 .map(this::toListDTO);
         return ResponseEntity.ok(mapped);
     }
