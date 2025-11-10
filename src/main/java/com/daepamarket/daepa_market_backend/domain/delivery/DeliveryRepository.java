@@ -18,7 +18,8 @@ public interface DeliveryRepository extends JpaRepository<DeliveryEntity, Long> 
             ck.ckResult,
             loc.locKey,
             d.agreedPrice,
-            d.product.pdTitle
+            d.product.pdTitle,
+            dv.dvDate
         )
         from DeliveryEntity dv
         join dv.deal d
@@ -38,7 +39,8 @@ public interface DeliveryRepository extends JpaRepository<DeliveryEntity, Long> 
             ck.ckResult,
             loc.locKey,
             d.agreedPrice,
-            d.product.pdTitle
+            d.product.pdTitle,
+            dv.dvDate
         )
         from DeliveryEntity dv
         join dv.deal d

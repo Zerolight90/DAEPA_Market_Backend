@@ -32,17 +32,18 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
 
     // 안전결제 내역
     @Query("""
-
-            select new com.daepamarket.daepa_market_backend.domain.deal.DealSafeDTO(
-            p.pdTitle,
-            d.agreedPrice,
-            d.dEdate
-            )
-            from DealEntity d
-            join d.product p
-            where d.seller.uIdx = :uIdx
-            order by d.dEdate desc
-        """)
+    select new com.daepamarket.daepa_market_backend.domain.deal.DealSafeDTO(
+        p.pdTitle,
+        d.agreedPrice,
+        d.dEdate,
+        d.dStatus
+    )
+    from DealEntity d
+    join d.product p
+    where d.seller.uIdx = :uIdx
+      and d.dStatus = 1
+    order by d.dEdate desc
+    """)
     List<DealSafeDTO> findSettlementsBySeller(@Param("uIdx") Long uIdx);
 
     // 판매 내역
@@ -58,7 +59,8 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
         d.dStatus,
         TRIM(d.dDeal),
         dv.dvStatus,
-        ck.ckStatus
+        ck.ckStatus,
+        d.seller.uIdx
     )
     from com.daepamarket.daepa_market_backend.domain.deal.DealEntity d
     join d.product p
@@ -70,5 +72,42 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
     order by d.dEdate desc
     """)
     List<DealSellHistoryDTO> findSellHistoryBySeller(@Param("sellerIdx") Long sellerIdx);
+
+    // 구매 내역
+    @Query("""
+        select new com.daepamarket.daepa_market_backend.domain.deal.DealBuyHistoryDTO(
+            d.dIdx,
+            p.pdIdx,
+            p.pdTitle,
+            d.dEdate,
+            d.agreedPrice,
+            d.dSell,
+            d.dBuy,
+            d.dStatus,
+            TRIM(d.dDeal),
+            dv.dvStatus,
+            ck.ckStatus,
+            d.buyer.uIdx
+        )
+        from com.daepamarket.daepa_market_backend.domain.deal.DealEntity d
+        join d.product p
+        left join com.daepamarket.daepa_market_backend.domain.delivery.DeliveryEntity dv
+            on dv.deal = d
+        left join com.daepamarket.daepa_market_backend.domain.check.CheckEntity ck
+            on ck = dv.checkEntity
+        where d.buyer.uIdx = :buyerIdx
+        order by d.dEdate desc
+        """)
+    List<DealBuyHistoryDTO> findBuyHistoryByBuyer(@Param("buyerIdx") Long buyerIdx);
+
+    //  구매내역에서 구매확인 버튼
+    @Query("""
+        select d
+        from DealEntity d
+        where d.dIdx = :dealId
+          and d.buyer.uIdx = :buyerId
+        """)
+    Optional<DealEntity> findByIdAndBuyer(Long dealId, Long buyerId);
+
 
 }

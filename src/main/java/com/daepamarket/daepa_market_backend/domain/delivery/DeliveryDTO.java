@@ -3,6 +3,8 @@ package com.daepamarket.daepa_market_backend.domain.delivery;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @AllArgsConstructor
 public class DeliveryDTO {
@@ -21,4 +23,6 @@ public class DeliveryDTO {
     private Long agreedPrice;
 
     private  String productTitle;
+
+    private LocalDateTime dvDate;
 }

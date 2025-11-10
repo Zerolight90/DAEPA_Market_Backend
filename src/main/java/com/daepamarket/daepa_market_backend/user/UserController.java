@@ -1,19 +1,19 @@
 package com.daepamarket.daepa_market_backend.user;
 
-import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
-import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
-import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
-import com.daepamarket.daepa_market_backend.domain.user.UserSignUpDTO;
+import com.daepamarket.daepa_market_backend.domain.user.*;
 import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.text.DateFormat;
 import java.time.format.DateTimeFormatter;
@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+@Slf4j
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/sing")
@@ -149,5 +150,19 @@ public class UserController {
                 .body(Map.of("message", "탈퇴가 완료되었습니다."));
 
     }
-    
+
+    // 회원정보수정
+    @PostMapping("/update")
+    public ResponseEntity<?> updateMe(HttpServletRequest request, @RequestBody UserUpdateDTO dto) {
+        try {
+            userService.updateMe(request, dto);
+            return ResponseEntity.ok("회원정보가 성공적으로 수정되었습니다.");
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        } catch (Exception e) {
+            log.error("❌ 회원정보 수정 중 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("회원정보 수정 실패: " + e.getMessage());
+        }
+    }
 }
