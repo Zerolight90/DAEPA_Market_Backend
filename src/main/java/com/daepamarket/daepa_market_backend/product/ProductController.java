@@ -107,36 +107,40 @@ public class ProductController {
         return null;
     }
 
-    // 목록 조회 (id 기준)
+    // ✅ 목록 조회 (id 기준) - min/max 추가
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByIds(
             @RequestParam(required = false) Long upperId,
-            @RequestParam(required = false) Long middleId,
-            @RequestParam(required = false) Long lowId,
+            @RequestParam(name = "mid", required = false) Long middleId,  // ✅ 이렇게 변경
+            @RequestParam(name = "low", required = false) Long lowId,     // ✅ 이렇게 변경
+            @RequestParam(required = false) Long min,
+            @RequestParam(required = false) Long max,
             @RequestParam(defaultValue = "recent") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         Page<ProductListDTO> mapped = productService
-                .getProductsByIds(upperId, middleId, lowId, sort, page, size)
+                .getProductsByIds(upperId, middleId, lowId, min, max, sort, page, size)
                 .map(this::toListDTO);
         return ResponseEntity.ok(mapped);
     }
 
-    // 목록 조회 (이름 기준)
+    // ✅ 목록 조회 (이름 기준) - min/max 추가
     @GetMapping("/by-name")
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByNames(
             @RequestParam(required = false) String big,
             @RequestParam(required = false) String mid,
             @RequestParam(required = false) String sub,
+            @RequestParam(required = false) Long min,   // ← 추가
+            @RequestParam(required = false) Long max,   // ← 추가
             @RequestParam(defaultValue = "recent") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         Page<ProductListDTO> mapped = productService
-                .getProductsByNames(big, mid, sub, sort, page, size)
+                .getProductsByNames(big, mid, sub, min, max, sort, page, size)
                 .map(this::toListDTO);
         return ResponseEntity.ok(mapped);
     }
@@ -148,7 +152,6 @@ public class ProductController {
         ProductDetailDTO dto = productService.getProductDetail(id);
         return ResponseEntity.ok(dto);
     }
-
 
     // 연관 상품
     @GetMapping("/{id}/related")
@@ -261,7 +264,6 @@ public class ProductController {
         var dealOpt = dealRepository.findByProduct_PdIdx(p.getPdIdx());
         if (dealOpt.isPresent()) {
             var d = dealOpt.get();
-            // 🔥 여기서 null 방어
             dsell = (d.getDSell() != null) ? d.getDSell() : 0L;
             dstatus = (d.getDStatus() != null) ? d.getDStatus() : 0L;
         }
@@ -273,8 +275,8 @@ public class ProductController {
                 .pdThumb(thumb)
                 .pdLocation(p.getPdLocation())
                 .pdCreate(p.getPdCreate() != null ? p.getPdCreate().toString() : null)
-                .dsell(dsell)     // ← 이제 절대 null 아님
-                .dstatus(dstatus) // ← 이것도
+                .dsell(dsell)
+                .dstatus(dstatus)
                 .build();
     }
 

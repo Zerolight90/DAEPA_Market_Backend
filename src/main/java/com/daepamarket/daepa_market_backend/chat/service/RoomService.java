@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.chat.service;
 
+import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
 import com.daepamarket.daepa_market_backend.mapper.ChatRoomMapper;
 import com.daepamarket.daepa_market_backend.common.dto.ChatRoomListDto;
 import com.daepamarket.daepa_market_backend.common.dto.ChatRoomOpenDto.OpenChatRoomReq;
@@ -25,6 +26,7 @@ public class RoomService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMapper chatRoomMapper;
+    private final DealRepository dealRepository; // Gemini가 추가
 
     @PersistenceContext
     private EntityManager em;
@@ -75,9 +77,13 @@ public class RoomService {
 
         String identifier = buildIdentifier(buyerId, req.getSellerId(), req.getProductId());
 
-        // 미리 deal 탐색
-        Long foundDealId = findDealId(req.getProductId(), req.getSellerId(), buyerId);
-        DealEntity dealRef = (foundDealId != null) ? em.getReference(DealEntity.class, foundDealId) : null;
+
+        // 상품에 연결된 기본 거래 정보를 조회하여 deal이 null이 되는 상황을 방지
+        DealEntity dealRef = dealRepository.findByProduct_PdIdx(req.getProductId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Product " + req.getProductId() + "에 해당하는 Deal 정보가 존재하지 않습니다.")
+                );
+        Long foundDealId = dealRef.getDIdx();
 
         return chatRoomRepository.findByChIdentifier(identifier)
                 .map(room -> {

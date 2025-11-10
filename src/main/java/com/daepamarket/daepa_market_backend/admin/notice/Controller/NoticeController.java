@@ -8,13 +8,14 @@ import com.daepamarket.daepa_market_backend.admin.notice.Service.NoticeService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/notices")
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
+@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000","http://3.34.181.73"})
 public class NoticeController {
 
     private final NoticeService noticeService;
@@ -33,8 +34,10 @@ public class NoticeController {
 
     /** 공지 수정 */
     @PutMapping("/{id}")
-    public NoticeResponseDTO update(@PathVariable Long id, @RequestBody NoticeUpdateDTO req) {
-        return noticeService.update(id, req);
+    public NoticeResponseDTO update(@PathVariable Long id,
+                                    @RequestPart("req") NoticeUpdateDTO req,
+                                    @RequestPart(value = "file", required = false) MultipartFile file) {
+        return noticeService.update(id, req, file);
     }
 
     /** 공지 삭제 */
@@ -45,7 +48,9 @@ public class NoticeController {
 
     /** 공지 작성 */
     @PostMapping
-    public NoticeResponseDTO create(HttpServletRequest request, @RequestBody NoticeRequestDTO req) {
+    public NoticeResponseDTO create(HttpServletRequest request,
+                                    @RequestPart("req") NoticeRequestDTO req,
+                                    @RequestPart(value = "file", required = false) MultipartFile file) {
 
         // 요청한 클라이언트 IP 추출
         String clientIp = request.getHeader("X-Forwarded-For");
@@ -57,6 +62,6 @@ public class NoticeController {
         req.setNIp(clientIp);
 
         // 서비스 호출
-        return noticeService.createNotice(req);
+        return noticeService.createNotice(req, file);
     }
 }
