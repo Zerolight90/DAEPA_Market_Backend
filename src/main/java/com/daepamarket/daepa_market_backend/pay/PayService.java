@@ -152,7 +152,7 @@ public class PayService {
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각 설정
         deal.setDBuy(1L); // 페이 구매 상태
         deal.setDSell(1L); // 페이 판매 상태
-        deal.setDStatus(1L); // 결제 상태
+        deal.setDStatus(0L); // 결제 상태
         dealRepository.save(deal);
 
         // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
