@@ -2,14 +2,12 @@ package com.daepamarket.daepa_market_backend.product;
 
 import com.daepamarket.daepa_market_backend.S3Service;
 import com.daepamarket.daepa_market_backend.alarm.AlarmService;
-
 import com.daepamarket.daepa_market_backend.chat.service.ChatService;
-import com.daepamarket.daepa_market_backend.domain.chat.ChatRoomEntity;
-import com.daepamarket.daepa_market_backend.domain.chat.repository.ChatRoomRepository;
-
 import com.daepamarket.daepa_market_backend.domain.Category.CtLowEntity;
 import com.daepamarket.daepa_market_backend.domain.Category.CtLowRepository;
 import com.daepamarket.daepa_market_backend.domain.Category.CtMiddleEntity;
+import com.daepamarket.daepa_market_backend.domain.chat.ChatRoomEntity;
+import com.daepamarket.daepa_market_backend.domain.chat.repository.ChatRoomRepository;
 import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
 import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
@@ -29,12 +27,10 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 @Slf4j
@@ -52,19 +48,13 @@ public class ProductService {
     private final S3Service s3Service;
     private final AlarmService alarmService;
 
-    // 판매 완료 메시지 관련 서비스
     private final ChatService chatService;
     private final ChatRoomRepository chatRoomRepository;
 
-
-    // 마이페이지 쪽
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
 
-    // =========================================================
-    // 등록 (멀티파트)
-    // =========================================================
     @Transactional
     public Long registerMultipart(Long userIdx, ProductCreateDTO dto, List<MultipartFile> images) {
         if (images == null || images.isEmpty()) {
@@ -86,9 +76,6 @@ public class ProductService {
         return register(userIdx, dto);
     }
 
-    // =========================================================
-    // 등록
-    // =========================================================
     @Transactional
     public Long register(Long userIdx, ProductCreateDTO dto) {
 
@@ -126,7 +113,6 @@ public class ProductService {
                         .build()
         );
 
-        // 이미지 저장
         List<String> urls = dto.getImageUrls();
         if (urls != null && !urls.isEmpty()) {
             urls.stream()
@@ -141,11 +127,9 @@ public class ProductService {
                     ));
         }
 
-        // 알람 매칭
         ProductEntity savedProduct = productRepo.save(product);
         alarmService.createAlarmsForMatchingProduct(savedProduct);
 
-        // 거래 기본값
         DealEntity deal = DealEntity.builder()
                 .product(product)
                 .seller(seller)
@@ -159,21 +143,16 @@ public class ProductService {
         return product.getPdIdx();
     }
 
-    // =========================================================
-    // 수정 (멀티파트)
-    // =========================================================
     @Transactional
     public void updateMultipart(Long pdIdx, Long userIdx, ProductCreateDTO dto, List<MultipartFile> images) {
 
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
 
-        // 프론트에서 안 지운 기존 이미지들
         List<String> finalImageUrls = new ArrayList<>();
         if (dto.getImageUrls() != null) {
             finalImageUrls.addAll(dto.getImageUrls());
         }
 
-        // 새 파일이 있으면 업로드해서 뒤에 붙인다
         if (images != null && !images.isEmpty()) {
             for (MultipartFile file : images) {
                 if (file.isEmpty()) continue;
@@ -189,9 +168,6 @@ public class ProductService {
         updateProductInternal(product, dto, finalImageUrls);
     }
 
-    // =========================================================
-    // 수정 (이미지 안 바꾸는 경우)
-    // =========================================================
     @Transactional
     public void updateProduct(Long pdIdx, Long userIdx, ProductCreateDTO dto) {
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
@@ -204,7 +180,6 @@ public class ProductService {
         updateProductInternal(product, dto, new ArrayList<>(currentImageUrls));
     }
 
-    // 실제 수정 내부 로직
     private void updateProductInternal(ProductEntity product, ProductCreateDTO dto, List<String> finalImageUrls) {
 
         CtLowEntity low = ctLowRepo.findById(dto.getLowId())
@@ -255,12 +230,8 @@ public class ProductService {
         }
 
         productRepo.save(product);
-
     }
 
-    // =========================================================
-    // ✅ 목록 조회 (id 기준) - min/max 추가
-    // =========================================================
     @Transactional(readOnly = true)
     public Page<ProductEntity> getProductsByIds(
             Long upperId,
@@ -268,16 +239,20 @@ public class ProductService {
             Long lowId,
             Long min,
             Long max,
+            String dDeal,
+            boolean excludeSold,
             String sort,
             int page,
             int size
     ) {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(3);
 
-        // 찜 많은 순은 그대로 냅두고
         if ("favorite".equalsIgnoreCase(sort)) {
             return productRepo.findAllByCategoryIdsOrderByFavoriteDesc(
-                    upperId, middleId, lowId, cutoff,
+                    upperId,
+                    middleId,
+                    lowId,
+                    cutoff,
                     PageRequest.of(page, size)
             );
         }
@@ -289,14 +264,13 @@ public class ProductService {
                 lowId,
                 min,
                 max,
+                dDeal,
+                excludeSold,
                 cutoff,
                 pageable
         );
     }
 
-    // =========================================================
-    // ✅ 목록 조회 (이름 기준) - min/max 추가
-    // =========================================================
     @Transactional(readOnly = true)
     public Page<ProductEntity> getProductsByNames(
             String big,
@@ -304,6 +278,8 @@ public class ProductService {
             String sub,
             Long min,
             Long max,
+            String dDeal,
+            boolean excludeSold,
             String sort,
             int page,
             int size
@@ -312,16 +288,23 @@ public class ProductService {
 
         if ("favorite".equalsIgnoreCase(sort)) {
             return productRepo.findAllByNamesOrderByFavoriteDesc(
-                    big, mid, sub, cutoff,
+                    big,
+                    mid,
+                    sub,
+                    cutoff,
                     PageRequest.of(page, size)
             );
         }
 
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
         return productRepo.findAllByNames(
-                big, mid, sub,
+                big,
+                mid,
+                sub,
                 min,
                 max,
+                dDeal,
+                excludeSold,
                 cutoff,
                 pageable
         );
@@ -353,8 +336,6 @@ public class ProductService {
                 })
                 .toList();
     }
-
-    // 이하 상세/연관/삭제/완료 등은 네가 보낸 그대로 ↓↓↓
 
     @Transactional(readOnly = true)
     public ProductDetailDTO getProductDetail(Long pdIdx) {
@@ -452,20 +433,15 @@ public class ProductService {
         dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
             deal.setDSell(1L);
             dealRepo.save(deal);
-
-            // 채팅 알림 로직
             try {
                 Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), pdIdx);
                 if (roomId != null) {
-                    UserEntity seller = deal.getSeller();
-                    String sellerName = seller != null ? seller.getUnickname() : "판매자";
-                    String message = String.format("📦 판매 완료 알림\n\n판매자가 상품을 [판매 완료] 상태로 변경했습니다.\n물품을 안전하게 전달받으셨다면, [구매 확정]을 눌러 거래를 완료해주세요! 👍", sellerName);
+                    String message = "📦 판매 완료 알림\n\n판매자가 상품을 [판매 완료] 상태로 변경했습니다.\n물품을 안전하게 전달받으셨다면, [구매 확정]을 눌러 거래를 완료해주세요! 👍";
                     chatService.sendMessage(roomId, userIdx, message, null, null);
                 }
             } catch (Exception e) {
                 log.error("판매 완료 채팅 알림 전송 중 오류 발생", e);
             }
-            // 채팅 알림 로직
         });
         product.setPdEdate(LocalDateTime.now());
         productRepo.save(product);
@@ -483,14 +459,13 @@ public class ProductService {
     private Sort resolveSort(String sort) {
         String key = (sort == null || sort.isBlank()) ? "recent" : sort;
         return switch (key) {
-            case "price_asc"  -> Sort.by(Sort.Direction.ASC, "pdPrice");
+            case "price_asc" -> Sort.by(Sort.Direction.ASC, "pdPrice");
             case "price_desc" -> Sort.by(Sort.Direction.DESC, "pdPrice");
             default -> Sort.by(Sort.Direction.DESC, "pdRefdate")
                     .and(Sort.by(Sort.Direction.DESC, "pdCreate"));
         };
     }
 
-    // 헬퍼 메소드
     private Long resolveRoomIdByDealOrProduct(Long dealId, Long productId) {
         if (dealId != null) {
             Optional<ChatRoomEntity> byDeal = chatRoomRepository.findByDealId(dealId);
@@ -502,5 +477,4 @@ public class ProductService {
         }
         return null;
     }
-
 }

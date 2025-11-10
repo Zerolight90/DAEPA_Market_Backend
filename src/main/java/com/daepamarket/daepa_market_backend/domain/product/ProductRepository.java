@@ -13,54 +13,85 @@ import java.util.List;
 
 public interface ProductRepository extends JpaRepository<ProductEntity, Long>, JpaSpecificationExecutor<ProductEntity> {
 
-    // ✅ 카테고리 id + 가격 필터
+    // id 기반 + 가격 + 거래방식(앞부분 일치, 대소문자 무시) + 판매완료 제외
     @Query("""
-        SELECT p FROM ProductEntity p
-          JOIN p.ctLow l
-          JOIN l.middle m
-          JOIN m.upper  u
+        SELECT p
+        FROM ProductEntity p
+            JOIN p.ctLow l
+            JOIN l.middle m
+            JOIN m.upper u
+            LEFT JOIN DealEntity d ON d.product = p
         WHERE (:upperId  IS NULL OR u.upperIdx   = :upperId)
           AND (:middleId IS NULL OR m.middleIdx  = :middleId)
           AND (:lowId    IS NULL OR l.lowIdx     = :lowId)
-          AND (:min IS NULL OR p.pdPrice >= :min)
-          AND (:max IS NULL OR p.pdPrice <= :max)
+          AND (:min      IS NULL OR p.pdPrice >= :min)
+          AND (:max      IS NULL OR p.pdPrice <= :max)
+          AND (
+                :dDeal IS NULL
+                OR (
+                    d.dDeal IS NOT NULL
+                    AND LOWER(d.dDeal) LIKE LOWER(CONCAT(:dDeal, '%'))
+                )
+              )
+          AND (
+                :excludeSold = false
+                OR d.dSell IS NULL
+                OR d.dSell = 0
+              )
           AND p.pdDel = false
           AND (p.pdEdate IS NULL OR p.pdEdate >= :cutoff)
         """)
     Page<ProductEntity> findAllByCategoryIds(
-            @Param("upperId")  Long upperId,
+            @Param("upperId") Long upperId,
             @Param("middleId") Long middleId,
-            @Param("lowId")    Long lowId,
-            @Param("min")      Long min,
-            @Param("max")      Long max,
-            @Param("cutoff")   LocalDateTime cutoff,
+            @Param("lowId") Long lowId,
+            @Param("min") Long min,
+            @Param("max") Long max,
+            @Param("dDeal") String dDeal,
+            @Param("excludeSold") boolean excludeSold,
+            @Param("cutoff") LocalDateTime cutoff,
             Pageable pageable
     );
 
-    // ✅ 카테고리 이름 + 가격 필터
+    // 이름 기반 + 가격 + 거래방식(앞부분 일치, 대소문자 무시) + 판매완료 제외
     @Query("""
-           SELECT p FROM ProductEntity p
-           WHERE (:big IS NULL OR p.ctLow.middle.upper.upperCt = :big)
-             AND (:mid IS NULL OR p.ctLow.middle.middleCt     = :mid)
-             AND (:sub IS NULL OR p.ctLow.lowCt               = :sub)
-             AND (:min IS NULL OR p.pdPrice >= :min)
-             AND (:max IS NULL OR p.pdPrice <= :max)
-             AND p.pdDel = false
-             AND (p.pdEdate IS NULL OR p.pdEdate >= :cutoff)
-           """)
+        SELECT p
+        FROM ProductEntity p
+            JOIN p.ctLow l
+            JOIN l.middle m
+            JOIN m.upper u
+            LEFT JOIN DealEntity d ON d.product = p
+        WHERE (:big IS NULL OR u.upperCt   = :big)
+          AND (:mid IS NULL OR m.middleCt  = :mid)
+          AND (:sub IS NULL OR l.lowCt     = :sub)
+          AND (:min IS NULL OR p.pdPrice >= :min)
+          AND (:max IS NULL OR p.pdPrice <= :max)
+          AND (
+                :dDeal IS NULL
+                OR (
+                    d.dDeal IS NOT NULL
+                    AND LOWER(d.dDeal) LIKE LOWER(CONCAT(:dDeal, '%'))
+                )
+              )
+          AND (
+                :excludeSold = false
+                OR d.dSell IS NULL
+                OR d.dSell = 0
+              )
+          AND p.pdDel = false
+          AND (p.pdEdate IS NULL OR p.pdEdate >= :cutoff)
+        """)
     Page<ProductEntity> findAllByNames(
             @Param("big") String big,
             @Param("mid") String mid,
             @Param("sub") String sub,
             @Param("min") Long min,
             @Param("max") Long max,
+            @Param("dDeal") String dDeal,
+            @Param("excludeSold") boolean excludeSold,
             @Param("cutoff") LocalDateTime cutoff,
             Pageable pageable
     );
-
-    List<ProductEntity> findBySeller(UserEntity user);
-
-    List<ProductEntity> findBySellerAndPdStatus(UserEntity user, int pdStatus);
 
     @Query("""
        SELECT p
@@ -68,7 +99,14 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
        WHERE p.seller.uIdx = :sellerId
        ORDER BY p.pdIdx DESC
        """)
-    Page<ProductEntity> findPageBySellerId(@Param("sellerId") Long sellerId, Pageable pageable);
+    Page<ProductEntity> findPageBySellerId(
+            @Param("sellerId") Long sellerId,
+            Pageable pageable
+    );
+
+    List<ProductEntity> findBySeller(UserEntity user);
+
+    List<ProductEntity> findBySellerAndPdStatus(UserEntity user, int pdStatus);
 
     @Query("""
         SELECT p FROM ProductEntity p
