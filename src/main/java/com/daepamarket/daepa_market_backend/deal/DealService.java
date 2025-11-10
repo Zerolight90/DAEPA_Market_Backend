@@ -1,10 +1,9 @@
 package com.daepamarket.daepa_market_backend.deal;
 
-import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
-import com.daepamarket.daepa_market_backend.domain.deal.DealSafeDTO;
-import com.daepamarket.daepa_market_backend.domain.deal.DealSellHistoryDTO;
+import com.daepamarket.daepa_market_backend.domain.deal.*;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -43,5 +42,34 @@ public class DealService {
     public List<DealSellHistoryDTO> getMySellHistory(Long sellerIdx) {
         return dealRepository.findSellHistoryBySeller(sellerIdx);
     }
+
+    public List<DealBuyHistoryDTO> getMyBuyHistory(Long sellerIdx) {
+        return dealRepository.findBuyHistoryByBuyer(sellerIdx);
+    }
+
+    // 구매내역에서 구매확정 버튼
+    @Transactional
+    public void confirmBuy(Long dealId, Long buyerId) {
+        DealEntity deal = dealRepository.findByIdAndBuyer(dealId, buyerId)
+                .orElseThrow(() -> new IllegalArgumentException("거래가 없거나 내 거래가 아닙니다."));
+
+        // 이미 구매확정 되어 있으면 그냥 끝
+        if (deal.getDBuy() != null && deal.getDBuy() == 1L) {
+            // 그래도 d_status 체크 한 번 더
+            if (deal.getDSell() != null && deal.getDSell() == 1L) {
+                deal.setDStatus(1L);
+            }
+            return;
+        }
+
+        // 1) 나(구매자)가 확정
+        deal.setDBuy(1L);
+
+        // 2) 판매자도 이미 확정(d_sell=1) 했으면 거래 완료로
+        if (deal.getDSell() != null && deal.getDSell() == 1L) {
+            deal.setDStatus(1L);
+        }
+    }
+
 }
 
