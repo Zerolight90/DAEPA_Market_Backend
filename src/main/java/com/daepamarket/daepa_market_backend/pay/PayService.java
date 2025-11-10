@@ -150,8 +150,8 @@ public class PayService {
         deal.setAgreedPrice(correctTotal); // 실제 거래된 가격
         deal.setBuyer(buyer); // 구매자 설정
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각 설정
-        deal.setDBuy(1L); // 페이 구매 상태
-        deal.setDSell(1L); // 페이 판매 상태
+        deal.setDBuy(0L); // 페이 구매 상태
+        deal.setDSell(2L); // 페이 판매 상태
         deal.setDStatus(0L); // 결제 상태
         dealRepository.save(deal);
 
@@ -196,8 +196,8 @@ public class PayService {
         deal.setAgreedPrice(amount); // 거래 가격
         deal.setBuyer(buyer); // 거래 구매자
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
-        deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
-        deal.setDSell(1L);    // 판매 상태
+        deal.setDBuy(0L); // 구매 상태 (예: 구매 확정 대기)
+        deal.setDSell(2L);    // 판매 상태
         deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
@@ -284,9 +284,9 @@ public class PayService {
         deal.setAgreedPrice(correctTotal); // 실제 거래된 가격
         deal.setBuyer(buyer); // 구매자 설정
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각 설정
-        deal.setDBuy(1L); // 페이 구매 상태
-        deal.setDSell(1L); // 페이 판매 상태
-        deal.setDStatus(1L); // 결제 상태
+        deal.setDBuy(0L); // 페이 구매 상태
+        deal.setDSell(2L); // 페이 판매 상태
+        deal.setDStatus(0L); // 결제 상태
         dealRepository.save(deal);
 
         // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
@@ -317,9 +317,9 @@ public class PayService {
         deal.setAgreedPrice(amount); // 거래 가격
         deal.setBuyer(buyer); // 거래 구매자
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
-        deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
-        deal.setDSell(1L);    // 판매 상태
-        deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
+        deal.setDBuy(0L);     // 구매 상태 (0 = 미구매, 1 = 구매 확정)
+        deal.setDSell(2L);    // 판매 상태 (0 = 판매중, 1 = 판매완료, 2 = 입금완료)
+        deal.setDStatus(0L);  // 거래 상태 (0 = 거래중, 1 = 거래완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
         dealRepository.save(deal);
@@ -370,12 +370,13 @@ public class PayService {
             throw new AccessDeniedException("이 거래를 확정할 권한이 없습니다.");
         }
 
-        // 3. 상태 검증: '구매 확정 대기' 상태가 맞는지 확인
-        if (deal.getDStatus() != 3L) {
+        // 3. 상태 검증: '판매중' 상태가 맞는지 확인
+        if (deal.getDStatus() != 0L) {
             throw new IllegalStateException("이미 처리되었거나 구매 확정 대기 상태가 아닌 거래입니다.");
         }
 
         // 4. 거래 상태 '거래 완료'로 변경
+        deal.setDBuy(1L);
         deal.setDStatus(1L); // 1L = 거래 완료
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 완료 시각 기록
 

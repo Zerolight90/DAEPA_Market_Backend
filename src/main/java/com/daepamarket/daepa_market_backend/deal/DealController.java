@@ -29,12 +29,12 @@ public class DealController {
 
     /**
      * ✅ [신규] 구매 확정 API
-     * @param dIdx 확정할 거래 ID
+     * @param dealId 확정할 거래 ID
      * @param request 사용자 인증을 위한 HttpServletRequest
      */
-    @PostMapping("/{dIdx}/confirm")
+    @PostMapping("/{dealId}/confirm")
     public ResponseEntity<?> confirmPurchase(
-            @PathVariable Long dIdx,
+            @PathVariable Long dealId,
             HttpServletRequest request) {
         try {
             // 1. 토큰에서 사용자 ID 추출 (기존 로직 활용)
@@ -49,7 +49,7 @@ public class DealController {
             Long userId = Long.valueOf(jwtProvider.getUid(token));
 
             // 2. 서비스 로직 호출
-            payService.finalizePurchase(dIdx, userId);
+            payService.finalizePurchase(dealId, userId);
 
             return ResponseEntity.ok(Map.of("message", "구매가 성공적으로 확정되었습니다. 판매자에게 정산이 완료됩니다."));
 
