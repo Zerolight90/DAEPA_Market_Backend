@@ -318,10 +318,27 @@ public class ProductService {
                     dto.setPd_title(p.getPdTitle());
                     dto.setPd_price(p.getPdPrice() != null ? p.getPdPrice().intValue() : 0);
                     dto.setPd_create(p.getPdCreate() != null ? p.getPdCreate().format(fmt) : null);
-                    dto.setPd_thumb(null);
+
+                    // ✅ 썸네일 채우는 부분
+                    String thumb = p.getPdThumb();
+                    if (thumb != null && !thumb.isBlank()) {
+                        dto.setPd_thumb(toS3Url(thumb));
+                    } else {
+                        dto.setPd_thumb(null);
+                    }
                     return dto;
+
                 })
                 .toList();
+    }
+
+    private String toS3Url(String keyOrUrl) {
+        // 이미 전체 URL로 저장된 경우
+        if (keyOrUrl.startsWith("http")) {
+            return keyOrUrl;
+        }
+        // 네가 S3Service에서 쓰는 포맷 그대로 맞춤
+        return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/" + keyOrUrl;
     }
 
     // =========================================================

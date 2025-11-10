@@ -1,6 +1,7 @@
 package com.daepamarket.daepa_market_backend.deal;
 
 
+import com.daepamarket.daepa_market_backend.domain.deal.DealBuyHistoryDTO;
 import com.daepamarket.daepa_market_backend.domain.deal.DealSellHistoryDTO;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
@@ -62,4 +63,60 @@ public class DealController {
             return ResponseEntity.status(500).body("서버 오류가 발생했습니다.");
         }
     }
+
+    @GetMapping("/myBuy")
+    public ResponseEntity<?> getMyBuys(HttpServletRequest request) {
+        try {
+            String auth = request.getHeader("Authorization");
+            if (auth == null || !auth.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("토큰이 없습니다.");
+            }
+
+            String token = auth.substring(7);
+            if (jwtProvider.isExpired(token)) {
+                return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
+            }
+
+            Long uIdx = Long.valueOf(jwtProvider.getUid(token));
+
+            List<DealBuyHistoryDTO> list = dealService.getMyBuyHistory(uIdx);
+
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
+        }
+    }
+
+
+    //구매내역에서 구매확정 버튼
+    @PatchMapping("/{dealId}/buy-confirm")
+    public ResponseEntity<?> confirmBuy(
+            @PathVariable Long dealId,
+            HttpServletRequest request
+    ) {
+        try {
+            String auth = request.getHeader("Authorization");
+            if (auth == null || !auth.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("토큰이 없습니다.");
+            }
+
+            String token = auth.substring(7);
+            if (jwtProvider.isExpired(token)) {
+                return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
+            }
+
+            Long uIdx = Long.valueOf(jwtProvider.getUid(token)); // 로그인한 사람(구매자)
+
+            // 서비스에 위임
+            dealService.confirmBuy(dealId, uIdx);
+
+            return ResponseEntity.ok("구매확정 완료");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
+        }
+    }
+
+
 }

@@ -1,32 +1,33 @@
 package com.daepamarket.daepa_market_backend.domain.deal;
 
 import lombok.Data;
+
 import java.sql.Timestamp;
 
 @Data
-public class DealSellHistoryDTO {
+public class DealBuyHistoryDTO {
 
-    private Long dealId;       // d_idx
-    private Long productId;    // pd_idx
-    private String title;      // pd_title
-    private Timestamp dealEndDate; // d_edate
+    private Long dealId;          // d_idx
+    private Long productId;       // pd_idx
+    private String title;         // p.pd_title
+    private Timestamp dealEndDate; // d.d_edate
     private Long agreedPrice;
 
     private Long dSell;
     private Long dBuy;
     private Long dStatus;
-    private String dDeal;      // "MEET" / "DELIVERY"
+    private String dDeal;         // MEET / DELIVERY
 
-    private Integer dvStatus;    // delivery.dv_status
-    private Integer ckStatus;    // check.ck_status
-    private Long sellerIdx2;     // ✅ 추가: d.seller.uIdx
+    private Integer dvStatus;     // 배송 상태
+    private Integer ckStatus;     // 검수 상태
 
-    private boolean showSendBtn;
+    private Long buyerIdx;        // ✅ d.buyer.uIdx
+
+    // 화면에서 버튼 보여줄 때 쓰고 싶으면
     private boolean showReviewBtn;
     private String statusText;
 
-    // ✅ 생성자: JPQL의 12개 파라미터 순서와 맞게 수정
-    public DealSellHistoryDTO(
+    public DealBuyHistoryDTO(
             Long dealId,
             Long productId,
             String title,
@@ -35,10 +36,10 @@ public class DealSellHistoryDTO {
             Long dSell,
             Long dBuy,
             Long dStatus,
-            String dDeal,        // 문자열 그대로 받음
+            String dDeal,
             Integer dvStatus,
             Integer ckStatus,
-            Long sellerIdx2      // ✅ 추가
+            Long buyerIdx
     ) {
         this.dealId = dealId;
         this.productId = productId;
@@ -51,21 +52,19 @@ public class DealSellHistoryDTO {
         this.dDeal = dDeal;
         this.dvStatus = dvStatus;
         this.ckStatus = ckStatus;
-        this.sellerIdx2 = sellerIdx2; // ✅ 저장
+        this.buyerIdx = buyerIdx;
 
+        // 상태 텍스트는 판매쪽이랑 비슷하게
         this.statusText = toStatusText(dSell, dBuy, dStatus);
 
-        // 버튼 노출 로직
-        boolean isSold = (dStatus != null && dStatus == 1L);
-        boolean isDelivery = dDeal != null && dDeal.trim().equalsIgnoreCase("DELIVERY");
-
-        this.showSendBtn = isSold && isDelivery && (dvStatus == null || dvStatus == 0);
+        // 예시로: 배송까지 끝났으면 후기 버튼
         this.showReviewBtn = (dvStatus != null && dvStatus == 5);
     }
 
     private String toStatusText(Long dSell, Long dBuy, Long dStatus) {
-        if (dStatus != null && dStatus == 1L) return "판매완료";
+        // 네가 쓰는 값에 맞춰서
+        if (dStatus != null && dStatus == 1L) return "구매완료";
         if (dSell != null && dSell == 1L) return "결제완료";
-        return "판매중";
+        return "구매중";
     }
 }

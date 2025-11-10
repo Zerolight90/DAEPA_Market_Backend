@@ -5,16 +5,14 @@ import com.daepamarket.daepa_market_backend.domain.getout.GetoutEntity;
 import com.daepamarket.daepa_market_backend.domain.getout.GetoutRepository;
 import com.daepamarket.daepa_market_backend.domain.location.LocationEntity;
 import com.daepamarket.daepa_market_backend.domain.location.LocationRepository;
-import com.daepamarket.daepa_market_backend.domain.user.UserLoginDTO;
-import com.daepamarket.daepa_market_backend.domain.user.UserSignUpDTO;
-import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
-import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
+import com.daepamarket.daepa_market_backend.domain.user.*;
 import com.daepamarket.daepa_market_backend.jwt.CookieProps;
 import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 import com.daepamarket.daepa_market_backend.jwt.JwtProps;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -234,29 +232,41 @@ public class UserService {
     //로그인한 회원 정보 반환
     public ResponseEntity<?> getMe(HttpServletRequest request) {
         try {
-            // Authorization 헤더에서 Bearer 토큰 추출
+            String token = null;
             String auth = request.getHeader("Authorization");
-            if (auth == null || !auth.startsWith("Bearer ")) {
+
+            // 1️⃣ Authorization 헤더 우선
+            if (auth != null && auth.startsWith("Bearer ")) {
+                token = auth.substring(7);
+            }
+
+            // 2️⃣ 없으면 쿠키에서 ACCESS_TOKEN 찾기
+            if (token == null && request.getCookies() != null) {
+                for (Cookie c : request.getCookies()) {
+                    String name = c.getName();
+                    if ("ACCESS_TOKEN".equalsIgnoreCase(name) || "accessToken".equalsIgnoreCase(name)) {
+                        token = c.getValue();
+                        break;
+                    }
+                }
+            }
+
+            if (token == null) {
                 return ResponseEntity.status(401).body("토큰이 없습니다.");
             }
 
-            String token = auth.substring(7);
-            // 토큰 검증
             if (jwtProvider.isExpired(token)) {
                 return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
             }
 
-            // 토큰에서 사용자 ID 꺼내기
             Long userId = Long.valueOf(jwtProvider.getUid(token));
-
-            // DB에서 유저 조회
-            var user = userRepository.findById(userId)
-                    .orElse(null);
+            UserEntity user = userRepository.findById(userId).orElse(null);
             if (user == null) {
                 return ResponseEntity.status(404).body("사용자를 찾을 수 없습니다.");
             }
+
             List<LocationEntity> locations = locationRepository.findByUser(user);
-            // 필요한 정보만 리턴
+
             Map<String, Object> result = new HashMap<>();
             result.put("uIdx", user.getUIdx());
             result.put("uName", user.getUname());
@@ -265,20 +275,15 @@ public class UserService {
             result.put("uPhone", user.getUphone());
             result.put("uNickname", user.getUnickname());
             result.put("u_nickname", user.getUnickname());
-            // 주소는 이제 별도 리스트로 내려줌
             result.put("locations", locations.stream().map(loc -> Map.of(
                     "locKey", loc.getLocKey(),
                     "locAddress", loc.getLocAddress(),
                     "locCode", loc.getLocCode(),
                     "locDetail", loc.getLocDetail(),
-                    "locDefault", loc.isLocDefault(),
-                    "locTitle", loc.getLocTitle(),
-                    "locName", loc.getLocName(),
-                    "locNum", loc.getLocNum()
-
+                    "locDefault", loc.isLocDefault()
             )).toList());
-            return ResponseEntity.ok(result);
 
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
         }
@@ -421,11 +426,55 @@ public class UserService {
         return String.join(",", mapped);
     }
 
+    // 회원정보수정
+    @Transactional
+    public void updateMe(HttpServletRequest request, UserUpdateDTO dto) {
+        // 1) 토큰에서 유저 찾기 (지금 로그인 정보 가져오는 방식 그대로)
+        String auth = request.getHeader("Authorization");
+        if (auth == null || !auth.startsWith("Bearer ")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 없습니다.");
+        }
+        String token = auth.substring(7);
+        if (jwtProvider.isExpired(token)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다.");
+        }
 
+        Long uIdx = Long.valueOf(jwtProvider.getUid(token));
+        UserEntity user = userRepository.findById(uIdx)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
+        // 2) 별명 바꾸기
+        if (dto.getNickname() != null && !dto.getNickname().isBlank()) {
+            // 기존과 다를 때만 중복체크
+            if (!dto.getNickname().equals(user.getUnickname())) {
+                if (userRepository.existsByUnickname(dto.getNickname())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미 사용 중인 별명입니다.");
+                }
+                user.setUnickname(dto.getNickname());
+            }
+        }
 
+        // 3) 비밀번호 바꾸기
+        if (dto.getNewPassword() != null && !dto.getNewPassword().isBlank()) {
+            String enc = passwordEncoder.encode(dto.getNewPassword());
+            user.setUPw(enc);
+        }
 
+        // 4) 성별
+        if (dto.getGender() != null && !dto.getGender().isBlank()) {
+            user.setUGender(dto.getGender());
+        }
 
+        // 5) 생년월일
+        if (dto.getBirth() != null && !dto.getBirth().isBlank()) {
+            user.setUBirth(dto.getBirth());   // 프론트에서 yyyyMMdd로 보내게 했으니까 그대로 저장
+        }
 
+        // 6) 주소는 너희가 location 테이블 쓰는 구조면 거기다 추가해도 되고,
+        // 일단은 비어있지 않을 때만 저장 로직 넣어두는 자리
+        if (dto.getAddress() != null || dto.getAddressDetail() != null || dto.getZip() != null) {
+        }
 
+        userRepository.save(user);
+    }
 }
