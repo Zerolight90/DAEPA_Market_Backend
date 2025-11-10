@@ -16,4 +16,7 @@ public class NoticeUpdateDTO {
 
     @JsonProperty("nCategory")
     private Byte nCategory;
+
+    @JsonProperty("nImg")
+    private String nImg;
 }

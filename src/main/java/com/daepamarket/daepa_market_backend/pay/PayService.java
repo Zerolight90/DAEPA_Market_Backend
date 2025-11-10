@@ -1,8 +1,10 @@
 package com.daepamarket.daepa_market_backend.pay;
 
 import java.sql.Timestamp;
+import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
@@ -30,7 +32,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PayService {
@@ -154,7 +158,19 @@ public class PayService {
         // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
         Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
         if (roomId != null) {
+
             chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
+
+            //구매자 명의의 채팅 알림 로직
+            try {
+                String buyerName = buyer.getUnickname();
+                String formattedPrice = NumberFormat.getInstance(Locale.KOREA).format(deal.getAgreedPrice());
+                String message = String.format("💸 결제 완료 알림\n\n%s님이 %s원을 입금했어요.\n상품 상태를 [판매 완료]로 변경해주세요!", buyerName, formattedPrice);
+                chatService.sendMessage(roomId, buyerId, message, null, null);
+            } catch (Exception e) {
+                log.error("구매자 명의 입금 채팅 알림 전송 중 오류 발생", e);
+            }
+            //
         }
 
         return currentBalance - correctTotal;
@@ -182,7 +198,7 @@ public class PayService {
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
         deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
         deal.setDSell(1L);    // 판매 상태
-        deal.setDStatus(0L);         // 거래 상태 (예: 2 = 결제완료)
+        deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
         dealRepository.save(deal);
@@ -193,6 +209,16 @@ public class PayService {
         Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), pdIdx);
         if (roomId != null) {
             chatService.sendBuyerDeposited(roomId, buyerIdx, product.getPdTitle(), amount);
+
+            // 매자 명의의 채팅 알림 로직
+            try {
+                String buyerName = buyer.getUnickname();
+                String formattedPrice = NumberFormat.getInstance(Locale.KOREA).format(amount);
+                String message = String.format("💸 결제 완료 알림\n\n%s님이 %s원을 입금했어요.\n상품 상태를 [판매 완료]로 변경해주세요!", buyerName, formattedPrice);                chatService.sendMessage(roomId, buyerIdx, message, null, null);
+            } catch (Exception e) {
+                log.error("구매자 명의 입금 채팅 알림 전송 중 오류 발생", e);
+            }
+            //
         }
     }
 
@@ -264,10 +290,10 @@ public class PayService {
         dealRepository.save(deal);
 
         // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
-//        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
-//        if (roomId != null) {
-//            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
-//        }
+        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
+        if (roomId != null) {
+            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
+        }
 
         return currentBalance - correctTotal;
     }
@@ -293,7 +319,7 @@ public class PayService {
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
         deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
         deal.setDSell(1L);    // 판매 상태
-        deal.setDStatus(0L);         // 거래 상태 (3L = 구매 확정 대기)
+        deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
         dealRepository.save(deal);
