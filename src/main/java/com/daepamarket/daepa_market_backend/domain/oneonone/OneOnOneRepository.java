@@ -21,6 +21,4 @@ public interface OneOnOneRepository extends JpaRepository<OneOnOneEntity, Long> 
     """)
     Optional<OneOnOneEntity> findByIdWithUser(@Param("id") Long id);
 
-    // 사용자별 문의 내역 조회
-    List<OneOnOneEntity> findByUserOrderByOoDateDesc(UserEntity user);
 }
