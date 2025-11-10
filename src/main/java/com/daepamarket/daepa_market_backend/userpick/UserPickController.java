@@ -7,6 +7,7 @@ import com.daepamarket.daepa_market_backend.domain.userpick.UserPickEntity;
 import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import com.daepamarket.daepa_market_backend.user.UserService;
+import com.daepamarket.daepa_market_backend.product.ProductNotificationDTO;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -130,6 +131,17 @@ public class UserPickController {
             return auth.substring(7);
         }
         return null; // 토큰 못 찾음
+    }
+
+    @PostMapping("/notifications")
+    public ResponseEntity<?> getNotifications(@RequestBody UserPickDTO pick, HttpServletRequest request) {
+        String token = resolveAccessToken(request);
+        if (token == null || jwtProvider.isExpired(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "인증이 필요합니다."));
+        }
+
+        List<ProductNotificationDTO> notifications = userPickService.getNotificationsForPick(pick);
+        return ResponseEntity.ok(notifications);
     }
 
 }
