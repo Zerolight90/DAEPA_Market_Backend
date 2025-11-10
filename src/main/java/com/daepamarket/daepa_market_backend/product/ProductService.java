@@ -321,21 +321,54 @@ public class ProductService {
             products = productRepository.findBySeller(user);
         }
 
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         return products.stream()
                 .map(p -> {
                     productMyPageDTO dto = new productMyPageDTO();
+                    dto.setPd_idx(p.getPdIdx());
                     dto.setU_idx(user.getUIdx());
                     dto.setPd_status(String.valueOf(p.getPdStatus()));
                     dto.setPd_title(p.getPdTitle());
                     dto.setPd_price(p.getPdPrice() != null ? p.getPdPrice().intValue() : 0);
                     dto.setPd_create(p.getPdCreate() != null ? p.getPdCreate().format(fmt) : null);
-                    dto.setPd_thumb(null);
+
+                    dto.setPd_thumb(resolveThumbUrl(p.getPdThumb()));
+
+                    dealRepo.findByProduct_PdIdx(p.getPdIdx())
+                            .ifPresent(deal -> dto.setD_status(deal.getDStatus()));
+
                     return dto;
+
                 })
                 .toList();
     }
+
+    // DB에 들어있는 값이 uploads/... 나 no-image.png 여도
+// 프론트에는 항상 S3의 풀 URL만 나가게 정규화
+    private String resolveThumbUrl(String raw) {
+        // 1) 아예 없으면 기본 이미지
+        if (raw == null || raw.isBlank()) {
+            return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/products/KakaoTalk_20251104_145039505.jpg";
+        }
+
+        // 2) 이미 풀 URL이면 그대로
+        if (raw.startsWith("http://") || raw.startsWith("https://")) {
+            return raw;
+        }
+
+        // 3) 예전 로컬경로로 저장돼 있던 것들 → 프론트에서 절대 못 여니까 S3 기본이미지로 교체
+        if (raw.startsWith("uploads/") || raw.equals("no-image.png")) {
+            return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/products/KakaoTalk_20251104_145039505.jpg";
+        }
+
+        // 4) 그 외에는 S3 규칙에 맞춰서 붙여주기
+        return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/" + raw;
+    }
+
+
+
+    // 이하 상세/연관/삭제/완료 등은 네가 보낸 그대로 ↓↓↓
 
     @Transactional(readOnly = true)
     public ProductDetailDTO getProductDetail(Long pdIdx) {
