@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.user;
 
+import com.daepamarket.daepa_market_backend.S3Service;
 import com.daepamarket.daepa_market_backend.admin.user.UserResponseDTO;
 import com.daepamarket.daepa_market_backend.domain.getout.GetoutEntity;
 import com.daepamarket.daepa_market_backend.domain.getout.GetoutRepository;
@@ -15,14 +16,17 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -32,6 +36,7 @@ import java.util.Optional;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -44,6 +49,7 @@ public class UserService {
     private final CookieProps cookieProps;
     private final JwtProvider jwtProvider;
     private final GetoutRepository getoutRepository;
+    private final S3Service s3Service;
 
     public boolean existsByuId(String uId) {
         return userRepository.existsByUid(uId);
@@ -426,6 +432,39 @@ public class UserService {
         return String.join(",", mapped);
     }
 
+    @Transactional
+    public String uploadProfile(HttpServletRequest request, MultipartFile file) {
+        String auth = request.getHeader("Authorization");
+        if (auth == null || !auth.startsWith("Bearer ")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 없습니다.");
+        }
+        String token = auth.substring(7);
+        if (jwtProvider.isExpired(token)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다.");
+        }
+
+        Long uIdx = Long.valueOf(jwtProvider.getUid(token));
+        UserEntity user = userRepository.findById(uIdx)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+
+        // S3에 업로드
+        String url;
+        try {
+            // products 말고 구분용으로 profiles 폴더 사용
+            url = s3Service.uploadFile(file, "profiles");
+        } catch (IOException e) {
+            log.error("프로필 업로드 중 오류", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "프로필 업로드 실패");
+        }
+
+        // DB에도 바로 반영
+        user.setUProfile(url);
+        userRepository.save(user);
+
+        return url;
+    }
+
+
     // 회원정보수정
     @Transactional
     public void updateMe(HttpServletRequest request, UserUpdateDTO dto) {
@@ -470,9 +509,13 @@ public class UserService {
             user.setUBirth(dto.getBirth());   // 프론트에서 yyyyMMdd로 보내게 했으니까 그대로 저장
         }
 
-        // 6) 주소는 너희가 location 테이블 쓰는 구조면 거기다 추가해도 되고,
-        // 일단은 비어있지 않을 때만 저장 로직 넣어두는 자리
+        // 6) 주소
         if (dto.getAddress() != null || dto.getAddressDetail() != null || dto.getZip() != null) {
+        }
+
+        // 프로필
+        if (dto.getProfile() != null && !dto.getProfile().isBlank()) {
+            user.setUProfile(dto.getProfile());
         }
 
         userRepository.save(user);
