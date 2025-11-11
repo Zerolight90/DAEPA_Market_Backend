@@ -14,4 +14,5 @@ public class PublicNoticeDTO {
     private LocalDate nDate;
     private String nImg;
     private Byte nCategory; // Changed from nCategoryName to nCategory
+    private Byte nFix;
 }

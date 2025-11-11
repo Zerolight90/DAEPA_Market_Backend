@@ -5,6 +5,8 @@ import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.Base64;
+import java.util.Map;
 import java.util.Optional;
 
 import com.daepamarket.daepa_market_backend.chat.service.ChatService;
@@ -21,6 +23,11 @@ import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 
 import jakarta.transaction.Transactional;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -39,6 +46,9 @@ public class PayService {
     private final ProductRepository productRepository;
     private final ChatService chatService;
     private final ChatRoomRepository chatRoomRepository;
+
+    @Value("${TOSS_SECRET_KEY}")
+    private String tossSecretKey;
 
     // 대파 페이 충전하기
     @Transactional // 이 메서드 내의 모든 DB 작업을 하나의 트랜잭션으로 묶음
@@ -140,9 +150,9 @@ public class PayService {
         deal.setAgreedPrice(correctTotal); // 실제 거래된 가격
         deal.setBuyer(buyer); // 구매자 설정
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각 설정
-        deal.setDBuy(1L); // 페이 구매 상태
-        deal.setDSell(1L); // 페이 판매 상태
-        deal.setDStatus(1L); // 결제 상태
+        deal.setDBuy(0L); // 페이 구매 상태
+        deal.setDSell(2L); // 페이 판매 상태
+        deal.setDStatus(0L); // 결제 상태
         dealRepository.save(deal);
 
         // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
@@ -168,14 +178,13 @@ public class PayService {
 
     // ✅✅ 일반(외부 PG) 결제시: 결제 승인 직후 💸 SYSTEM 메시지 발송
     @Transactional
-    public void confirmProductPurchase(String paymentKey, String orderId, Long amount){
+    public void confirmProductPurchase(String paymentKey, String orderId, Long amount, Long buyerIdx){
 
         // 토스페이먼츠 최종 결제 승인 요청
         confirmToTossPayments(paymentKey, orderId, amount);
 
         // 주문 정보에서 상품 ID(pdIdx)와 구매자 ID(buyerIdx) 추출
         long pdIdx = extractProductIdFromOrderId(orderId);
-        long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId); // 실제 구매자 ID 가져오는 로직 필요
 
         // 필요한 엔티티 조회
         UserEntity buyer = userRepository.findById(buyerIdx)
@@ -187,8 +196,8 @@ public class PayService {
         deal.setAgreedPrice(amount); // 거래 가격
         deal.setBuyer(buyer); // 거래 구매자
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
-        deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
-        deal.setDSell(1L);    // 판매 상태
+        deal.setDBuy(0L); // 구매 상태 (예: 구매 확정 대기)
+        deal.setDSell(2L);    // 판매 상태
         deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
@@ -199,7 +208,6 @@ public class PayService {
                 .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + pdIdx));
         Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), pdIdx);
         if (roomId != null) {
-
             chatService.sendBuyerDeposited(roomId, buyerIdx, product.getPdTitle(), amount);
 
             // 매자 명의의 채팅 알림 로직
@@ -276,9 +284,9 @@ public class PayService {
         deal.setAgreedPrice(correctTotal); // 실제 거래된 가격
         deal.setBuyer(buyer); // 구매자 설정
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각 설정
-        deal.setDBuy(1L); // 페이 구매 상태
-        deal.setDSell(1L); // 페이 판매 상태
-        deal.setDStatus(1L); // 결제 상태
+        deal.setDBuy(0L); // 페이 구매 상태
+        deal.setDSell(2L); // 페이 판매 상태
+        deal.setDStatus(0L); // 결제 상태
         dealRepository.save(deal);
 
         // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
@@ -291,14 +299,13 @@ public class PayService {
     }
 
     @Transactional
-    public void confirmProductSecPurchase(String paymentKey, String orderId, Long amount){
+    public void confirmProductSecPurchase(String paymentKey, String orderId, Long amount, Long buyerIdx){
 
         // 토스페이먼츠 최종 결제 승인 요청
         confirmToTossPayments(paymentKey, orderId, amount);
 
         // 주문 정보에서 상품 ID(pdIdx)와 구매자 ID(buyerIdx) 추출
         long pdIdx = extractProductIdFromOrderId(orderId);
-        long buyerIdx = extractBuyerIdFromContextOrOrderId(orderId); // 실제 구매자 ID 가져오는 로직 필요
 
         // 필요한 엔티티 조회
         UserEntity buyer = userRepository.findById(buyerIdx)
@@ -310,9 +317,9 @@ public class PayService {
         deal.setAgreedPrice(amount); // 거래 가격
         deal.setBuyer(buyer); // 거래 구매자
         deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 시각
-        deal.setDBuy(1L); // 구매 상태 (예: 구매 확정 대기)
-        deal.setDSell(1L);    // 판매 상태
-        deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
+        deal.setDBuy(0L);     // 구매 상태 (0 = 미구매, 1 = 구매 확정)
+        deal.setDSell(2L);    // 판매 상태 (0 = 판매중, 1 = 판매완료, 2 = 입금완료)
+        deal.setDStatus(0L);  // 거래 상태 (0 = 거래중, 1 = 거래완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
         dealRepository.save(deal);
@@ -347,6 +354,90 @@ public class PayService {
         }
     }
 
+    /**
+     * ✅ [신규] 구매 확정 처리 (안전결제)
+     * @param dealId 확정할 거래 ID
+     * @param buyerId 확정을 요청한 사용자 ID (구매자)
+     */
+    @Transactional
+    public void finalizePurchase(Long dealId, Long buyerId) {
+        // 1. 거래 정보 조회 (비관적 락으로 동시성 제어)
+        DealEntity deal = dealRepository.findWithWriteLockByDIdx(dealId)
+                .orElseThrow(() -> new IllegalStateException("거래 정보를 찾을 수 없습니다."));
+
+        // 2. 권한 검증: 요청한 사용자가 실제 구매자인지 확인
+        if (deal.getBuyer() == null || !deal.getBuyer().getUIdx().equals(buyerId)) {
+            throw new AccessDeniedException("이 거래를 확정할 권한이 없습니다.");
+        }
+
+        // 3. 상태 검증: '판매중' 상태가 맞는지 확인
+        if (deal.getDStatus() != 0L) {
+            throw new IllegalStateException("이미 처리되었거나 구매 확정 대기 상태가 아닌 거래입니다.");
+        }
+
+        // 4. 거래 상태 '거래 완료'로 변경
+        deal.setDBuy(1L);
+        deal.setDStatus(1L); // 1L = 거래 완료
+        deal.setDEdate(Timestamp.valueOf(LocalDateTime.now())); // 거래 완료 시각 기록
+
+        // 5. 판매자에게 정산 처리
+        UserEntity seller = deal.getSeller();
+        Long sellerId = seller.getUIdx();
+        Long price = deal.getAgreedPrice();
+
+        // 판매자의 현재 페이 잔액 조회
+        Long sellerBalance = payRepository.calculateTotalBalanceByUserId(sellerId);
+        if (sellerBalance == null) {
+            sellerBalance = 0L;
+        }
+
+        // Pay 테이블에 판매자 입금 내역 기록
+        PayEntity sellerLog = new PayEntity();
+        sellerLog.setUser(seller);
+        sellerLog.setPaPrice(price); // 판매 금액 (양수)
+        sellerLog.setPaNprice(sellerBalance + price); // 새로운 잔액
+        sellerLog.setPaDate(LocalDate.now());
+        payRepository.save(sellerLog);
+
+        // @Transactional에 의해 deal과 sellerLog는 자동으로 저장/커밋됨
+    }
+
+    @Transactional
+    public void cancelProductPurchase(Long dealId, Long currentUserId, String cancelReason) throws AccessDeniedException {
+
+        // 1. 거래(Deal) 정보 조회 (비관적 락 추천)
+        DealEntity deal = dealRepository.findWithWriteLockByDIdx(dealId) // (findWithWriteLockByProduct_PdIdx는 DealRepository에 @Lock 추가 필요)
+                .orElseThrow(() -> new RuntimeException("취소할 거래 정보를 찾을 수 없습니다: " + dealId));
+
+        // 2. 권한 검증: 현재 로그인한 사용자가 구매자가 맞는지 확인
+        if (deal.getBuyer() == null || !deal.getBuyer().getUIdx().equals(currentUserId)) {
+            throw new AccessDeniedException("이 거래를 취소할 권한이 없습니다.");
+        }
+
+        // 3. 상태 검증: 이미 취소되었는지 확인
+        // (DealEntity의 dBuy, dStatus 컬럼 타입과 취소 상태값 확인 필요)
+        if (deal.getDBuy() == 3L || deal.getDStatus() == 2L) { // 2L = 취소 상태 (예시)
+            throw new IllegalStateException("이미 취소된 거래입니다.");
+        }
+
+        // 4. Deal에 저장된 paymentKey 가져오기
+        String paymentKey = deal.getPaymentKey();
+        if (paymentKey == null || paymentKey.isBlank()) {
+            throw new RuntimeException("결제 정보(paymentKey)가 없어 취소가 불가능합니다.");
+        }
+
+        // 5. 토스페이먼츠 환불 API 호출
+        callTossCancelApi(paymentKey, (cancelReason != null ? cancelReason : "고객 변심"));
+
+        // 6. Deal 테이블 상태 업데이트 (취소 상태로 변경)
+        deal.setDBuy(3L);
+        deal.setDSell(2L); // 또는 판매자가 다시 판매할 수 있도록 "판매중"
+        deal.setDStatus(2L); // 2 = 취소 (예시)
+        // deal.setDEdate(null); // 거래 완료 시간 초기화 (선택 사항)
+
+        // dealRepository.save(deal); // @Transactional이므로 Dirty Checking에 의해 자동 저장
+    }
+
     // -------------------------------------------- 헬퍼 ----------------------------------------------- //
 
     // ✅ dealId 우선으로 roomId를 찾고, 없으면 상품 기준 최신 채팅방으로 fallback
@@ -361,26 +452,6 @@ public class PayService {
         }
         return null;
         // roomId가 null일 수 있는 과거 데이터 케이스 → 메시지는 생략(안전)
-    }
-
-    // 예시: 충전 주문 ID("charge-${userId}-${uuid}")에서 사용자 ID 추출
-    private Long extractUserIdFromChargeOrderId(String orderId) {
-        try {
-            String[] parts = orderId.split("-");
-            if (parts.length > 1 && "charge".equals(parts[0])) {
-                return Long.parseLong(parts[1]);
-            }
-        } catch (Exception e) { /* ignore */ }
-        // 실제로는 더 안정적인 방법 사용 권장 (예: DB 조회)
-        // 임시로 하드코딩된 ID 반환 (테스트용)
-        return 2L;
-    }
-
-    // 예시: 구매자 ID 추출 (실제 구현 필요)
-    private Long extractBuyerIdFromContextOrOrderId(String orderId) {
-        // TODO: Spring Security Context Holder에서 현재 로그인 사용자 ID를 가져오거나,
-        // orderId 생성 시 구매자 정보를 포함시키는 등 실제 구매자 ID를 가져오는 로직 구현 필요
-        return 2L; // 임시 구매자 ID
     }
 
     // 예시: 상품 구매 주문 ID("product-${pdIdx}-${uuid}")에서 상품 ID 추출
@@ -399,5 +470,31 @@ public class PayService {
         // ... (이전 답변에서 설명한 RestTemplate으로 토스 API 호출하는 로직)
         // 요청 실패 시 Exception을 발생시켜 트랜잭션이 롤백되도록 함
         System.out.println("토스페이먼츠에 결제 승인을 요청합니다.");
+    }
+
+    private void callTossCancelApi(String paymentKey, String cancelReason) {
+        String url = "https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel";
+
+        // 1. HTTP 헤더 설정 (Basic Auth)
+        HttpHeaders headers = new HttpHeaders();
+        String encodedKey = Base64.getEncoder().encodeToString((tossSecretKey + ":").getBytes());
+        headers.setBasicAuth(encodedKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        // 2. HTTP 바디 설정 (전액 취소 시 cancelAmount 불필요)
+        Map<String, String> bodyMap = Map.of("cancelReason", cancelReason);
+        HttpEntity<Map<String, String>> request = new HttpEntity<>(bodyMap, headers);
+
+        try {
+            // 3. API 호출
+            restTemplate.postForEntity(url, request, String.class);
+            // 성공 시 Toss에서 200 OK와 취소 내역 JSON 반환
+
+        } catch (Exception e) {
+            // API 호출 실패 (Toss에서 4xx/5xx 에러 반환)
+            System.err.println("Toss Payments 환불 API 호출 실패: " + e.getMessage());
+            // TODO: Toss API 에러 메시지를 파싱하여 사용자에게 더 친절한 메시지 반환
+            throw new RuntimeException("결제 취소(환불)에 실패했습니다. (API 오류)");
+        }
     }
 }

@@ -15,7 +15,7 @@ public interface NoticeRepository extends JpaRepository<NoticeEntity, Long> {
     @Query("SELECT n FROM NoticeEntity n JOIN FETCH n.admin ORDER BY n.nDate DESC")
     List<NoticeEntity> findAllWithAdmin();
 
-    @Query("SELECT n FROM NoticeEntity n JOIN FETCH n.admin order by n.nIdx desc")
+    @Query("SELECT n FROM NoticeEntity n JOIN FETCH n.admin ORDER BY n.nFix DESC, n.nIdx DESC")
     Page<NoticeEntity> findAllWithAdmin(Pageable pageable);
 
     @Query("SELECT n FROM NoticeEntity n JOIN FETCH n.admin WHERE n.nIdx = :id")

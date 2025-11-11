@@ -3,8 +3,13 @@ package com.daepamarket.daepa_market_backend.userpick;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.daepamarket.daepa_market_backend.domain.alarm.AlarmEntity;
+import com.daepamarket.daepa_market_backend.domain.alarm.AlarmRepository;
+import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
+import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
 import com.daepamarket.daepa_market_backend.domain.userpick.UserPickEntity;
 import com.daepamarket.daepa_market_backend.domain.userpick.UserPickRepository;
+import com.daepamarket.daepa_market_backend.product.ProductNotificationDTO;
 import org.springframework.stereotype.Service;
 
 import com.daepamarket.daepa_market_backend.domain.Category.CtLowEntity;
@@ -18,12 +23,16 @@ import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class UserPickService {
 
     private final UserPickRepository userPickRepository;
+    private final ProductRepository productRepository;
+    private final AlarmRepository alarmRepository;
 
     private final CtUpperRepository ctUpperRepository;
     private final CtMiddleRepository ctMiddleRepository;
@@ -76,6 +85,24 @@ public class UserPickService {
 
         // 4. ✅ 저장된 엔티티를 이용해 DTO를 생성하여 반환 (트랜잭션 내에서!)
         return new UserPickCreateRequestDto(savedEntity);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductNotificationDTO> getNotificationsForPick(UserPickDTO pick, Long uIdx) {
+        List<AlarmEntity> alarms = alarmRepository.findMatchingAlarmsForUser(
+                uIdx,
+                pick.getUpperCategory(),
+                pick.getMiddleCategory(),
+                pick.getLowCategory(),
+                pick.getMinPrice(),
+                pick.getMaxPrice()
+        );
+
+        return alarms.stream()
+                .map(alarm -> new ProductNotificationDTO(
+                        alarm.getProduct().getPdIdx(),
+                        alarm.getProduct().getPdTitle()))
+                .collect(Collectors.toList());
     }
 
 }

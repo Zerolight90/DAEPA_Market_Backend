@@ -13,7 +13,6 @@ import java.util.List;
 
 public interface ProductRepository extends JpaRepository<ProductEntity, Long>, JpaSpecificationExecutor<ProductEntity> {
 
-    // id 기반 + 가격 + 거래방식(앞부분 일치, 대소문자 무시) + 판매완료 제외
     @Query("""
         SELECT p
         FROM ProductEntity p
@@ -53,7 +52,6 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
-    // 이름 기반 + 가격 + 거래방식(앞부분 일치, 대소문자 무시) + 판매완료 제외
     @Query("""
         SELECT p
         FROM ProductEntity p
@@ -93,6 +91,8 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
+    // ✨ 기존: 전체를 다 가져오던 걸 살려두고,
+    // ✨ 새로 "살아있는" 것만 가져오는 버전 추가
     @Query("""
        SELECT p
        FROM ProductEntity p
@@ -101,6 +101,21 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
        """)
     Page<ProductEntity> findPageBySellerId(
             @Param("sellerId") Long sellerId,
+            Pageable pageable
+    );
+
+    // ✨ 여기 추가: pdDel=false + 3일 이내
+    @Query("""
+       SELECT p
+       FROM ProductEntity p
+       WHERE p.seller.uIdx = :sellerId
+         AND p.pdDel = false
+         AND (p.pdEdate IS NULL OR p.pdEdate >= :cutoff)
+       ORDER BY p.pdIdx DESC
+       """)
+    Page<ProductEntity> findAlivePageBySellerId(
+            @Param("sellerId") Long sellerId,
+            @Param("cutoff") LocalDateTime cutoff,
             Pageable pageable
     );
 
@@ -121,7 +136,6 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
-    // 찜 많은 순 (id 기준)
     @Query("""
         select p
         from ProductEntity p
@@ -145,7 +159,6 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             Pageable pageable
     );
 
-    // 찜 많은 순 (이름 기준)
     @Query("""
         select p
         from ProductEntity p
@@ -175,4 +188,23 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
         ORDER BY p.pdCreate DESC
         """)
     List<ProductEntity> findRecentProducts(Pageable pageable);
+
+    @Query("""
+           SELECT p FROM ProductEntity p
+           WHERE p.ctLow.middle.upper.upperCt = :upperCategory
+             AND p.ctLow.middle.middleCt = :middleCategory
+             AND p.ctLow.lowCt = :lowCategory
+             AND p.pdPrice >= :minPrice
+             AND p.pdPrice <= :maxPrice
+             AND p.pdDel = false
+             AND (p.pdEdate IS NULL OR p.pdEdate >= :now)
+           """)
+    List<ProductEntity> findMatchingProducts(
+            @Param("upperCategory") String upperCategory,
+            @Param("middleCategory") String middleCategory,
+            @Param("lowCategory") String lowCategory,
+            @Param("minPrice") int minPrice,
+            @Param("maxPrice") int maxPrice,
+            @Param("now") LocalDateTime now
+    );
 }
