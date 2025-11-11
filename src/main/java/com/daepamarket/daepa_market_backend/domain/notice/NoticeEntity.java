@@ -36,4 +36,7 @@ public class NoticeEntity {
 
     @Column(name = "n_category")
     private Byte nCategory;
+
+    @Column(name = "n_fix")
+    private Byte nFix;
 }
