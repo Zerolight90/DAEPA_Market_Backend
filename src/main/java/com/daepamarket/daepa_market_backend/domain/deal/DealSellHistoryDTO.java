@@ -6,26 +6,34 @@ import java.sql.Timestamp;
 @Data
 public class DealSellHistoryDTO {
 
-    private Long dealId;       // d_idx
-    private Long productId;    // pd_idx
-    private String title;      // pd_title
-    private Timestamp dealEndDate; // d_edate
+    private Long dealId;
+    private Long productId;
+    private String title;
+    private Timestamp dealEndDate;
     private Long agreedPrice;
 
     private Long dSell;
     private Long dBuy;
     private Long dStatus;
-    private String dDeal;      // "MEET" / "DELIVERY"
+    private String dDeal;
 
-    private Integer dvStatus;    // delivery.dv_status
-    private Integer ckStatus;    // check.ck_status
-    private Long sellerIdx2;     // ✅ 추가: d.seller.uIdx
+    private Integer dvStatus;
+    private Integer ckStatus;
+    private Long sellerIdx2;
+
+    private String orderId;
+    private Long buyerIdx;
+    private String buyerNickname;
+    private String buyerPhone;
+
+
+    // ✅ 여기 추가: 상품 썸네일
+    private String productThumb;
 
     private boolean showSendBtn;
     private boolean showReviewBtn;
     private String statusText;
 
-    // ✅ 생성자: JPQL의 12개 파라미터 순서와 맞게 수정
     public DealSellHistoryDTO(
             Long dealId,
             Long productId,
@@ -35,10 +43,15 @@ public class DealSellHistoryDTO {
             Long dSell,
             Long dBuy,
             Long dStatus,
-            String dDeal,        // 문자열 그대로 받음
+            String dDeal,
             Integer dvStatus,
             Integer ckStatus,
-            Long sellerIdx2      // ✅ 추가
+            Long sellerIdx2,
+            String orderId,
+            Long buyerIdx,
+            String buyerNickname,
+            String buyerPhone,
+            String productThumb   // ✅ 맨 끝에 추가
     ) {
         this.dealId = dealId;
         this.productId = productId;
@@ -51,14 +64,19 @@ public class DealSellHistoryDTO {
         this.dDeal = dDeal;
         this.dvStatus = dvStatus;
         this.ckStatus = ckStatus;
-        this.sellerIdx2 = sellerIdx2; // ✅ 저장
+        this.sellerIdx2 = sellerIdx2;
+
+        this.orderId = orderId;
+        this.buyerIdx = buyerIdx;
+        this.buyerNickname = buyerNickname;
+        this.buyerPhone = buyerPhone;
+
+        this.productThumb = productThumb;   // ✅
 
         this.statusText = toStatusText(dSell, dBuy, dStatus);
 
-        // 버튼 노출 로직
         boolean isSold = (dStatus != null && dStatus == 1L);
         boolean isDelivery = dDeal != null && dDeal.trim().equalsIgnoreCase("DELIVERY");
-
         this.showSendBtn = isSold && isDelivery && (dvStatus == null || dvStatus == 0);
         this.showReviewBtn = (dvStatus != null && dvStatus == 5);
     }
