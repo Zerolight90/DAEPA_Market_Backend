@@ -1,41 +1,38 @@
 package com.daepamarket.daepa_market_backend.admin.review;
 
+import com.daepamarket.daepa_market_backend.domain.review.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.ArrayList;
+
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class AllReviewService {
 
-    private final SaleReviewRepository saleReviewRepository;
-    private final BuyReviewRepository buyReviewRepository;
+    private final ReviewRepository reviewRepository;
 
     public List<AllReviewDTO> getAllReviews() {
-        List<AllReviewDTO> results = new ArrayList<>();
-        // 판매자 리뷰
-        results.addAll(saleReviewRepository.findAllSaleReviewRows());
-        // 구매자 리뷰
-        results.addAll(buyReviewRepository.findAllBuyReviewRows());
-        return results;
+        return reviewRepository.findAllReviewRows();
     }
 
+    /**
+     * 프론트에서 "S-10" / "B-3" 이런 식으로 보내면
+     * 실제 숫자만 뽑아서 삭제
+     */
     @Transactional
-    public void deleteReviewWithType(String type, Long id) {
-        if ("S".equalsIgnoreCase(type)) {
-            if (!saleReviewRepository.existsById(id)) {
-                throw new RuntimeException("해당 판매후기가 존재하지 않습니다: " + id);
-            }
-            saleReviewRepository.deleteById(id);
-        } else if ("B".equalsIgnoreCase(type)) {
-            if (!buyReviewRepository.existsById(id)) {
-                throw new RuntimeException("해당 구매후기가 존재하지 않습니다: " + id);
-            }
-            buyReviewRepository.deleteById(id);
-        } else {
-            throw new RuntimeException("유효하지 않은 리뷰 타입입니다: " + type);
+    public void deleteReviewWithType(String prefixedId) {
+        // 예: "S-12" → "12"
+        String numeric = prefixedId.replaceAll("[^0-9]", "");
+        if (numeric.isEmpty()) {
+            throw new RuntimeException("잘못된 리뷰 ID 형식입니다: " + prefixedId);
         }
+        Long realId = Long.parseLong(numeric);
+
+        if (!reviewRepository.existsById(realId)) {
+            throw new RuntimeException("해당 리뷰가 존재하지 않습니다: " + prefixedId);
+        }
+        reviewRepository.deleteById(realId);
     }
 }
