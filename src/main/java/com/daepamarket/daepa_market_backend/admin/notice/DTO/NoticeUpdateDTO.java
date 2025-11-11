@@ -19,4 +19,7 @@ public class NoticeUpdateDTO {
 
     @JsonProperty("nImg")
     private String nImg;
+
+    @JsonProperty("nFix")
+    private Byte nFix;
 }

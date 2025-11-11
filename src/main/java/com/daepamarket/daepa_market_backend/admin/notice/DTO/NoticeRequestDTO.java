@@ -24,4 +24,7 @@ public class NoticeRequestDTO {
 
     @JsonProperty("nCategory")
     private Byte nCategory;
+
+    @JsonProperty("nFix")
+    private Byte nFix;
 }
