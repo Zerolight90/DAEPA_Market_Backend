@@ -120,7 +120,7 @@ app:
   jwt:
     issuer: daepa-market
     secret: ${JWT_SECRET}
-    access-exp-min: 15
+    access-exp-min: 600
     refresh-exp-days: 14
   cookie:
     secure: false
