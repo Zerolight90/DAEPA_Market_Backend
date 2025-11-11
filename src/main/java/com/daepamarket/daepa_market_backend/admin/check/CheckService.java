@@ -58,9 +58,9 @@ public class CheckService {
         // 배송 정보가 있는 경우에만 배송 상태 업데이트
         DeliveryEntity delivery = deliveryRepository.findByCheckCkIdx(ckIdx).orElse(null);
         if (delivery != null) {
-            // 검수 결과가 합격(1)이면 배송 시작 (배송중: 1)
+            // 검수 결과가 합격(1)이면 배송 시작 (3 : 검수 후 배송)
             if (result == 1) {
-                delivery.setDvStatus(1); // 배송중
+                delivery.setDvStatus(3); // 검수 후 배송
                 deliveryRepository.save(delivery);
             } else if (result == 0) {
                 // 불합격이면 반품 처리 (반품: 4)

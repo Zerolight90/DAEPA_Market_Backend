@@ -8,8 +8,12 @@ import com.daepamarket.daepa_market_backend.domain.Category.CtLowRepository;
 import com.daepamarket.daepa_market_backend.domain.Category.CtMiddleEntity;
 import com.daepamarket.daepa_market_backend.domain.chat.ChatRoomEntity;
 import com.daepamarket.daepa_market_backend.domain.chat.repository.ChatRoomRepository;
+import com.daepamarket.daepa_market_backend.domain.check.CheckEntity;
+import com.daepamarket.daepa_market_backend.domain.check.CheckRepository;
 import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
 import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
+import com.daepamarket.daepa_market_backend.domain.delivery.DeliveryEntity;
+import com.daepamarket.daepa_market_backend.domain.delivery.DeliveryRepository;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
 import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
 import com.daepamarket.daepa_market_backend.domain.productimage.ProductImageEntity;
@@ -41,6 +45,8 @@ public class ProductService {
     private final ProductRepository productRepo;
     private final ProductImageRepository imageRepo;
     private final DealRepository dealRepo;
+    private final DeliveryRepository deliveryRepo;
+    private final CheckRepository checkRepo;
 
     private final UserRepository userRepo;
     private final CtLowRepository ctLowRepo;
@@ -461,11 +467,29 @@ public class ProductService {
 
     @Transactional
     public void completeProduct(Long pdIdx, Long userIdx) {
-        getOwnedProduct(pdIdx, userIdx);
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
         dealRepo.findByProduct_PdIdx(pdIdx).ifPresent(deal -> {
             deal.setDSell(1L);
             dealRepo.save(deal);
+
+            // 거래 방식이 'DELIVERY'일 경우, 배송 및 검수 레코드 생성
+            if ("DELIVERY".equals(deal.getDDeal())) {
+                // 검수(Check) 엔티티 생성 (상태: 검수중)
+                CheckEntity newCheck = CheckEntity.builder()
+                        .ckStatus(0) // 0: 검수중
+                        .build();
+                checkRepo.save(newCheck);
+
+                // 배송(Delivery) 엔티티 생성 (상태: 배송전)
+                DeliveryEntity newDelivery = DeliveryEntity.builder()
+                        .deal(deal)
+                        .checkEntity(newCheck)
+                        .dvStatus(0) // 0: 배송전
+                        .dvDate(LocalDateTime.now())
+                        .build();
+                deliveryRepo.save(newDelivery);
+            }
+
             try {
                 Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), pdIdx);
                 if (roomId != null) {
