@@ -37,6 +37,7 @@ public class NoticeService {
                 .nIp(e.getNIp())
 
                 .nCategory(e.getNCategory())
+                .nFix(e.getNFix())
                 .adminNick(e.getAdmin().getAdNick())
                 .build();
     }
@@ -79,6 +80,7 @@ public class NoticeService {
                 .nImg(imageUrl) // S3에서 받은 URL로 설정
                 .nIp(req.getNIp())
                 .nDate(LocalDate.now())
+                .nFix(req.getNFix() != null ? req.getNFix() : (byte)0) // nFix 값 설정, 기본값을 byte로 명시적 캐스팅
                 .build();
 
         return toDTO(noticeRepository.save(notice));
@@ -116,6 +118,7 @@ public class NoticeService {
         // 3. 엔티티 정보 업데이트
         origin.setNImg(newImageUrl); // 최종 이미지 URL로 업데이트
         if (req.getNCategory() != null) {origin.setNCategory(req.getNCategory());}
+        if (req.getNFix() != null) {origin.setNFix(req.getNFix());} // nFix 값 업데이트
         origin.setNSubject(req.getNSubject());
         origin.setNContent(req.getNContent());
         // 수정 시 등록 날짜를 현재 날짜로 업데이트

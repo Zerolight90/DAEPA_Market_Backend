@@ -39,6 +39,7 @@ public class PublicNoticeService {
                 .nDate(e.getNDate())
                 .adminNick(e.getAdmin().getAdNick())
                 .nCategory(e.getNCategory()) // Changed to set nCategory directly
+                .nFix(e.getNFix())
                 .build();
     }
 
