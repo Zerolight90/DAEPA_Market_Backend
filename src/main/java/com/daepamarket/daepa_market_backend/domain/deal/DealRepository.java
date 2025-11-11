@@ -60,7 +60,12 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
         TRIM(d.dDeal),
         dv.dvStatus,
         ck.ckStatus,
-        d.seller.uIdx
+        d.seller.uIdx,
+        d.orderId,
+        buyer.uIdx,
+        buyer.unickname,
+        buyer.uphone,
+        p.pdThumb 
     )
     from com.daepamarket.daepa_market_backend.domain.deal.DealEntity d
     join d.product p
@@ -68,6 +73,7 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
         on dv.deal = d
     left join com.daepamarket.daepa_market_backend.domain.check.CheckEntity ck
         on ck = dv.checkEntity
+    left join d.buyer buyer 
     where d.seller.uIdx = :sellerIdx
     order by d.dEdate desc
     """)
@@ -84,17 +90,19 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
             d.dSell,
             d.dBuy,
             d.dStatus,
-            TRIM(d.dDeal),
+            d.dDeal,
             dv.dvStatus,
             ck.ckStatus,
-            d.buyer.uIdx
+            d.seller.uIdx,
+            d.seller.unickname,
+            d.seller.uphone,
+            d.orderId,
+            p.pdThumb
         )
         from com.daepamarket.daepa_market_backend.domain.deal.DealEntity d
         join d.product p
-        left join com.daepamarket.daepa_market_backend.domain.delivery.DeliveryEntity dv
-            on dv.deal = d
-        left join com.daepamarket.daepa_market_backend.domain.check.CheckEntity ck
-            on ck = dv.checkEntity
+        left join DeliveryEntity dv on dv.deal = d
+        left join CheckEntity ck on ck = dv.checkEntity
         where d.buyer.uIdx = :buyerIdx
         order by d.dEdate desc
         """)

@@ -3,24 +3,22 @@ package com.daepamarket.daepa_market_backend.user;
 import com.daepamarket.daepa_market_backend.domain.user.*;
 import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
+import io.jsonwebtoken.io.IOException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.File;
 import java.text.DateFormat;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -165,4 +163,27 @@ public class UserController {
                     .body("회원정보 수정 실패: " + e.getMessage());
         }
     }
+
+    @PostMapping(value = "/upload-profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadProfile(
+            HttpServletRequest request,
+            @RequestPart("file") MultipartFile file
+    ) {
+        try {
+            String url = userService.uploadProfile(request, file);
+            // 프론트에서 uploadRes.data.url 로 쓰게 통일
+            return ResponseEntity.ok(new UploadRes(url));
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        } catch (Exception e) {
+            log.error("❌ 프로필 업로드 중 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("프로필 업로드 실패: " + e.getMessage());
+        }
+    }
+
+    // 응답용
+    record UploadRes(String url) {}
+
+
 }
