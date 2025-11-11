@@ -175,4 +175,23 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
         ORDER BY p.pdCreate DESC
         """)
     List<ProductEntity> findRecentProducts(Pageable pageable);
+
+    @Query("""
+           SELECT p FROM ProductEntity p
+           WHERE p.ctLow.middle.upper.upperCt = :upperCategory
+             AND p.ctLow.middle.middleCt = :middleCategory
+             AND p.ctLow.lowCt = :lowCategory
+             AND p.pdPrice >= :minPrice
+             AND p.pdPrice <= :maxPrice
+             AND p.pdDel = false
+             AND (p.pdEdate IS NULL OR p.pdEdate >= :now)
+           """)
+    List<ProductEntity> findMatchingProducts(
+            @Param("upperCategory") String upperCategory,
+            @Param("middleCategory") String middleCategory,
+            @Param("lowCategory") String lowCategory,
+            @Param("minPrice") int minPrice,
+            @Param("maxPrice") int maxPrice,
+            @Param("now") LocalDateTime now
+    );
 }

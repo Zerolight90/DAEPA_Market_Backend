@@ -63,4 +63,8 @@ public class AlarmService {
         }
     }
 
+    @Transactional
+    public void deleteNotification(Long uIdx, Long productId) {
+        alarmRepository.deleteByUIdxAndProductId(uIdx, productId);
+    }
 }

@@ -26,6 +26,9 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<DealEntity> findWithWriteLockByProduct_PdIdx(Long pdIdx);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT d FROM DealEntity d WHERE d.dIdx = :dIdx")
+    Optional<DealEntity> findWithWriteLockByDIdx(@Param("dIdx") Long dIdx);
 
     // 안전결제 내역
     @Query("""
