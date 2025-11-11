@@ -34,7 +34,6 @@ public class ProductController {
     private final JwtProvider jwtProvider;
     private final CookieUtil cookieUtil;
 
-    // 등록 (멀티파트)
     @PostMapping(value = "/create-multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createMultipart(
             HttpServletRequest request,
@@ -62,7 +61,6 @@ public class ProductController {
         return ResponseEntity.ok(id);
     }
 
-    // 수정 (멀티파트)
     @PostMapping(value = "/{id}/edit-multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateMultipart(
             @PathVariable("id") Long id,
@@ -105,7 +103,6 @@ public class ProductController {
         return null;
     }
 
-    // 목록 조회 (id 기준) - 가격 + 거래방식 + 판매완료 제외
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByIds(
@@ -137,7 +134,6 @@ public class ProductController {
         return ResponseEntity.ok(mapped);
     }
 
-    // 목록 조회 (이름 기준) - 가격 + 거래방식 + 판매완료 제외
     @GetMapping("/by-name")
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByNames(
@@ -169,7 +165,6 @@ public class ProductController {
         return ResponseEntity.ok(mapped);
     }
 
-    // 단건 상세 조회
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     public ResponseEntity<ProductDetailDTO> getProduct(@PathVariable("id") Long id) {
@@ -177,7 +172,6 @@ public class ProductController {
         return ResponseEntity.ok(dto);
     }
 
-    // 연관 상품
     @GetMapping("/{id}/related")
     @Transactional(readOnly = true)
     public ResponseEntity<List<ProductListDTO>> getRelated(
@@ -191,7 +185,6 @@ public class ProductController {
         return ResponseEntity.ok(dtoList);
     }
 
-    // 내 상품
     @GetMapping("/mypage")
     public List<productMyPageDTO> myProduct(
             HttpServletRequest request,
@@ -211,7 +204,6 @@ public class ProductController {
         return productService.getMyProductByUIdx(uIdx, status);
     }
 
-    // 수정 (JSON)
     @PutMapping("/{id}")
     public ResponseEntity<?> updateProduct(
             @PathVariable("id") Long id,
@@ -228,7 +220,6 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    // 소프트 삭제
     @PostMapping("/{id}/delete")
     public ResponseEntity<?> deleteProduct(
             @PathVariable("id") Long id,
@@ -244,7 +235,6 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    // 끌어올리기
     @PostMapping("/{id}/bump")
     public ResponseEntity<?> bumpProduct(
             @PathVariable("id") Long id,
@@ -260,7 +250,6 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    // 판매완료
     @PostMapping("/{id}/complete")
     public ResponseEntity<?> completeProduct(
             @PathVariable("id") Long id,
@@ -276,7 +265,6 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    // Entity -> ListDTO
     private ProductListDTO toListDTO(ProductEntity p) {
         String thumb = p.getPdThumb();
         if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
@@ -303,5 +291,4 @@ public class ProductController {
                 .dstatus(dstatus)
                 .build();
     }
-
 }

@@ -1,13 +1,12 @@
 package com.daepamarket.daepa_market_backend.admin.user;
 
-import com.daepamarket.daepa_market_backend.admin.review.SaleReviewDTO;
+import com.daepamarket.daepa_market_backend.admin.review.AllReviewDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-
 
 @RestController
 @RequiredArgsConstructor
@@ -32,9 +31,12 @@ public class AdminUserController {
         return ResponseEntity.ok().body(Map.of("umanner", umanner));
     }
 
-    @GetMapping("/users/{userId}/reviews/sell")
-    public List<SaleReviewDTO> getSellerReviews(@PathVariable Long userId) {
-        return adminUserService.getUserSaleReviews(userId);
+    /**
+     * 이 유저와 관련된(구매자/판매자) 리뷰들
+     */
+    @GetMapping("/users/{userId}/reviews")
+    public List<AllReviewDTO> getUserReviews(@PathVariable Long userId) {
+        return adminUserService.getUserReviews(userId);
     }
 
     @PatchMapping("/users/{uIdx}")
@@ -45,5 +47,4 @@ public class AdminUserController {
         adminUserService.updateUser(uIdx, dto);
         return ResponseEntity.ok(Map.of("message", "사용자 정보가 수정되었습니다."));
     }
-
 }
