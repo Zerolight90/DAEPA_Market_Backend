@@ -60,6 +60,7 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
         TRIM(d.dDeal),
         dv.dvStatus,
         ck.ckStatus,
+        ck.ckResult,
         d.seller.uIdx,
         d.orderId,
         buyer.uIdx,

@@ -19,6 +19,7 @@ public class DealSellHistoryDTO {
 
     private Integer dvStatus;
     private Integer ckStatus;
+    private Integer ckResult;
     private Long sellerIdx2;
 
     private String orderId;
@@ -46,6 +47,7 @@ public class DealSellHistoryDTO {
             String dDeal,
             Integer dvStatus,
             Integer ckStatus,
+            Integer ckResult,
             Long sellerIdx2,
             String orderId,
             Long buyerIdx,
@@ -64,6 +66,7 @@ public class DealSellHistoryDTO {
         this.dDeal = dDeal;
         this.dvStatus = dvStatus;
         this.ckStatus = ckStatus;
+        this.ckResult = ckResult;
         this.sellerIdx2 = sellerIdx2;
 
         this.orderId = orderId;
