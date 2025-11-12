@@ -109,6 +109,9 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
         """)
     List<DealBuyHistoryDTO> findBuyHistoryByBuyer(@Param("buyerIdx") Long buyerIdx);
 
+    @Query("SELECT d FROM DealEntity d JOIN d.product p WHERE d.dSell = 1L AND p.pdEdate < :cutoffDate")
+    List<DealEntity> findUnconfirmedDealsOlderThan(@Param("cutoffDate") java.time.LocalDateTime cutoffDate);
+
     //  구매내역에서 구매확인 버튼
     @Query("""
         select d
