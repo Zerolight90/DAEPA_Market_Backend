@@ -281,6 +281,7 @@ public class UserService {
             result.put("uPhone", user.getUphone());
             result.put("uNickname", user.getUnickname());
             result.put("u_nickname", user.getUnickname());
+            result.put("u_profile", user.getUProfile());
             result.put("locations", locations.stream().map(loc -> Map.of(
                     "locKey", loc.getLocKey(),
                     "locAddress", loc.getLocAddress(),

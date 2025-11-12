@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,6 +46,16 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
     order by d.dEdate desc
     """)
     List<DealSafeDTO> findSettlementsBySeller(@Param("uIdx") Long uIdx);
+
+    //정산완료된 거래 카운트
+    @Query("""
+    select count(d)
+    from DealEntity d
+    where d.seller.uIdx = :uIdx
+      and d.dStatus = 1
+""")
+    long countSettlementsBySeller(@Param("uIdx") Long uIdx);
+
 
     // 판매 내역
     @Query("""
@@ -120,6 +131,5 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
           and d.buyer.uIdx = :buyerId
         """)
     Optional<DealEntity> findByIdAndBuyer(Long dealId, Long buyerId);
-
 
 }

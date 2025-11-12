@@ -1,6 +1,9 @@
 package com.daepamarket.daepa_market_backend.favorite;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
+
+import java.time.LocalDateTime;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class FavoriteItemDTO {
@@ -9,4 +12,7 @@ public class FavoriteItemDTO {
     private Long price;      // 가격
     private String imageUrl; // 썸네일(없으면 null)
     private boolean pdDel;
+
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    private LocalDateTime pdCreate;
 }

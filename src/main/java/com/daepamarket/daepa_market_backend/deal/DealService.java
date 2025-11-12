@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -31,7 +32,7 @@ public class DealService {
         // 구매자 매너 온도 +5점 (최대 100)
         UserEntity buyer = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalStateException("구매자 정보를 찾을 수 없습니다."));
-        
+
         double currentManner = buyer.getUManner();
         double newManner = Math.min(100, currentManner + 5.0);
         buyer.setUManner(newManner);
@@ -92,4 +93,10 @@ public class DealService {
         }
     }
 
+    //정산완료된 거래 카운트
+    public long getSettlementCount(Long userId) {
+        return dealRepository.countSettlementsBySeller(userId);
+    }
+
 }
+
