@@ -37,6 +37,12 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
                 OR d.dSell IS NULL
                 OR d.dSell = 0
               )
+          AND (
+                :keyword IS NULL
+                OR TRIM(:keyword) = ''
+                OR LOWER(p.pdTitle)   LIKE LOWER(CONCAT('%', :keyword, '%'))
+                OR LOWER(p.pdContent) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              )
           AND p.pdDel = false
           AND (p.pdEdate IS NULL OR p.pdEdate >= :cutoff)
         """)
@@ -48,6 +54,7 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             @Param("max") Long max,
             @Param("dDeal") String dDeal,
             @Param("excludeSold") boolean excludeSold,
+            @Param("keyword") String keyword,
             @Param("cutoff") LocalDateTime cutoff,
             Pageable pageable
     );
@@ -146,6 +153,12 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
         where (:upperId is null or up.upperIdx = :upperId)
           and (:middleId is null or mid.middleIdx = :middleId)
           and (:lowId is null or low.lowIdx = :lowId)
+          and (
+                :keyword is null
+                or trim(:keyword) = ''
+                or lower(p.pdTitle)   like lower(concat('%', :keyword, '%'))
+                or lower(p.pdContent) like lower(concat('%', :keyword, '%'))
+          )
           and (p.pdEdate is null or p.pdEdate >= :cutoff)
           and p.pdDel = false
         group by p
@@ -155,6 +168,7 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             @Param("upperId") Long upperId,
             @Param("middleId") Long middleId,
             @Param("lowId") Long lowId,
+            @Param("keyword") String keyword,
             @Param("cutoff") LocalDateTime cutoff,
             Pageable pageable
     );
@@ -207,4 +221,76 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             @Param("maxPrice") int maxPrice,
             @Param("now") LocalDateTime now
     );
+
+    @Query("""
+        SELECT u.upperCt, COUNT(p)
+        FROM ProductEntity p
+        JOIN p.ctLow l
+        JOIN l.middle m
+        JOIN m.upper u
+        WHERE p.pdDel = false
+        GROUP BY u.upperCt
+        """)
+    List<Object[]> findCategoryCounts();
+
+    @Query(value = """
+        SELECT
+          p.pd_idx      AS pdIdx,
+          p.pd_title    AS pdTitle,
+          p.pd_price    AS pdPrice,
+          p.pd_thumb    AS pdThumb,
+          p.pd_create   AS pdCreate,
+          u.u_idx       AS sellerId,
+          u.u_nickname  AS sellerName,
+          cu.upper_ct   AS upperCt,
+          cm.middle_ct  AS middleCt,
+          cl.low_ct     AS lowCt,
+          COALESCE(r.report_count, 0) AS reportCount,
+          COALESCE(d.d_status, 0)     AS dealStatus,
+          COALESCE(d.d_sell, 0)       AS dealSell
+        FROM product p
+        JOIN `user` u ON p.u_idx = u.u_idx
+        JOIN ct_low cl ON p.ct_low = cl.low_idx
+        JOIN ct_middle cm ON cl.middle_idx = cm.middle_idx
+        JOIN ct_upper cu ON cm.upper_idx = cu.upper_idx
+        LEFT JOIN deal d ON d.pd_idx = p.pd_idx
+        LEFT JOIN (
+            SELECT b_idx2 AS seller_id, COUNT(*) AS report_count
+            FROM naga
+            GROUP BY b_idx2
+        ) r ON r.seller_id = u.u_idx
+        WHERE p.pd_del = false
+          AND (
+            :status IS NULL
+            OR :status = ''
+            OR (:status = 'ON_SALE' AND COALESCE(d.d_status, 0) = 0 AND COALESCE(d.d_sell, 0) = 0)
+            OR (:status = 'SOLD_OUT' AND (COALESCE(d.d_status, 0) = 1 OR COALESCE(d.d_sell, 0) = 1))
+            OR (:status = 'REPORTED' AND COALESCE(r.report_count, 0) > 0)
+          )
+        ORDER BY p.pd_create DESC
+        """,
+        countQuery = """
+        SELECT COUNT(*)
+        FROM product p
+        JOIN `user` u ON p.u_idx = u.u_idx
+        JOIN ct_low cl ON p.ct_low = cl.low_idx
+        JOIN ct_middle cm ON cl.middle_idx = cm.middle_idx
+        JOIN ct_upper cu ON cm.upper_idx = cu.upper_idx
+        LEFT JOIN deal d ON d.pd_idx = p.pd_idx
+        LEFT JOIN (
+            SELECT b_idx2 AS seller_id, COUNT(*) AS report_count
+            FROM naga
+            GROUP BY b_idx2
+        ) r ON r.seller_id = u.u_idx
+        WHERE p.pd_del = false
+          AND (
+            :status IS NULL
+            OR :status = ''
+            OR (:status = 'ON_SALE' AND COALESCE(d.d_status, 0) = 0 AND COALESCE(d.d_sell, 0) = 0)
+            OR (:status = 'SOLD_OUT' AND (COALESCE(d.d_status, 0) = 1 OR COALESCE(d.d_sell, 0) = 1))
+            OR (:status = 'REPORTED' AND COALESCE(r.report_count, 0) > 0)
+          )
+        """,
+        nativeQuery = true)
+    Page<com.daepamarket.daepa_market_backend.admin.product.AdminProductProjection> findAdminProducts(@Param("status") String status, Pageable pageable);
 }

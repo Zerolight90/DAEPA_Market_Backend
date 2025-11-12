@@ -59,13 +59,17 @@ public class AdminUserService {
                 String address = defaultLocation.getLocAddress() != null ? defaultLocation.getLocAddress().trim() : "";
                 String detail = defaultLocation.getLocDetail() != null ? defaultLocation.getLocDetail().trim() : "";
                 if (!address.isEmpty() || !detail.isEmpty()) {
-                    dto.setULocation(address + (detail.isEmpty() ? "" : " " + detail));
+                    dto.setUlocation(address + (detail.isEmpty() ? "" : " " + detail));
                 }
             }
         }
 
-        // 신고
-        dto.setReportHistory(nagaRepository.findReportsByUserId(uIdx));
+        List<ReportHistoryDTO> reports = nagaRepository.findReportsByUserId(uIdx);
+        dto.setReportHistory(reports);
+        dto.setReportCount(reports != null ? reports.size() : 0);
+
+        List<AllReviewDTO> reviews = reviewRepository.findReviewRowsByTargetUser(uIdx);
+        dto.setReviews(reviews);
 
         return dto;
     }
@@ -112,6 +116,9 @@ public class AdminUserService {
         }
         if (dto.getUwarn() != null) {
             user.setUWarn(dto.getUwarn());
+        }
+        if (dto.getUmanner() != null) {
+            user.setUManner(dto.getUmanner());
         }
 
         userRepository.save(user);

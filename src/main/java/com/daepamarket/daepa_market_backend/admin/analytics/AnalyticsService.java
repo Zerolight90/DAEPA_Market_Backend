@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -184,6 +185,31 @@ public class AnalyticsService {
                 product.getPdCreate() != null ? product.getPdCreate() : LocalDateTime.now()
             );
         }).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CategoryRatioDTO> getCategoryRatios() {
+        List<Object[]> counts = productRepository.findCategoryCounts();
+        Map<String, Long> countMap = counts.stream()
+                .collect(Collectors.toMap(
+                        row -> (String) row[0],
+                        row -> ((Number) row[1]).longValue()
+                ));
+
+        String[] categories = {
+                "전자제품",
+                "패션/의류",
+                "생활/가전",
+                "도서/음반",
+                "스포츠/레저",
+                "자동차",
+                "반려동물",
+                "기타"
+        };
+
+        return Arrays.stream(categories)
+                .map(name -> new CategoryRatioDTO(name, countMap.getOrDefault(name, 0L)))
+                .collect(Collectors.toList());
     }
 }
 

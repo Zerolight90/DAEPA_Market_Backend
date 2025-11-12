@@ -25,7 +25,11 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
             r.reStar,
             r.reContent,
             r.reCreate,
-            r.reType
+            r.reType,
+            buyer.uIdx,
+            seller.uIdx,
+            r.writer.uIdx,
+            r.writer.unickname
         )
         FROM ReviewEntity r
             JOIN r.deal d
@@ -53,7 +57,11 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
             r.reStar,
             r.reContent,
             r.reCreate,
-            r.reType
+            r.reType,
+            buyer.uIdx,
+            seller.uIdx,
+            r.writer.uIdx,
+            r.writer.unickname
         )
         FROM ReviewEntity r
             JOIN r.deal d

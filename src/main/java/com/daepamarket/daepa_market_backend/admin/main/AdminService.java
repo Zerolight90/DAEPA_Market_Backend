@@ -2,12 +2,15 @@ package com.daepamarket.daepa_market_backend.admin.main;
 
 import com.daepamarket.daepa_market_backend.domain.admin.AdminDTO;
 import com.daepamarket.daepa_market_backend.domain.admin.AdminEntity;
+import com.daepamarket.daepa_market_backend.domain.admin.AdminListDTO;
 import com.daepamarket.daepa_market_backend.domain.admin.AdminRepository;
 import com.daepamarket.daepa_market_backend.domain.admin.AdminUpdateDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,9 +29,17 @@ public class AdminService {
         AdminEntity admin = adminRepository.findById(req.getAdIdx())
                 .orElseThrow(() -> new RuntimeException("관리자 정보를 찾을 수 없습니다."));
 
-        // ID(adId)는 수정 불가 정책
+        if (req.getAdId() != null && !req.getAdId().isBlank() && !req.getAdId().equals(admin.getAdId())) {
+            adminRepository.findByAdId(req.getAdId()).ifPresent(dup -> {
+                if (!dup.getAdIdx().equals(admin.getAdIdx())) {
+                    throw new RuntimeException("이미 사용 중인 관리자 ID입니다.");
+                }
+            });
+            admin.setAdId(req.getAdId());
+        }
+
         admin.setAdNick(req.getAdNick());
-        // admin.setAdName(req.getAdName());
+        admin.setAdName(req.getAdName());
 
         if (req.getAdBirth() != null && !req.getAdBirth().isBlank()) {
             admin.setAdBirth(LocalDate.parse(req.getAdBirth()));
@@ -36,13 +47,26 @@ public class AdminService {
             admin.setAdBirth(null);
         }
 
-        // 비밀번호 변경 요청 시: 평문 그대로 저장 (요청 조건)
-        if (req.getNewPassword() != null && !req.getNewPassword().isBlank()) {
-            admin.setAdPw(req.getNewPassword());
+        String newPassword = req.getNewPassword() != null ? req.getNewPassword() : req.getAdPw();
+        if (newPassword != null && !newPassword.isBlank()) {
+            admin.setAdPw(newPassword);
         }
 
         AdminEntity saved = adminRepository.save(admin);
         return toDto(saved);
+    }
+
+    public List<AdminListDTO> getAdminList() {
+        return adminRepository.findAll().stream()
+                .map(admin -> new AdminListDTO(
+                        admin.getAdIdx(),
+                        admin.getAdId(),
+                        admin.getAdName(),
+                        admin.getAdNick(),
+                        admin.getAdStatus(),
+                        admin.getAdBirth() != null ? admin.getAdBirth().toString() : null
+                ))
+                .collect(Collectors.toList());
     }
 
     private AdminDTO toDto(AdminEntity e) {
