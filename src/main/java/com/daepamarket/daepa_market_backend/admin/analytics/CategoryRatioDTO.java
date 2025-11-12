@@ -13,4 +13,3 @@ public class CategoryRatioDTO {
     private String category;
     private Long count;
 }
-

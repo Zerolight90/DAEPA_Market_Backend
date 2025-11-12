@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.sql.Timestamp;
 
 @Data
 @AllArgsConstructor
@@ -21,4 +22,5 @@ public class AllReviewDTO {
     private Long sellerId;
     private Long writerId;
     private String writerName;
+    private Timestamp dealDate; // 거래일시 (d_edate)
 }

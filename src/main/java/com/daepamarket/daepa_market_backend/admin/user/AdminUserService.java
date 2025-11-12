@@ -59,7 +59,7 @@ public class AdminUserService {
                 String address = defaultLocation.getLocAddress() != null ? defaultLocation.getLocAddress().trim() : "";
                 String detail = defaultLocation.getLocDetail() != null ? defaultLocation.getLocDetail().trim() : "";
                 if (!address.isEmpty() || !detail.isEmpty()) {
-                    dto.setUlocation(address + (detail.isEmpty() ? "" : " " + detail));
+                    dto.setULocation(address + (detail.isEmpty() ? "" : " " + detail));
                 }
             }
         }
@@ -153,3 +153,4 @@ public class AdminUserService {
         }
     }
 }
+

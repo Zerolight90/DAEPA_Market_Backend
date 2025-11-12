@@ -256,13 +256,18 @@ public class ProductService {
             int size
     ) {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(3);
+        
+        // 키워드 정규화 (null이거나 빈 문자열이면 null로 처리)
+        String normalizedKeyword = (keyword != null && !keyword.trim().isEmpty()) 
+                ? keyword.trim() 
+                : null;
 
         if ("favorite".equalsIgnoreCase(sort)) {
             return productRepo.findAllByCategoryIdsOrderByFavoriteDesc(
                     upperId,
                     middleId,
                     lowId,
-                    keyword,
+                    normalizedKeyword,
                     cutoff,
                     PageRequest.of(page, size)
             );
@@ -277,7 +282,7 @@ public class ProductService {
                 max,
                 dDeal,
                 excludeSold,
-                keyword,
+                normalizedKeyword,
                 cutoff,
                 pageable
         );

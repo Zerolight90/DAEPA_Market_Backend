@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.domain.product;
 
+import com.daepamarket.daepa_market_backend.admin.product.AdminProductProjection;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -39,8 +40,7 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
               )
           AND (
                 :keyword IS NULL
-                OR TRIM(:keyword) = ''
-                OR LOWER(p.pdTitle)   LIKE LOWER(CONCAT('%', :keyword, '%'))
+                OR LOWER(p.pdTitle) LIKE LOWER(CONCAT('%', :keyword, '%'))
                 OR LOWER(p.pdContent) LIKE LOWER(CONCAT('%', :keyword, '%'))
               )
           AND p.pdDel = false
@@ -154,11 +154,10 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
           and (:middleId is null or mid.middleIdx = :middleId)
           and (:lowId is null or low.lowIdx = :lowId)
           and (
-                :keyword is null
-                or trim(:keyword) = ''
-                or lower(p.pdTitle)   like lower(concat('%', :keyword, '%'))
-                or lower(p.pdContent) like lower(concat('%', :keyword, '%'))
-          )
+                :keyword IS NULL
+                OR LOWER(p.pdTitle) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                OR LOWER(p.pdContent) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              )
           and (p.pdEdate is null or p.pdEdate >= :cutoff)
           and p.pdDel = false
         group by p
@@ -222,75 +221,41 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
             @Param("now") LocalDateTime now
     );
 
-    @Query("""
-        SELECT u.upperCt, COUNT(p)
-        FROM ProductEntity p
-        JOIN p.ctLow l
-        JOIN l.middle m
-        JOIN m.upper u
-        WHERE p.pdDel = false
-        GROUP BY u.upperCt
-        """)
-    List<Object[]> findCategoryCounts();
-
     @Query(value = """
-        SELECT
-          p.pd_idx      AS pdIdx,
-          p.pd_title    AS pdTitle,
-          p.pd_price    AS pdPrice,
-          p.pd_thumb    AS pdThumb,
-          p.pd_create   AS pdCreate,
-          u.u_idx       AS sellerId,
-          u.u_nickname  AS sellerName,
-          cu.upper_ct   AS upperCt,
-          cm.middle_ct  AS middleCt,
-          cl.low_ct     AS lowCt,
-          COALESCE(r.report_count, 0) AS reportCount,
-          COALESCE(d.d_status, 0)     AS dealStatus,
-          COALESCE(d.d_sell, 0)       AS dealSell
+        SELECT 
+            p.pd_idx as pdIdx,
+            p.pd_title as pdTitle,
+            p.pd_price as pdPrice,
+            p.pd_thumb as pdThumb,
+            p.pd_create as pdCreate,
+            u.u_idx as sellerId,
+            u.u_name as sellerName,
+            up.upper_ct as upperCt,
+            mid.middle_ct as middleCt,
+            low.low_ct as lowCt,
+            COUNT(DISTINCT n.ng_idx) as reportCount,
+            CAST(COALESCE(d.d_status, 0) AS SIGNED) as dealStatus,
+            CAST(COALESCE(d.d_sell, 0) AS SIGNED) as dealSell
         FROM product p
-        JOIN `user` u ON p.u_idx = u.u_idx
-        JOIN ct_low cl ON p.ct_low = cl.low_idx
-        JOIN ct_middle cm ON cl.middle_idx = cm.middle_idx
-        JOIN ct_upper cu ON cm.upper_idx = cu.upper_idx
-        LEFT JOIN deal d ON d.pd_idx = p.pd_idx
-        LEFT JOIN (
-            SELECT b_idx2 AS seller_id, COUNT(*) AS report_count
-            FROM naga
-            GROUP BY b_idx2
-        ) r ON r.seller_id = u.u_idx
+        LEFT JOIN user u ON p.u_idx = u.u_idx
+        LEFT JOIN ct_low low ON p.ct_low = low.low_idx
+        LEFT JOIN ct_middle mid ON low.middle_idx = mid.middle_idx
+        LEFT JOIN ct_upper up ON mid.upper_idx = up.upper_idx
+        LEFT JOIN deal d ON p.pd_idx = d.pd_idx
+        LEFT JOIN naga n ON p.pd_idx = n.s_idx
         WHERE p.pd_del = false
-          AND (
-            :status IS NULL
-            OR :status = ''
-            OR (:status = 'ON_SALE' AND COALESCE(d.d_status, 0) = 0 AND COALESCE(d.d_sell, 0) = 0)
-            OR (:status = 'SOLD_OUT' AND (COALESCE(d.d_status, 0) = 1 OR COALESCE(d.d_sell, 0) = 1))
-            OR (:status = 'REPORTED' AND COALESCE(r.report_count, 0) > 0)
-          )
+          AND (:status IS NULL 
+            OR (:status = 'ON_SALE' AND (d.d_sell IS NULL OR d.d_sell = 0) AND (d.d_status IS NULL OR d.d_status = 0))
+            OR (:status = 'SOLD_OUT' AND ((d.d_sell IS NOT NULL AND d.d_sell > 0) OR (d.d_status IS NOT NULL AND d.d_status > 0))))
+        GROUP BY p.pd_idx, p.pd_title, p.pd_price, p.pd_thumb, p.pd_create, 
+                 u.u_idx, u.u_name, up.upper_ct, mid.middle_ct, low.low_ct, 
+                 d.d_status, d.d_sell
+        HAVING (:status IS NULL 
+            OR (:status != 'REPORTED' OR COUNT(DISTINCT n.ng_idx) > 0))
         ORDER BY p.pd_create DESC
-        """,
-        countQuery = """
-        SELECT COUNT(*)
-        FROM product p
-        JOIN `user` u ON p.u_idx = u.u_idx
-        JOIN ct_low cl ON p.ct_low = cl.low_idx
-        JOIN ct_middle cm ON cl.middle_idx = cm.middle_idx
-        JOIN ct_upper cu ON cm.upper_idx = cu.upper_idx
-        LEFT JOIN deal d ON d.pd_idx = p.pd_idx
-        LEFT JOIN (
-            SELECT b_idx2 AS seller_id, COUNT(*) AS report_count
-            FROM naga
-            GROUP BY b_idx2
-        ) r ON r.seller_id = u.u_idx
-        WHERE p.pd_del = false
-          AND (
-            :status IS NULL
-            OR :status = ''
-            OR (:status = 'ON_SALE' AND COALESCE(d.d_status, 0) = 0 AND COALESCE(d.d_sell, 0) = 0)
-            OR (:status = 'SOLD_OUT' AND (COALESCE(d.d_status, 0) = 1 OR COALESCE(d.d_sell, 0) = 1))
-            OR (:status = 'REPORTED' AND COALESCE(r.report_count, 0) > 0)
-          )
-        """,
-        nativeQuery = true)
-    Page<com.daepamarket.daepa_market_backend.admin.product.AdminProductProjection> findAdminProducts(@Param("status") String status, Pageable pageable);
+        """, nativeQuery = true)
+    Page<AdminProductProjection> findAdminProducts(
+            @Param("status") String status,
+            Pageable pageable
+    );
 }

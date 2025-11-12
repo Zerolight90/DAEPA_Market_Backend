@@ -17,4 +17,3 @@ public class BannerResponseDTO {
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
 }
-

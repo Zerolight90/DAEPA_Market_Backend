@@ -60,6 +60,13 @@ public class BannerStorageService {
 
     public synchronized void saveBanners(List<BannerRecord> banners) {
         try {
+            // 부모 디렉토리가 없으면 생성
+            Path parent = storagePath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            // 파일이 없거나 삭제되었을 경우를 대비하여 항상 저장
+            // 파일이 없으면 자동으로 생성됨
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(storagePath.toFile(), banners);
         } catch (IOException ex) {
             throw new IllegalStateException("배너 데이터를 저장하는 중 오류가 발생했습니다.", ex);
@@ -81,4 +88,3 @@ public class BannerStorageService {
         private java.time.LocalDateTime updatedAt;
     }
 }
-

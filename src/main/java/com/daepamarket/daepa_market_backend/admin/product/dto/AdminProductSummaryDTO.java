@@ -18,3 +18,4 @@ public class AdminProductSummaryDTO {
     private final boolean reported;
 }
 
+

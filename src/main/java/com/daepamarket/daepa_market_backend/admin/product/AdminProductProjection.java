@@ -18,3 +18,4 @@ public interface AdminProductProjection {
     Long getDealSell();
 }
 
+

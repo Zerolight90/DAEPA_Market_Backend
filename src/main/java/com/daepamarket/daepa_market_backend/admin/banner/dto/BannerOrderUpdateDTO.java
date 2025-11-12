@@ -9,4 +9,3 @@ public class BannerOrderUpdateDTO {
     private Long id;
     private Integer displayOrder;
 }
-

@@ -38,8 +38,9 @@ public class AdminService {
             admin.setAdId(req.getAdId());
         }
 
-        admin.setAdNick(req.getAdNick());
-        admin.setAdName(req.getAdName());
+        if (req.getAdNick() != null) {
+            admin.setAdNick(req.getAdNick());
+        }
 
         if (req.getAdBirth() != null && !req.getAdBirth().isBlank()) {
             admin.setAdBirth(LocalDate.parse(req.getAdBirth()));
@@ -47,9 +48,9 @@ public class AdminService {
             admin.setAdBirth(null);
         }
 
-        String newPassword = req.getNewPassword() != null ? req.getNewPassword() : req.getAdPw();
-        if (newPassword != null && !newPassword.isBlank()) {
-            admin.setAdPw(newPassword);
+        // 비밀번호 변경 요청 시: 평문 그대로 저장 (요청 조건)
+        if (req.getNewPassword() != null && !req.getNewPassword().isBlank()) {
+            admin.setAdPw(req.getNewPassword());
         }
 
         AdminEntity saved = adminRepository.save(admin);

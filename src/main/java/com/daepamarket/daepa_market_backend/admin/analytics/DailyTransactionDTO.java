@@ -15,4 +15,3 @@ public class DailyTransactionDTO {
     private Long totalAmount;       // 총 금액
     private Integer sellerCount;    // 판매자 수
 }
-

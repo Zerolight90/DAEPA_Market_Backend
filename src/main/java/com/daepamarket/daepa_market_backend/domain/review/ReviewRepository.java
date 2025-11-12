@@ -22,7 +22,7 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
             END,
             r.reIdx,
             p.pdTitle,
-            buyer.unickname,
+            COALESCE(buyer.unickname, ''),
             seller.unickname,
             r.reStar,
             r.reContent,
@@ -31,12 +31,13 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
             buyer.uIdx,
             seller.uIdx,
             r.writer.uIdx,
-            r.writer.unickname
+            r.writer.unickname,
+            d.dEdate
         )
         FROM ReviewEntity r
             JOIN r.deal d
             JOIN d.product p
-            JOIN d.buyer buyer
+            LEFT JOIN d.buyer buyer
             JOIN d.seller seller
         ORDER BY r.reCreate DESC
     """)
@@ -50,7 +51,7 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
             END,
             r.reIdx,
             p.pdTitle,
-            buyer.unickname,
+            COALESCE(buyer.unickname, ''),
             seller.unickname,
             r.reStar,
             r.reContent,
@@ -59,15 +60,15 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
             buyer.uIdx,
             seller.uIdx,
             r.writer.uIdx,
-            r.writer.unickname
+            r.writer.unickname,
+            d.dEdate
         )
         FROM ReviewEntity r
             JOIN r.deal d
             JOIN d.product p
-            JOIN d.buyer buyer
+            LEFT JOIN d.buyer buyer
             JOIN d.seller seller
-        WHERE buyer.uIdx = :userId
-           OR seller.uIdx = :userId
+        WHERE (buyer.uIdx = :userId OR seller.uIdx = :userId OR r.writer.uIdx = :userId)
         ORDER BY r.reCreate DESC
     """)
     List<AllReviewDTO> findReviewRowsByTargetUser(@Param("userId") Long userId);

@@ -138,5 +138,4 @@ public class AdminController {
     public ResponseEntity<List<com.daepamarket.daepa_market_backend.admin.analytics.CategoryRatioDTO>> getCategoryRatio() {
         return ResponseEntity.ok(analyticsService.getCategoryRatios());
     }
-
 }

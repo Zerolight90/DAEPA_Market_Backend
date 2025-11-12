@@ -105,8 +105,16 @@ public class NagaReportService {
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저 없음"));
 
+        // 탈퇴된 사용자는 정지할 수 없음 (먼저 활성화 필요)
+        // 하지만 번복이 가능하므로, 탈퇴 상태에서는 정지 불가
+        // 사용자가 탈퇴를 되돌리고 싶다면 활성화 후 정지해야 함
+        if (user.getUStatus() == 3) {
+            throw new RuntimeException("탈퇴된 사용자는 정지할 수 없습니다. 먼저 활성화한 후 정지할 수 있습니다.");
+        }
+
         long plusDays = convertDuration(request.getDuration());
 
+        // 정지 기록 추가 (기존 기록이 있어도 새 기록 추가)
         StopEntity stop = StopEntity.builder()
                 .user(user)
                 .stopDate(LocalDate.parse(request.getSuspendDate(), ISO_DATE)) // 입력일
@@ -116,6 +124,7 @@ public class NagaReportService {
 
         stopRepository.save(stop);
 
+        // 상태를 정지로 변경
         user.setUStatus(0); // 정지
         userRepository.save(user);
     }
@@ -131,8 +140,13 @@ public class NagaReportService {
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저 없음"));
 
+        // 모든 상태에서 활성화 가능 (정지, 탈퇴 모두 되돌릴 수 있음)
+        // 상태만 활성화로 변경하고 기존 기록은 유지
         user.setUStatus(1); // 활성
         userRepository.save(user);
+        
+        // 정지/탈퇴 기록은 남겨두고 상태만 활성화로 변경
+        // (기록은 유지하여 이전 조치 내역을 추적할 수 있도록 함)
     }
 
     /** 계정 탈퇴 */
@@ -145,14 +159,24 @@ public class NagaReportService {
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저 없음"));
 
+        // 이미 탈퇴된 사용자는 다시 탈퇴할 수 없음
+        if (user.getUStatus() == 3) {
+            throw new RuntimeException("이미 탈퇴된 사용자입니다.");
+        }
+
+        // 탈퇴 기록 추가 (기존 기록이 있어도 새 기록 추가 가능)
         GetoutEntity out = GetoutEntity.builder()
                 .user(user)
-                .goStatus("1")               // 탈퇴 사유 코드
+                .goStatus(request.getReason() != null && !request.getReason().trim().isEmpty() 
+                        ? request.getReason() : "1") // 탈퇴 사유
                 .goOutdata(LocalDate.now()) // 엔티티 필드명 정확히!
                 .build();
 
         getoutRepository.save(out);
 
+        // 상태를 탈퇴로 변경
+        // 정지 기록은 남겨두고 탈퇴 상태로 변경
+        // (기록은 유지하여 이전 조치 내역을 추적할 수 있도록 함)
         user.setUStatus(3); // 탈퇴
         userRepository.save(user);
     }

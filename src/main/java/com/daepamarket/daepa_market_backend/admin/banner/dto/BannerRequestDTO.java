@@ -12,4 +12,3 @@ public class BannerRequestDTO {
     private Integer displayOrder;
     private Boolean active;
 }
-
