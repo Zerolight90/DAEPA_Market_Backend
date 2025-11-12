@@ -46,27 +46,13 @@ public class CheckService {
         CheckEntity check = checkRepository.findById(ckIdx)
                 .orElseThrow(() -> new RuntimeException("검수 정보를 찾을 수 없습니다."));
         
-        // 이미 검수 완료된 경우 예외 처리
-        if (check.getCkStatus() == 1 && check.getCkResult() != null) {
-            throw new RuntimeException("이미 검수 결과가 등록된 항목입니다.");
-        }
-        
+        // 검수 상태와 결과 업데이트 (이미 등록된 경우에도 수정 가능)
+        // 검수 결과를 설정하면 검수 상태도 완료로 변경
         check.setCkStatus(1);
         check.setCkResult(result);
         checkRepository.save(check);
         
-        // 배송 정보가 있는 경우에만 배송 상태 업데이트
-        DeliveryEntity delivery = deliveryRepository.findByCheckCkIdx(ckIdx).orElse(null);
-        if (delivery != null) {
-            // 검수 결과가 합격(1)이면 배송 시작 (3 : 검수 후 배송)
-            if (result == 1) {
-                delivery.setDvStatus(3); // 검수 후 배송
-                deliveryRepository.save(delivery);
-            } else if (result == 0) {
-                // 불합격이면 반품 처리 (반품: 4)
-                delivery.setDvStatus(4); // 반품
-                deliveryRepository.save(delivery);
-            }
-        }
+        // 배송 상태(dv_status)는 별도로 관리되므로 여기서 변경하지 않음
+        // 검수 완료(ck_status = 1)된 항목만 배송 관리 테이블에서 조회됨
     }
 }

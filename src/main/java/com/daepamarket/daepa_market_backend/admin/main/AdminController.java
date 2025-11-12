@@ -3,6 +3,8 @@ package com.daepamarket.daepa_market_backend.admin.main;
 import com.daepamarket.daepa_market_backend.admin.analytics.AnalyticsService;
 import com.daepamarket.daepa_market_backend.admin.analytics.DailyTransactionDTO;
 import com.daepamarket.daepa_market_backend.admin.analytics.DashboardStatsDTO;
+import com.daepamarket.daepa_market_backend.admin.product.AdminProductService;
+import com.daepamarket.daepa_market_backend.admin.product.dto.AdminProductPageResponse;
 import com.daepamarket.daepa_market_backend.admin.user.UserResponseDTO;
 import com.daepamarket.daepa_market_backend.domain.admin.*;
 import com.daepamarket.daepa_market_backend.user.UserService;
@@ -16,7 +18,9 @@ import java.util.HashMap;
 import java.util.List;
 
 @Slf4j
-@RestController @RequiredArgsConstructor @RequestMapping("/api/admin")
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/admin")
 @CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 public class AdminController {
 
@@ -24,6 +28,7 @@ public class AdminController {
     private final UserService userService;
     private final AdminService adminService;
     private final AnalyticsService analyticsService;
+    private final AdminProductService adminProductService;
 
     @PostMapping("/add-admin")
     public String addAdmin( @RequestBody AdminDTO request) {
@@ -80,6 +85,36 @@ public class AdminController {
         return ResponseEntity.ok(adminService.updateMyProfile(req));
     }
 
+    @GetMapping("/admins")
+    public ResponseEntity<List<com.daepamarket.daepa_market_backend.domain.admin.AdminListDTO>> getAdmins() {
+        return ResponseEntity.ok(adminService.getAdminList());
+    }
+
+    @GetMapping("/products")
+    public ResponseEntity<AdminProductPageResponse> getProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "15") int size,
+            @RequestParam(required = false) String status
+    ) {
+        var result = adminProductService.getProducts(page, size, status);
+        AdminProductPageResponse response = new AdminProductPageResponse(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.isFirst(),
+                result.isLast()
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/products/{productId}")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long productId) {
+        adminProductService.softDeleteProduct(productId);
+        return ResponseEntity.noContent().build();
+    }
+
     // 일간 거래 추이 (주간)
     @GetMapping("/analytics/daily-transactions")
     public ResponseEntity<List<DailyTransactionDTO>> getDailyTransactions() {
@@ -99,4 +134,8 @@ public class AdminController {
         return ResponseEntity.ok(analyticsService.getRecentProducts(limit));
     }
 
+    @GetMapping("/analytics/category-ratio")
+    public ResponseEntity<List<com.daepamarket.daepa_market_backend.admin.analytics.CategoryRatioDTO>> getCategoryRatio() {
+        return ResponseEntity.ok(analyticsService.getCategoryRatios());
+    }
 }
