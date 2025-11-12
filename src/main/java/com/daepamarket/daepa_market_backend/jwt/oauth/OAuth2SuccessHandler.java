@@ -7,6 +7,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -26,6 +27,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
+
+    @Value("${app.front-url}")
+    private String frontUrl;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
@@ -132,7 +136,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         // 프론트로 리다이렉트
         // 여기서 status도 같이 넘겨줘서 프론트가 "추가정보 필요" 판단하게
-        String redirectUrl = "http://localhost:3000/oauth/success"
+        String redirectUrl = frontUrl + "/oauth/success"
                 + "?provider=" + provider
                 + "&accessToken=" + accessToken
                 + "&refreshToken=" + refreshToken
