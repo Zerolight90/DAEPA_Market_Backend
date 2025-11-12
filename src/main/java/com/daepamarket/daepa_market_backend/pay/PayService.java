@@ -114,8 +114,8 @@ public class PayService {
                 .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
 
         // Deal 상태 검사
-        // d_status가 0L이 아니거나, d_sell이 판매완료인 경우
-        if (deal.getDStatus() != 0L || deal.getDSell() == 1L) {
+        // d_sell이 0L(판매중)이 아닌 경우, 이미 판매되었거나 거래가 불가능한 상품으로 간주
+        if (deal.getDSell() != 0L) {
             throw new IllegalStateException("이미 판매가 완료되었거나 거래가 불가능한 상품입니다.");
         }
 
@@ -189,8 +189,14 @@ public class PayService {
         // 필요한 엔티티 조회
         UserEntity buyer = userRepository.findById(buyerIdx)
                 .orElseThrow(() -> new RuntimeException("구매자 정보를 찾을 수 없습니다: " + buyerIdx));
-        DealEntity deal = dealRepository.findByProduct_PdIdx(pdIdx)
+        DealEntity deal = dealRepository.findWithWriteLockByProduct_PdIdx(pdIdx)
                 .orElseThrow(() -> new RuntimeException("해당 상품의 거래 정보를 찾을 수 없습니다: " + pdIdx));
+
+        // Deal 상태 검사
+        // d_sell이 0L(판매중)이 아닌 경우, 이미 판매되었거나 거래가 불가능한 상품으로 간주
+        if (deal.getDSell() != 0L) {
+            throw new IllegalStateException("이미 판매가 완료되었거나 거래가 불가능한 상품입니다.");
+        }
 
         // Deal 테이블 업데이트
         deal.setAgreedPrice(amount); // 거래 가격
@@ -247,8 +253,8 @@ public class PayService {
                 .orElseThrow(() -> new RuntimeException("거래 정보를 찾을 수 없습니다: " + itemId));
 
         // Deal 상태 검사
-        // d_status가 0L이 아니거나, d_sell이 판매완료인 경우
-        if (deal.getDStatus() != 0L || deal.getDSell() == 1L) {
+        // d_sell이 0L(판매중)이 아닌 경우, 이미 판매되었거나 거래가 불가능한 상품으로 간주
+        if (deal.getDSell() != 0L) {
             throw new IllegalStateException("이미 판매가 완료되었거나 거래가 불가능한 상품입니다.");
         }
 
@@ -310,8 +316,14 @@ public class PayService {
         // 필요한 엔티티 조회
         UserEntity buyer = userRepository.findById(buyerIdx)
                 .orElseThrow(() -> new RuntimeException("구매자 정보를 찾을 수 없습니다: " + buyerIdx));
-        DealEntity deal = dealRepository.findByProduct_PdIdx(pdIdx)
+        DealEntity deal = dealRepository.findWithWriteLockByProduct_PdIdx(pdIdx)
                 .orElseThrow(() -> new RuntimeException("해당 상품의 거래 정보를 찾을 수 없습니다: " + pdIdx));
+
+        // Deal 상태 검사
+        // d_sell이 0L(판매중)이 아닌 경우, 이미 판매되었거나 거래가 불가능한 상품으로 간주
+        if (deal.getDSell() != 0L) {
+            throw new IllegalStateException("이미 판매가 완료되었거나 거래가 불가능한 상품입니다.");
+        }
 
         // Deal 테이블 업데이트
         deal.setAgreedPrice(amount); // 거래 가격
@@ -407,31 +419,31 @@ public class PayService {
 
         // 1. 거래(Deal) 정보 조회 (비관적 락 추천)
         DealEntity deal = dealRepository.findWithWriteLockByDIdx(dealId) // (findWithWriteLockByProduct_PdIdx는 DealRepository에 @Lock 추가 필요)
-                .orElseThrow(() -> new RuntimeException("취소할 거래 정보를 찾을 수 없습니다: " + dealId));
+                .orElseThrow(() -> new RuntimeException("환불할 거래 정보를 찾을 수 없습니다: " + dealId));
 
         // 2. 권한 검증: 현재 로그인한 사용자가 구매자가 맞는지 확인
         if (deal.getBuyer() == null || !deal.getBuyer().getUIdx().equals(currentUserId)) {
-            throw new AccessDeniedException("이 거래를 취소할 권한이 없습니다.");
+            throw new AccessDeniedException("이 거래를 환불할 권한이 없습니다.");
         }
 
         // 3. 상태 검증: 이미 취소되었는지 확인
         // (DealEntity의 dBuy, dStatus 컬럼 타입과 취소 상태값 확인 필요)
         if (deal.getDBuy() == 3L || deal.getDStatus() == 2L) { // 2L = 취소 상태 (예시)
-            throw new IllegalStateException("이미 취소된 거래입니다.");
+            throw new IllegalStateException("이미 환불된 거래입니다.");
         }
 
         // 4. Deal에 저장된 paymentKey 가져오기
         String paymentKey = deal.getPaymentKey();
         if (paymentKey == null || paymentKey.isBlank()) {
-            throw new RuntimeException("결제 정보(paymentKey)가 없어 취소가 불가능합니다.");
+            throw new RuntimeException("결제 정보(paymentKey)가 없어 환불이 불가능합니다.");
         }
 
         // 5. 토스페이먼츠 환불 API 호출
-        callTossCancelApi(paymentKey, (cancelReason != null ? cancelReason : "고객 변심"));
+        callTossCancelApi(paymentKey, (cancelReason != null ? cancelReason : "검수 불합격"));
 
         // 6. Deal 테이블 상태 업데이트 (취소 상태로 변경)
-        deal.setDBuy(3L);
-        deal.setDSell(2L); // 또는 판매자가 다시 판매할 수 있도록 "판매중"
+        deal.setDBuy(0L);
+        deal.setDSell(0L); // 또는 판매자가 다시 판매할 수 있도록 "판매중"
         deal.setDStatus(2L); // 2 = 취소 (예시)
         // deal.setDEdate(null); // 거래 완료 시간 초기화 (선택 사항)
 

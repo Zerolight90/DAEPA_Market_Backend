@@ -238,7 +238,7 @@ public class PayController {
             // ===== 5. 중간에 어떤 예외라도 발생하면 실패 페이지로 리다이렉트 =====
             // URL 쿼리 파라미터로 보내기 위해 에러 메시지를 인코딩하는 것이 안전합니다.
             String errorMsg = java.net.URLEncoder.encode(e.getMessage(), "UTF-8");
-            String redirectUrl = "http://localhost:3000/pay/fail?message=" + errorMsg;
+            String redirectUrl = "http://localhost:3000/pay/fail?message=" + errorMsg + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
         }
     }
@@ -296,7 +296,7 @@ public class PayController {
             // ===== 5. 중간에 어떤 예외라도 발생하면 실패 페이지로 리다이렉트 =====
             // URL 쿼리 파라미터로 보내기 위해 에러 메시지를 인코딩하는 것이 안전합니다.
             String errorMsg = java.net.URLEncoder.encode(e.getMessage(), "UTF-8");
-            String redirectUrl = "http://localhost:3000/pay/sec/fail?message=" + errorMsg;
+            String redirectUrl = "http://localhost:3000/pay/sec/fail?message=" + errorMsg + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
         }
     }
