@@ -444,7 +444,7 @@ public class PayService {
         // 6. Deal 테이블 상태 업데이트 (취소 상태로 변경)
         deal.setDBuy(0L);
         deal.setDSell(0L); // 또는 판매자가 다시 판매할 수 있도록 "판매중"
-        deal.setDStatus(2L); // 2 = 취소 (예시)
+        deal.setDStatus(0L); // 2 = 취소 (예시)
         // deal.setDEdate(null); // 거래 완료 시간 초기화 (선택 사항)
 
         // dealRepository.save(deal); // @Transactional이므로 Dirty Checking에 의해 자동 저장
