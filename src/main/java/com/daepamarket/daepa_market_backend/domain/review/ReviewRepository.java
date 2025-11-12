@@ -2,9 +2,13 @@
 package com.daepamarket.daepa_market_backend.domain.review;
 
 import com.daepamarket.daepa_market_backend.admin.review.AllReviewDTO;
+import com.daepamarket.daepa_market_backend.review.dto.MyReviewRow;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 
 import java.util.List;
 
@@ -66,4 +70,52 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     boolean existsByDeal_dIdxAndWriter_uIdxAndReType(Long dIdx,
                                                      Long uIdx,
                                                      String reType);
+    // === (신규) 받은 후기: 내가 대상인 후기 (BUYER → seller가 대상 / SELLER → buyer가 대상) ===
+    @Query("""
+        SELECT new com.daepamarket.daepa_market_backend.review.dto.MyReviewRow(
+            r.reIdx,
+            d.dIdx,
+            p.pdTitle,
+            p.pdThumb,
+            w.unickname,
+            r.reStar,
+            r.reContent,
+            r.reCreate,
+            r.reUpdate,    
+            r.reType
+        )
+        FROM ReviewEntity r
+            JOIN r.deal d
+            JOIN d.product p
+            JOIN r.writer w
+            JOIN d.buyer buyer
+            JOIN d.seller seller
+        WHERE (r.reType = 'BUYER' AND seller.uIdx = :uid)
+           OR (r.reType = 'SELLER' AND buyer.uIdx = :uid)
+        ORDER BY r.reCreate DESC
+        """)
+    Page<MyReviewRow> pageReceivedByUser(@Param("uid") Long uid, Pageable pageable);
+
+    // === (신규) 작성한 후기: 내가 작성자 ===
+    @Query("""
+        SELECT new com.daepamarket.daepa_market_backend.review.dto.MyReviewRow(
+           r.reIdx,
+           d.dIdx,
+           p.pdTitle,
+           p.pdThumb,
+           w.unickname,
+           r.reStar,
+           r.reContent,
+           r.reCreate,
+           r.reUpdate,    
+           r.reType
+        )
+        FROM ReviewEntity r
+            JOIN r.deal d
+            JOIN d.product p
+            JOIN r.writer w
+        WHERE w.uIdx = :uid
+        ORDER BY r.reCreate DESC
+        """)
+    Page<MyReviewRow> pageWrittenByUser(@Param("uid") Long uid, Pageable pageable);
 }
