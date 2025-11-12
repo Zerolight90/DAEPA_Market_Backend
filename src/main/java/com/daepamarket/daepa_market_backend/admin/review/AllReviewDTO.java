@@ -4,17 +4,23 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.sql.Timestamp;
 
 @Data
 @AllArgsConstructor
 public class AllReviewDTO {
-    private String id;          // "S-1" / "B-10"
-    private Long realId;        // 실제 PK
+    private String id;
+    private Long realId;
     private String product;
     private String buyer;
     private String seller;
-    private Integer rating;     // ★ 여기 Long → Integer 로
+    private Integer rating;
     private String comment;
     private LocalDateTime date;
-    private String type;        // "BUYER" / "SELLER"
+    private String type;
+    private Long buyerId;
+    private Long sellerId;
+    private Long writerId;
+    private String writerName;
+    private Timestamp dealDate; // 거래일시 (d_edate)
 }

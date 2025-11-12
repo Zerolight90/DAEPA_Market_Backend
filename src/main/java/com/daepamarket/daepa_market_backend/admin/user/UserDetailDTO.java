@@ -50,6 +50,10 @@ public class UserDetailDTO {
     private List<TradeHistoryDTO> tradeHistory;
     // 신고 내역
     private List<ReportHistoryDTO> reportHistory;
+    // 신고 횟수
+    private Integer reportCount;
+    // 리뷰 목록
+    private List<com.daepamarket.daepa_market_backend.admin.review.AllReviewDTO> reviews;
 
     public static UserDetailDTO fromEntity(UserEntity e) {
         UserDetailDTO dto = new UserDetailDTO();

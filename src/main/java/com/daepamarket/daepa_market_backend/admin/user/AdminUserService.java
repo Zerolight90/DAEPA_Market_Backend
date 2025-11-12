@@ -64,8 +64,12 @@ public class AdminUserService {
             }
         }
 
-        // 신고
-        dto.setReportHistory(nagaRepository.findReportsByUserId(uIdx));
+        List<ReportHistoryDTO> reports = nagaRepository.findReportsByUserId(uIdx);
+        dto.setReportHistory(reports);
+        dto.setReportCount(reports != null ? reports.size() : 0);
+
+        List<AllReviewDTO> reviews = reviewRepository.findReviewRowsByTargetUser(uIdx);
+        dto.setReviews(reviews);
 
         return dto;
     }
@@ -113,6 +117,9 @@ public class AdminUserService {
         if (dto.getUwarn() != null) {
             user.setUWarn(dto.getUwarn());
         }
+        if (dto.getUmanner() != null) {
+            user.setUManner(dto.getUmanner());
+        }
 
         userRepository.save(user);
 
@@ -146,3 +153,4 @@ public class AdminUserService {
         }
     }
 }
+

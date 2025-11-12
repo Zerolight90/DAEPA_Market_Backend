@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface OneOnOneRepository extends JpaRepository<OneOnOneEntity, Long> {
 
-    @Query("SELECT o FROM OneOnOneEntity o JOIN FETCH o.user ORDER BY o.ooDate DESC")
+    @Query("SELECT o FROM OneOnOneEntity o JOIN FETCH o.user ORDER BY o.ooIdx DESC")
     List<OneOnOneEntity> findAllWithUser();
 
     // 상세 조회 (LazyInitializationException 해결)

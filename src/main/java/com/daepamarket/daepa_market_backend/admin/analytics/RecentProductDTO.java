@@ -19,4 +19,3 @@ public class RecentProductDTO {
     private String category;
     private LocalDateTime createdAt;
 }
-

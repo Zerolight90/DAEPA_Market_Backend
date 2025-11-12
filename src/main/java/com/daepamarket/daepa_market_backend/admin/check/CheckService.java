@@ -54,7 +54,9 @@ public class CheckService {
         if (check.getCkStatus() == 1 && check.getCkResult() != null) {
             throw new RuntimeException("이미 검수 결과가 등록된 항목입니다.");
         }
-        
+
+        // 검수 상태와 결과 업데이트 (이미 등록된 경우에도 수정 가능)
+        // 검수 결과를 설정하면 검수 상태도 완료로 변경
         check.setCkStatus(1);
         check.setCkResult(result);
         checkRepository.save(check);
@@ -86,5 +88,7 @@ public class CheckService {
                 userRepository.save(seller);
             }
         }
+        // 배송 상태(dv_status)는 별도로 관리되므로 여기서 변경하지 않음
+        // 검수 완료(ck_status = 1)된 항목만 배송 관리 테이블에서 조회됨
     }
 }
