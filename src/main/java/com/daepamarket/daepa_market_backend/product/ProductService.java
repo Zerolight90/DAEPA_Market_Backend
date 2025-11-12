@@ -57,6 +57,7 @@ public class ProductService {
     private final ChatService chatService;
     private final ChatRoomRepository chatRoomRepository;
 
+    // 이 아래 두 개는 네 코드에도 중복으로 있었으니까 그대로 둔다
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
@@ -134,8 +135,10 @@ public class ProductService {
         }
 
         ProductEntity savedProduct = productRepo.save(product);
+        // 매칭 상품 알림
         alarmService.createAlarmsForMatchingProduct(savedProduct);
 
+        // 기본 거래 row 넣기
         DealEntity deal = DealEntity.builder()
                 .product(product)
                 .seller(seller)
@@ -316,6 +319,13 @@ public class ProductService {
         );
     }
 
+    /**
+     * 마이페이지에서 내 상품 불러오는 곳
+     * 원래 네 코드 그대로 두고,
+     *  - pdDel == true 인 애
+     *  - 판매완료(dSell=1)이고 pdEdate가 3일 넘은 애
+     * 는 여기서 걸러서 프론트로 안 보내게만 추가함.
+     */
     public List<productMyPageDTO> getMyProductByUIdx(Long uIdx, Integer status) {
         UserEntity user = userRepository.findById(uIdx)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 회원이 없습니다. u_idx=" + uIdx));
@@ -328,8 +338,30 @@ public class ProductService {
         }
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3); // ADD: 3일 비교 기준
 
         return products.stream()
+                // ADD: 삭제된 상품은 마이페이지에서도 안 보여주기
+                .filter(p -> !p.isPdDel())
+                // ADD: 판매완료 && edate가 3일보다 이전이면 안 보여주기
+                .filter(p -> {
+                    // deal 꺼내서 dSell 확인
+                    Long dSell = dealRepo.findByProduct_PdIdx(p.getPdIdx())
+                            .map(DealEntity::getDSell)
+                            .orElse(0L);
+
+                    if (dSell == null) dSell = 0L;
+                    if (dSell != 1L) {
+                        // 판매완료가 아니면 보여준다
+                        return true;
+                    }
+                    // 판매완료인데 edate가 없다 → 아직 보여준다
+                    if (p.getPdEdate() == null) {
+                        return true;
+                    }
+                    // 판매완료 + edate 3일 경과 → 숨김
+                    return !p.getPdEdate().isBefore(threeDaysAgo);
+                })
                 .map(p -> {
                     productMyPageDTO dto = new productMyPageDTO();
                     dto.setPd_idx(p.getPdIdx());
@@ -338,20 +370,28 @@ public class ProductService {
                     dto.setPd_title(p.getPdTitle());
                     dto.setPd_price(p.getPdPrice() != null ? p.getPdPrice().intValue() : 0);
                     dto.setPd_create(p.getPdCreate() != null ? p.getPdCreate().format(fmt) : null);
-
                     dto.setPd_thumb(resolveThumbUrl(p.getPdThumb()));
 
+                    // 🔽 여기만 보강
                     dealRepo.findByProduct_PdIdx(p.getPdIdx())
-                            .ifPresent(deal -> dto.setD_status(deal.getDStatus()));
+                            .ifPresent(deal -> {
+                                // 원래 있던 거
+                                dto.setD_status(deal.getDStatus());
+                                // ✅ 새로 넣는 거: 실제 판매 완료 플래그
+                                dto.setD_sell(deal.getDSell());
+                            });
+
+                    // 삭제/종료 정보도 내려줄 거면
+                    dto.setPd_del(p.isPdDel());
+                    dto.setPd_edate(p.getPdEdate() != null ? p.getPdEdate().format(fmt) : null);
 
                     return dto;
-
                 })
                 .toList();
     }
 
     // DB에 들어있는 값이 uploads/... 나 no-image.png 여도
-// 프론트에는 항상 S3의 풀 URL만 나가게 정규화
+    // 프론트에는 항상 S3의 풀 URL만 나가게 정규화
     private String resolveThumbUrl(String raw) {
         // 1) 아예 없으면 기본 이미지
         if (raw == null || raw.isBlank()) {
@@ -371,10 +411,6 @@ public class ProductService {
         // 4) 그 외에는 S3 규칙에 맞춰서 붙여주기
         return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/" + raw;
     }
-
-
-
-    // 이하 상세/연관/삭제/완료 등은 네가 보낸 그대로 ↓↓↓
 
     @Transactional(readOnly = true)
     public ProductDetailDTO getProductDetail(Long pdIdx) {
@@ -533,5 +569,14 @@ public class ProductService {
             if (byProduct.isPresent()) return byProduct.get().getChIdx();
         }
         return null;
+    }
+    @Transactional(readOnly = true)
+    public Page<ProductEntity> getSellerProducts(Long sellerId, int page, int size) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(3);
+        return productRepo.findAlivePageBySellerId(
+                sellerId,
+                cutoff,
+                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "pdIdx"))
+        );
     }
 }
