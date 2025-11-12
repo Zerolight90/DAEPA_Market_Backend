@@ -5,6 +5,7 @@ import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import com.daepamarket.daepa_market_backend.review.dto.ReviewCreateRequest;
+import com.daepamarket.daepa_market_backend.review.dto.ReviewUpdateRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -103,5 +104,34 @@ public class ReviewController {
         boolean exists = reviewService.existsReview(writer.getUIdx(), dealId, reType);
 
         return ResponseEntity.ok(Map.of("exists", exists));
+    }
+    @PutMapping("/api/reviews/{reIdx}")
+    public ResponseEntity<?> updateReview(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long reIdx,
+            @RequestBody ReviewUpdateRequest dto
+    ) {
+        if (authHeader == null || !authHeader.toLowerCase().startsWith("bearer ")) {
+            return ResponseEntity.status(401).body("Authorization 헤더가 없습니다.");
+        }
+        String token = authHeader.substring(7).trim();
+        String subject = jwtProvider.getUid(token);
+        if (subject == null) return ResponseEntity.status(401).body("토큰에서 uid를 읽을 수 없습니다.");
+
+        UserEntity writer;
+        try {
+            Long uIdx = Long.valueOf(subject);
+            writer = userRepository.findById(uIdx).orElse(null);
+        } catch (NumberFormatException e) {
+            writer = userRepository.findByUid(subject).orElse(null);
+        }
+        if (writer == null) return ResponseEntity.badRequest().body("사용자를 찾을 수 없습니다.");
+
+        try {
+            reviewService.updateReview(writer.getUIdx(), reIdx, dto);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }
