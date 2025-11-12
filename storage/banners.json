@@ -1,0 +1,37 @@
+[ {
+  "id" : 13,
+  "imageUrl" : "/uploads/69186817-4321-4b50-9dc5-2a6736428da6_123.jpg",
+  "displayOrder" : 1,
+  "active" : true,
+  "title" : "",
+  "subtitle" : null,
+  "createdAt" : "2025-11-10T14:26:53.8034268",
+  "updatedAt" : "2025-11-10T14:26:53.8034268"
+}, {
+  "id" : 12,
+  "imageUrl" : "/uploads/0c7b1c43-61a7-4d7c-afbe-637a06b69e25_창고_배너1.jpg",
+  "displayOrder" : 2,
+  "active" : true,
+  "title" : "",
+  "subtitle" : null,
+  "createdAt" : "2025-11-10T14:23:59.2425448",
+  "updatedAt" : "2025-11-10T14:23:59.2425448"
+}, {
+  "id" : 10,
+  "imageUrl" : "/uploads/71febefb-a283-4159-970d-1eb32c11b725_대파네농장.jpg",
+  "displayOrder" : 3,
+  "active" : true,
+  "title" : "",
+  "subtitle" : null,
+  "createdAt" : "2025-11-10T12:48:56.2572293",
+  "updatedAt" : "2025-11-10T13:33:44.7601651"
+}, {
+  "id" : 14,
+  "imageUrl" : "/uploads/1d88c822-6a26-41ac-985b-a1093567fa88_제목을_입력해주세요..jpg",
+  "displayOrder" : 4,
+  "active" : true,
+  "title" : "",
+  "subtitle" : null,
+  "createdAt" : "2025-11-10T18:13:49.1038962",
+  "updatedAt" : "2025-11-10T18:13:49.1038962"
+} ]

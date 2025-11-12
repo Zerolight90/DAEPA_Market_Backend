@@ -113,6 +113,7 @@ public class ProductController {
             @RequestParam(required = false) Long max,
             @RequestParam(required = false) String dDeal,
             @RequestParam(required = false, defaultValue = "false") boolean excludeSold,
+            @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "recent") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
@@ -126,6 +127,7 @@ public class ProductController {
                         max,
                         dDeal,
                         excludeSold,
+                        keyword,
                         sort,
                         page,
                         size

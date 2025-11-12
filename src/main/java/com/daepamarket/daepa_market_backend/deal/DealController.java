@@ -13,9 +13,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequiredArgsConstructor
@@ -50,6 +52,7 @@ public class DealController {
 
             // 2. 서비스 로직 호출
             payService.finalizePurchase(dealId, userId);
+            dealService.buyerMannerUp(userId);
 
             return ResponseEntity.ok(Map.of("message", "구매가 성공적으로 확정되었습니다. 판매자에게 정산이 완료됩니다."));
 
@@ -158,6 +161,14 @@ public class DealController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/safe/count")
+    public ResponseEntity<Map<String, Long>> getSettlementCount(
+            @RequestParam Long uIdx
+    ) {
+        long count = dealService.getSettlementCount(uIdx); // 또는 getSettlementCountLastYear
+        return ResponseEntity.ok(Map.of("count", count));
     }
 
 

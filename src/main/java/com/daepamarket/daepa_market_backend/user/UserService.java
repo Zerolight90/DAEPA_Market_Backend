@@ -14,7 +14,7 @@ import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -281,6 +281,7 @@ public class UserService {
             result.put("uPhone", user.getUphone());
             result.put("uNickname", user.getUnickname());
             result.put("u_nickname", user.getUnickname());
+            result.put("u_profile", user.getUProfile());
             result.put("locations", locations.stream().map(loc -> Map.of(
                     "locKey", loc.getLocKey(),
                     "locAddress", loc.getLocAddress(),
@@ -298,37 +299,6 @@ public class UserService {
     public UserEntity findUserById (Long user){
         return userRepository.findById(user)
                 .orElseThrow(() -> new RuntimeException("User Not Found: " + user));
-    }
-
-    /* 관리자용 전체 사용자 조회 */
-    public List<UserResponseDTO> findAllUsers() {
-        return userRepository.findAll()
-                .stream()
-                .map(user -> {
-                    // 사용자의 기본 주소 찾기 (uIdx로 직접 조회)
-                    List<LocationEntity> locations = locationRepository.findByUserId(user.getUIdx());
-                    String locationStr = "";
-                    
-                    if (locations != null && !locations.isEmpty()) {
-                        // 기본 주소가 있으면 사용, 없으면 첫 번째 주소 사용
-                        LocationEntity defaultLocation = locations.stream()
-                                .filter(LocationEntity::isLocDefault)
-                                .findFirst()
-                                .orElse(locations.get(0));
-                        
-                        if (defaultLocation != null) {
-                            String address = defaultLocation.getLocAddress() != null ? defaultLocation.getLocAddress().trim() : "";
-                            
-                            if (!address.isEmpty()) {
-                                locationStr = address;
-                            }
-                        }
-                    }
-                    
-                    // 빈 문자열이면 null로 설정 (프론트엔드에서 "-"로 표시)
-                    return UserResponseDTO.of(user, locationStr.isEmpty() ? null : locationStr);
-                })
-                .toList();
     }
 
     //이름이랑 전화번호를 통해 아이디 찾기
@@ -519,5 +489,29 @@ public class UserService {
         }
 
         userRepository.save(user);
+    }
+
+    // 관리자 페이지용: 모든 사용자 목록 조회
+    @Transactional(readOnly = true)
+    public List<UserResponseDTO> findAllUsers() {
+        List<UserEntity> users = userRepository.findAll();
+        return users.stream()
+                .map(user -> {
+                    List<LocationEntity> locations = locationRepository.findByUserId(user.getUIdx());
+                    String location = null;
+                    if (locations != null && !locations.isEmpty()) {
+                        LocationEntity defaultLoc = locations.stream()
+                                .filter(LocationEntity::isLocDefault)
+                                .findFirst()
+                                .orElse(locations.get(0));
+                        if (defaultLoc != null) {
+                            String address = defaultLoc.getLocAddress() != null ? defaultLoc.getLocAddress().trim() : "";
+                            String detail = defaultLoc.getLocDetail() != null ? defaultLoc.getLocDetail().trim() : "";
+                            location = address + (detail.isEmpty() ? "" : " " + detail);
+                        }
+                    }
+                    return UserResponseDTO.of(user, location);
+                })
+                .toList();
     }
 }
