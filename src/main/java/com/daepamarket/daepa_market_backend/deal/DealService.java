@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -69,6 +70,11 @@ public class DealService {
         if (deal.getDSell() != null && deal.getDSell() == 1L) {
             deal.setDStatus(1L);
         }
+    }
+
+    //정산완료된 거래 카운트
+    public long getSettlementCount(Long userId) {
+        return dealRepository.countSettlementsBySeller(userId);
     }
 
 }
