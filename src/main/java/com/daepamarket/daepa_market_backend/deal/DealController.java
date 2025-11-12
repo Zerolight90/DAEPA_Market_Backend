@@ -52,6 +52,7 @@ public class DealController {
 
             // 2. 서비스 로직 호출
             payService.finalizePurchase(dealId, userId);
+            dealService.buyerMannerUp(userId);
 
             return ResponseEntity.ok(Map.of("message", "구매가 성공적으로 확정되었습니다. 판매자에게 정산이 완료됩니다."));
 

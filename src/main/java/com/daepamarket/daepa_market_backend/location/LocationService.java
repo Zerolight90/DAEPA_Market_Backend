@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.location;
 
+import com.daepamarket.daepa_market_backend.domain.location.LocationDto;
 import com.daepamarket.daepa_market_backend.domain.location.LocationEntity;
 import com.daepamarket.daepa_market_backend.domain.location.LocationRepository;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
@@ -17,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
@@ -183,7 +185,30 @@ public class LocationService {
                         "locNum", loc.getLocNum()
                 )).toList()
         ));
+    }
 
+    // =================================================================
+    // 새로 추가되는 메소드들
+    // =================================================================
 
+    // 기본 배송지 조회
+    public LocationDto getDefaultLocation(Long userId) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        
+        // loc_default가 false(0)인 것이 대표 배송지
+        return locationRepository.findByUserAndLocDefault(user, false)
+                .map(LocationDto::new)
+                .orElse(null); // 기본 배송지가 없을 경우 null 반환
+    }
+
+    // 사용자의 모든 배송지 조회
+    public List<LocationDto> getAllLocations(Long userId) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        return locationRepository.findByUser(user).stream()
+                .map(LocationDto::new)
+                .collect(Collectors.toList());
     }
 }

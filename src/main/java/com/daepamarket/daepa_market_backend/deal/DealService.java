@@ -1,7 +1,10 @@
 package com.daepamarket.daepa_market_backend.deal;
 
 import com.daepamarket.daepa_market_backend.domain.deal.*;
+import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
+import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
+import com.daepamarket.daepa_market_backend.pay.PayService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,24 @@ public class DealService {
 
     private final DealRepository dealRepository;
     private final JwtProvider jwtProvider;
+    private final PayService payService; // PayService 주입
+    private final UserRepository userRepository; // UserRepository 주입
+
+    /**
+     * 구매 확정 처리 및 구매자 매너 온도 +5
+     * @param userId
+     */
+    @Transactional
+    public void buyerMannerUp(Long userId) {
+        // 구매자 매너 온도 +5점 (최대 100)
+        UserEntity buyer = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("구매자 정보를 찾을 수 없습니다."));
+
+        double currentManner = buyer.getUManner();
+        double newManner = Math.min(100, currentManner + 5.0);
+        buyer.setUManner(newManner);
+        userRepository.save(buyer);
+    }
 
     public ResponseEntity<?> getMySettlements(HttpServletRequest request) {
         try {
