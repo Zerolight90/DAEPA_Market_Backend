@@ -127,6 +127,7 @@ app:
     same-site: Lax
     path: /
     defaultcookie: 3600
+  front-url: ${APP_FRONT_URL:http://localhost:3000}
 
 cloud:
   aws:
