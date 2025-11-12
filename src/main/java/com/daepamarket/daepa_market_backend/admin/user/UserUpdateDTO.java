@@ -17,5 +17,6 @@ public class UserUpdateDTO {
     private Integer uwarn;
     private String loc_address;
     private String loc_detail;
+    private Double umanner;
 }
 

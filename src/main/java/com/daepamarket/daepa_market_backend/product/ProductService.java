@@ -250,6 +250,7 @@ public class ProductService {
             Long max,
             String dDeal,
             boolean excludeSold,
+            String keyword,
             String sort,
             int page,
             int size
@@ -261,6 +262,7 @@ public class ProductService {
                     upperId,
                     middleId,
                     lowId,
+                    keyword,
                     cutoff,
                     PageRequest.of(page, size)
             );
@@ -275,6 +277,7 @@ public class ProductService {
                 max,
                 dDeal,
                 excludeSold,
+                keyword,
                 cutoff,
                 pageable
         );

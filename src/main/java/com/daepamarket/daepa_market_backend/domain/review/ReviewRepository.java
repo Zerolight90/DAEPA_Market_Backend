@@ -1,3 +1,4 @@
+// src/main/java/com/daepamarket/daepa_market_backend/domain/review/ReviewRepository.java
 package com.daepamarket.daepa_market_backend.domain.review;
 
 import com.daepamarket.daepa_market_backend.admin.review.AllReviewDTO;
@@ -9,9 +10,6 @@ import java.util.List;
 
 public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
 
-    /**
-     * 관리자 전체 리뷰
-     */
     @Query("""
         SELECT new com.daepamarket.daepa_market_backend.admin.review.AllReviewDTO(
             CASE WHEN r.reType = 'SELLER'
@@ -25,7 +23,11 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
             r.reStar,
             r.reContent,
             r.reCreate,
-            r.reType
+            r.reType,
+            buyer.uIdx,
+            seller.uIdx,
+            r.writer.uIdx,
+            r.writer.unickname
         )
         FROM ReviewEntity r
             JOIN r.deal d
@@ -36,10 +38,6 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
         """)
     List<AllReviewDTO> findAllReviewRows();
 
-
-    /**
-     * 특정 유저가 관련된 후기만 (구매자 or 판매자)
-     */
     @Query("""
         SELECT new com.daepamarket.daepa_market_backend.admin.review.AllReviewDTO(
             CASE WHEN r.reType = 'SELLER'
@@ -53,7 +51,11 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
             r.reStar,
             r.reContent,
             r.reCreate,
-            r.reType
+            r.reType,
+            buyer.uIdx,
+            seller.uIdx,
+            r.writer.uIdx,
+            r.writer.unickname
         )
         FROM ReviewEntity r
             JOIN r.deal d
@@ -65,4 +67,11 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
         ORDER BY r.reCreate DESC
         """)
     List<AllReviewDTO> findReviewRowsByTargetUser(@Param("userId") Long userId);
+
+    /**
+     * 이 거래(dIdx)에, 이 작성자(uIdx)가, 이 타입(reType)으로 이미 리뷰를 썼는지 확인
+     */
+    boolean existsByDeal_dIdxAndWriter_uIdxAndReType(Long dIdx,
+                                                     Long uIdx,
+                                                     String reType);
 }
