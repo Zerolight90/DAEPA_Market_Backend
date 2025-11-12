@@ -1,3 +1,4 @@
+// src/main/java/com/daepamarket/daepa_market_backend/review/ReviewQueryController.java
 package com.daepamarket.daepa_market_backend.review;
 
 import com.daepamarket.daepa_market_backend.common.dto.PagedResponse;
@@ -31,6 +32,7 @@ public class ReviewQueryController {
         }
     }
 
+    /** ✅ 내가 받은 후기 */
     @GetMapping("/api/review/received")
     public ResponseEntity<?> pageReceived(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
@@ -39,11 +41,11 @@ public class ReviewQueryController {
     ) {
         UserEntity me = resolveUserFromAuth(authHeader);
         if (me == null) return ResponseEntity.status(401).body("인증 정보가 없습니다.");
-
         PagedResponse<MyReviewRow> resp = reviewQueryService.getReceived(me.getUIdx(), page, size);
         return ResponseEntity.ok(resp);
     }
 
+    /** ✅ 내가 작성한 후기 */
     @GetMapping("/api/review/written")
     public ResponseEntity<?> pageWritten(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
@@ -52,8 +54,17 @@ public class ReviewQueryController {
     ) {
         UserEntity me = resolveUserFromAuth(authHeader);
         if (me == null) return ResponseEntity.status(401).body("인증 정보가 없습니다.");
-
         PagedResponse<MyReviewRow> resp = reviewQueryService.getWritten(me.getUIdx(), page, size);
         return ResponseEntity.ok(resp);
+    }
+
+    /** ✅ 특정 유저(판매자 등)가 받은 후기 (공개 페이지) */
+    @GetMapping("/api/review/user/{sellerId}")
+    public ResponseEntity<PagedResponse<MyReviewRow>> getReviewsBySeller(
+            @PathVariable Long sellerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(reviewQueryService.pageReceivedByUser(sellerId, page, size));
     }
 }

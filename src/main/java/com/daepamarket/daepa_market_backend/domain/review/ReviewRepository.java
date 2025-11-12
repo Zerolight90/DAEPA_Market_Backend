@@ -9,11 +9,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-
 import java.util.List;
 
 public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
 
+    // ===== 관리자 조회용 =====
     @Query("""
         SELECT new com.daepamarket.daepa_market_backend.admin.review.AllReviewDTO(
             CASE WHEN r.reType = 'SELLER'
@@ -35,7 +35,7 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
             JOIN d.buyer buyer
             JOIN d.seller seller
         ORDER BY r.reCreate DESC
-        """)
+    """)
     List<AllReviewDTO> findAllReviewRows();
 
     @Query("""
@@ -61,61 +61,81 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
         WHERE buyer.uIdx = :userId
            OR seller.uIdx = :userId
         ORDER BY r.reCreate DESC
-        """)
+    """)
     List<AllReviewDTO> findReviewRowsByTargetUser(@Param("userId") Long userId);
 
-    /**
-     * 이 거래(dIdx)에, 이 작성자(uIdx)가, 이 타입(reType)으로 이미 리뷰를 썼는지 확인
-     */
-    boolean existsByDeal_dIdxAndWriter_uIdxAndReType(Long dIdx,
-                                                     Long uIdx,
-                                                     String reType);
-    // === (신규) 받은 후기: 내가 대상인 후기 (BUYER → seller가 대상 / SELLER → buyer가 대상) ===
+    // ===== 중복 체크 =====
+    boolean existsByDeal_dIdxAndWriter_uIdxAndReType(Long dIdx, Long uIdx, String reType);
+
+    // ===== 받은 후기 (내가 대상) =====
     @Query("""
         SELECT new com.daepamarket.daepa_market_backend.review.dto.MyReviewRow(
             r.reIdx,
+            r.reType,
+            r.reStar,
+            r.reContent,
+            r.reUpdate,
             d.dIdx,
             p.pdTitle,
             p.pdThumb,
-            w.unickname,
-            r.reStar,
-            r.reContent,
-            r.reCreate,
-            r.reUpdate,    
-            r.reType
+            writer.unickname
         )
         FROM ReviewEntity r
             JOIN r.deal d
             JOIN d.product p
-            JOIN r.writer w
+            JOIN r.writer writer
             JOIN d.buyer buyer
             JOIN d.seller seller
-        WHERE (r.reType = 'BUYER' AND seller.uIdx = :uid)
-           OR (r.reType = 'SELLER' AND buyer.uIdx = :uid)
-        ORDER BY r.reCreate DESC
-        """)
+        WHERE (r.reType = 'BUYER'  AND seller.uIdx = :uid)
+           OR (r.reType = 'SELLER' AND buyer.uIdx  = :uid)
+        ORDER BY r.reUpdate DESC
+    """)
     Page<MyReviewRow> pageReceivedByUser(@Param("uid") Long uid, Pageable pageable);
 
-    // === (신규) 작성한 후기: 내가 작성자 ===
+    // ===== 작성한 후기 (내가 작성자) =====
     @Query("""
         SELECT new com.daepamarket.daepa_market_backend.review.dto.MyReviewRow(
-           r.reIdx,
-           d.dIdx,
-           p.pdTitle,
-           p.pdThumb,
-           w.unickname,
-           r.reStar,
-           r.reContent,
-           r.reCreate,
-           r.reUpdate,    
-           r.reType
+            r.reIdx,
+            r.reType,
+            r.reStar,
+            r.reContent,
+            r.reUpdate,
+            d.dIdx,
+            p.pdTitle,
+            p.pdThumb,
+            writer.unickname
         )
         FROM ReviewEntity r
             JOIN r.deal d
             JOIN d.product p
-            JOIN r.writer w
-        WHERE w.uIdx = :uid
-        ORDER BY r.reCreate DESC
-        """)
+            JOIN r.writer writer
+        WHERE writer.uIdx = :uid
+        ORDER BY r.reUpdate DESC
+    """)
     Page<MyReviewRow> pageWrittenByUser(@Param("uid") Long uid, Pageable pageable);
+
+    // ===== 특정 유저(판매자/구매자)가 '받은' 후기 (공개용) =====
+    @Query("""
+        SELECT new com.daepamarket.daepa_market_backend.review.dto.MyReviewRow(
+            r.reIdx,
+            r.reType,
+            r.reStar,
+            r.reContent,
+            r.reUpdate,
+            d.dIdx,
+            p.pdTitle,
+            p.pdThumb,
+            writer.unickname
+        )
+        FROM ReviewEntity r
+            JOIN r.deal d
+            JOIN d.product p
+            JOIN r.writer writer
+            JOIN d.buyer buyer
+            JOIN d.seller seller
+        WHERE (r.reType = 'BUYER'  AND seller.uIdx = :targetUserId)
+           OR (r.reType = 'SELLER' AND buyer.uIdx  = :targetUserId)
+        ORDER BY r.reUpdate DESC
+    """)
+    Page<MyReviewRow> pageReceivedByTargetUser(@Param("targetUserId") Long targetUserId, Pageable pageable);
 }
