@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.favorite;
 
+import com.daepamarket.daepa_market_backend.S3Service;
 import com.daepamarket.daepa_market_backend.domain.favorite.FavoriteProductEntity;
 import com.daepamarket.daepa_market_backend.domain.favorite.FavoriteProductRepository;
 import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
@@ -22,6 +23,7 @@ public class FavoriteService {
     private final FavoriteProductRepository favoriteRepo;
     private final UserRepository userRepo;
     private final ProductRepository productRepo;
+    private final S3Service s3Service;
 
     @Transactional
     public boolean toggle(Long userId, Long productId) {
@@ -73,7 +75,9 @@ public class FavoriteService {
         var favs = favoriteRepo.findByUserAndStatus(user, true, Sort.by(DESC, "fDate"));
 
         return favs.stream()
-                .map(f -> toDto(f.getProduct()))
+                .map(FavoriteProductEntity::getProduct)   // Favorite → Product
+                .filter(p -> !p.isPdDel())                 // 삭제된 상품 제외
+                .map(p -> toDto(p))
                 .toList();
     }
 
@@ -85,11 +89,34 @@ public class FavoriteService {
             createdAt = p.getPdCreate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         }
 
+        String thumbUrl = resolveThumbUrl(p.getPdThumb());
+
         return FavoriteItemDTO.builder()
                 .id(p.getPdIdx())
                 .title(p.getPdTitle())
                 .price(p.getPdPrice())
-                .imageUrl(p.getPdThumb())      // 썸네일 컬럼명에 맞춰 사용
+                .imageUrl(resolveThumbUrl(p.getPdThumb()))      // 썸네일 컬럼명에 맞춰 사용
+                .pdDel(p.isPdDel())
                 .build();
+    }
+
+    private String resolveThumbUrl(String raw) {
+        // 1) 아예 없으면 기본 이미지
+        if (raw == null || raw.isBlank()) {
+            return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/products/KakaoTalk_20251104_145039505.jpg";
+        }
+
+        // 2) 이미 풀 URL이면 그대로
+        if (raw.startsWith("http://") || raw.startsWith("https://")) {
+            return raw;
+        }
+
+        // 3) 예전 로컬경로로 저장돼 있던 것들 → S3 기본이미지로 교체
+        if (raw.startsWith("uploads/") || raw.equals("no-image.png")) {
+            return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/products/KakaoTalk_20251104_145039505.jpg";
+        }
+
+        // 4) 그 외에는 S3 규칙에 맞춰서 붙여주기
+        return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/" + raw;
     }
 }
