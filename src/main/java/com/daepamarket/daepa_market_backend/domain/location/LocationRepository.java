@@ -17,4 +17,8 @@ public interface LocationRepository extends JpaRepository<LocationEntity, Long> 
 
     @Query("SELECT l FROM LocationEntity l WHERE l.user.uIdx = :uIdx")
     List<LocationEntity> findByUserId(@Param("uIdx") Long uIdx);
+
+    Optional<LocationEntity> findByUserAndLocDefault(UserEntity user, boolean locDefault);
+    Optional<LocationEntity> findByUserAndLocDefaultIsTrue(UserEntity user);
+    Optional<LocationEntity> findByLocKeyAndUser(Long locKey, UserEntity user);
 }

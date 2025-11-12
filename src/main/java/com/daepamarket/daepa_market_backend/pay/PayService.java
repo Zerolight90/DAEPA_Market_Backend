@@ -422,7 +422,7 @@ public class PayService {
                 .orElseThrow(() -> new RuntimeException("환불할 거래 정보를 찾을 수 없습니다: " + dealId));
 
         // 2. 권한 검증: 현재 로그인한 사용자가 구매자가 맞는지 확인
-        if (deal.getBuyer() == null || !deal.getBuyer().getUIdx().equals(currentUserId)) {
+        if (deal.getSeller() == null || !deal.getSeller().getUIdx().equals(currentUserId)) {
             throw new AccessDeniedException("이 거래를 환불할 권한이 없습니다.");
         }
 
