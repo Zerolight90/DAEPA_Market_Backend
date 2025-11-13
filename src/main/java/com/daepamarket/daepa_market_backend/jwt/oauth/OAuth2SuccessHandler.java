@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -123,16 +124,22 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         user.setUrefreshToken(refreshToken);
         userRepository.save(user);
 
-        // 쿠키로 내려주기
-        Cookie at = new Cookie("accessToken", accessToken);
-        at.setHttpOnly(true);
-        at.setPath("/");
-        response.addCookie(at);
+        // 쿠키로 내려주기 (SameSite=None 설정을 위해 ResponseCookie 사용)
+        ResponseCookie atCookie = ResponseCookie.from("accessToken", accessToken)
+                .httpOnly(true)
+                .path("/")
+                .secure(true) // HTTPS 환경에서만 쿠키 전송
+                .sameSite("None") // 다른 도메인 간의 요청에도 쿠키 전송 허용
+                .build();
+        response.addHeader("Set-Cookie", atCookie.toString());
 
-        Cookie rt = new Cookie("refreshToken", refreshToken);
-        rt.setHttpOnly(true);
-        rt.setPath("/");
-        response.addCookie(rt);
+        ResponseCookie rtCookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .path("/")
+                .secure(true)
+                .sameSite("None")
+                .build();
+        response.addHeader("Set-Cookie", rtCookie.toString());
 
         // 프론트로 리다이렉트
         // 여기서 status도 같이 넘겨줘서 프론트가 "추가정보 필요" 판단하게
