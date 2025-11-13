@@ -58,7 +58,7 @@ spring:
           naver:
             client-id: ${NAVER_CLIENT_ID}
             client-secret: ${NAVER_CLIENT_SECRET}
-            redirect-uri: http://localhost:8080/login/oauth2/code/naver
+            redirect-uri: "{baseUrl}/api/login/oauth2/code/{registrationId}"
             authorization-grant-type: authorization_code
             scope:
               - name
@@ -69,19 +69,19 @@ spring:
               - birthday
               - birthyear
               - profile_image
-            client-name: Naver
+            client-name: naver
 
           # ✅ 카카오
           kakao:
             client-id: ${KAKAO_CLIENT_ID}          # 카카오 REST API 키
             client-secret: ${KAKAO_CLIENT_SECRET}  # (선택, Secret 발급받은 경우만)
-            redirect-uri: http://localhost:8080/login/oauth2/code/kakao
+            redirect-uri: "{baseUrl}/api/login/oauth2/code/{registrationId}"
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_post
             scope:
               - profile_nickname
               - account_email
-            client-name: Kakao
+            client-name: kakao
 
         provider:
           naver:
