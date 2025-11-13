@@ -20,10 +20,7 @@ public class NagaReportController {
     }
 
     @PostMapping("/{reportId}/suspend")
-    public ResponseEntity<?> suspendUser(
-            @PathVariable Long reportId,
-            @RequestBody StopDTO dto
-    ) {
+    public ResponseEntity<?> suspendUser(@PathVariable Long reportId, @RequestBody StopDTO dto) {
         reportService.suspendUser(reportId, dto);
         return ResponseEntity.ok("정지 처리 완료");
     }
@@ -35,11 +32,15 @@ public class NagaReportController {
     }
 
     @PostMapping("/{reportId}/ban")
-    public ResponseEntity<?> banUser(
-            @PathVariable Long reportId,
-            @RequestBody GetOutDTO dto
-    ) {
+    public ResponseEntity<?> banUser(@PathVariable Long reportId, @RequestBody GetOutDTO dto) {
         reportService.banUser(reportId, dto);
         return ResponseEntity.ok("탈퇴 처리 완료");
+    }
+
+    /** ✅ 신선도 하락(-5) */
+    @PostMapping("/{reportId}/manner-down")
+    public ResponseEntity<?> mannerDown(@PathVariable Long reportId) {
+        reportService.decreaseManner(reportId);
+        return ResponseEntity.ok("신선도를 5 하락시켰습니다.");
     }
 }
