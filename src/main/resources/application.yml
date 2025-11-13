@@ -111,7 +111,7 @@ logging:
 
 custom:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
 app:
   upload:

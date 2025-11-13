@@ -53,6 +53,7 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /*
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
@@ -61,7 +62,6 @@ public class SecurityConfig {
                 "http://127.0.0.1:3000",
                 "http://192.168.*.*:3000",
                 "http://3.34.181.73/",
-                "https://daepamarket.shop",
                 "*"
                 // 운영 도메인 추가
         ));
@@ -74,6 +74,7 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", cfg);
         return source;
     }
+    */
 
     @Bean
     public PasswordEncoder passwordEncoder() {
