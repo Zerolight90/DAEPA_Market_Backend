@@ -42,6 +42,9 @@ public class PayController {
     @Value("${TOSS_SECRET_KEY}")
     private String tossSecretKey;
 
+    @Value("${app.front-url}")
+    private String frontUrl;
+
     // Toss Payments가 성공 시 호출하는 엔드포인트
     @GetMapping("/api/charge/success")
     public void handleChargeSuccess(
@@ -231,14 +234,14 @@ public class PayController {
             payService.confirmProductPurchase(paymentKey, orderId, amount, userId);
 
             // ===== 4. 모든 로직 성공 시, 프론트엔드의 성공 페이지로 리다이렉트 =====
-            String redirectUrl = "http://3.34.181.73/pay/success?amount=" + amount + "&orderId=" + orderId;
+            String redirectUrl = frontUrl + "/pay/success?amount=" + amount + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
 
         } catch (Exception e) {
             // ===== 5. 중간에 어떤 예외라도 발생하면 실패 페이지로 리다이렉트 =====
             // URL 쿼리 파라미터로 보내기 위해 에러 메시지를 인코딩하는 것이 안전합니다.
             String errorMsg = java.net.URLEncoder.encode(e.getMessage(), "UTF-8");
-            String redirectUrl = "http://3.34.181.73/pay/fail?message=" + errorMsg + "&orderId=" + orderId;
+            String redirectUrl = frontUrl + "/pay/fail?message=" + errorMsg + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
         }
     }
@@ -289,14 +292,14 @@ public class PayController {
             payService.confirmProductSecPurchase(paymentKey, orderId, amount, userId);
 
             // ===== 4. 모든 로직 성공 시, 프론트엔드의 성공 페이지로 리다이렉트 =====
-            String redirectUrl = "http://localhost:3000/pay/sec/success?amount=" + amount + "&orderId=" + orderId;
+            String redirectUrl = frontUrl + "/pay/sec/success?amount=" + amount + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
 
         } catch (Exception e) {
             // ===== 5. 중간에 어떤 예외라도 발생하면 실패 페이지로 리다이렉트 =====
             // URL 쿼리 파라미터로 보내기 위해 에러 메시지를 인코딩하는 것이 안전합니다.
             String errorMsg = java.net.URLEncoder.encode(e.getMessage(), "UTF-8");
-            String redirectUrl = "http://localhost:3000/pay/sec/fail?message=" + errorMsg + "&orderId=" + orderId;
+            String redirectUrl = frontUrl + "/pay/sec/fail?message=" + errorMsg + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
         }
     }
@@ -362,6 +365,6 @@ public class PayController {
         // 간단히 실패 페이지로 리다이렉트 (메시지 포함)
         String errorMsg = URLEncoder.encode(message, StandardCharsets.UTF_8);
         // 로그인 페이지나 공통 에러 페이지로 보내는 것이 더 좋을 수 있음
-        response.sendRedirect("http://localhost:3000/login?error=" + errorMsg);
+        response.sendRedirect(frontUrl + "/login?error=" + errorMsg);
     }
 }
