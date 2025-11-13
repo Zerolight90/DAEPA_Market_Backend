@@ -24,6 +24,7 @@ import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import jakarta.transaction.Transactional;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -36,7 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class PayService {
 
     private final RestTemplate restTemplate;
@@ -49,6 +49,16 @@ public class PayService {
 
     @Value("${TOSS_SECRET_KEY}")
     private String tossSecretKey;
+
+    public PayService(RestTemplate restTemplate, PayRepository payRepository, UserRepository userRepository, DealRepository dealRepository, ProductRepository productRepository, @Lazy ChatService chatService, ChatRoomRepository chatRoomRepository) {
+        this.restTemplate = restTemplate;
+        this.payRepository = payRepository;
+        this.userRepository = userRepository;
+        this.dealRepository = dealRepository;
+        this.productRepository = productRepository;
+        this.chatService = chatService;
+        this.chatRoomRepository = chatRoomRepository;
+    }
 
     // 대파 페이 충전하기
     @Transactional // 이 메서드 내의 모든 DB 작업을 하나의 트랜잭션으로 묶음

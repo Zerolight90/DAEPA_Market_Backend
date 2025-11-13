@@ -8,6 +8,7 @@ import com.daepamarket.daepa_market_backend.pay.PayService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -15,13 +16,19 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class DealService {
 
     private final DealRepository dealRepository;
     private final JwtProvider jwtProvider;
     private final PayService payService; // PayService 주입
     private final UserRepository userRepository; // UserRepository 주입
+
+    public DealService(DealRepository dealRepository, JwtProvider jwtProvider, @Lazy PayService payService, UserRepository userRepository) {
+        this.dealRepository = dealRepository;
+        this.jwtProvider = jwtProvider;
+        this.payService = payService;
+        this.userRepository = userRepository;
+    }
 
     /**
      * 구매 확정 처리 및 구매자 매너 온도 +5
