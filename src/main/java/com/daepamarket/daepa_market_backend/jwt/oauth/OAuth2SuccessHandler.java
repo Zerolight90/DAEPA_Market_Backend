@@ -126,18 +126,16 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         user.setUrefreshToken(refreshToken);
         userRepository.save(user);
 
-        // 쿠키로 내려주기 (HTTP 환경을 위해 secure 및 sameSite 속성 제거)
-        ResponseCookie atCookie = ResponseCookie.from(CookieUtil.ACCESS, accessToken)
-                .httpOnly(true)
-                .path("/")
-                .build();
-        response.addHeader("Set-Cookie", atCookie.toString());
+        // 쿠키로 내려주기
+        Cookie at = new Cookie("accessToken", accessToken);
+        at.setHttpOnly(true);
+        at.setPath("/");
+        response.addCookie(at);
 
-        ResponseCookie rtCookie = ResponseCookie.from(CookieUtil.REFRESH, refreshToken)
-                .httpOnly(true)
-                .path("/")
-                .build();
-        response.addHeader("Set-Cookie", rtCookie.toString());
+        Cookie rt = new Cookie("refreshToken", refreshToken);
+        rt.setHttpOnly(true);
+        rt.setPath("/");
+        response.addCookie(rt);
 
         // 프론트로 리다이렉트
         // 여기서 status도 같이 넘겨줘서 프론트가 "추가정보 필요" 판단하게
