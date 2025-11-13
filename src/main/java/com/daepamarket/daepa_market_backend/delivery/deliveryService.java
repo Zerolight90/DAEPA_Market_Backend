@@ -1,18 +1,15 @@
 package com.daepamarket.daepa_market_backend.delivery;
 
-import com.daepamarket.daepa_market_backend.domain.deal.DealRepository;
 import com.daepamarket.daepa_market_backend.domain.delivery.DeliveryDTO;
 import com.daepamarket.daepa_market_backend.domain.delivery.DeliveryEntity;
 import com.daepamarket.daepa_market_backend.domain.delivery.DeliveryRepository;
-import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
-import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
+
 import java.util.List;
 
 @Service

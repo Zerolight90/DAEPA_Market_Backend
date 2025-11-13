@@ -231,14 +231,14 @@ public class PayController {
             payService.confirmProductPurchase(paymentKey, orderId, amount, userId);
 
             // ===== 4. 모든 로직 성공 시, 프론트엔드의 성공 페이지로 리다이렉트 =====
-            String redirectUrl = "http://localhost:3000/pay/success?amount=" + amount + "&orderId=" + orderId;
+            String redirectUrl = "http://3.34.181.73/pay/success?amount=" + amount + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
 
         } catch (Exception e) {
             // ===== 5. 중간에 어떤 예외라도 발생하면 실패 페이지로 리다이렉트 =====
             // URL 쿼리 파라미터로 보내기 위해 에러 메시지를 인코딩하는 것이 안전합니다.
             String errorMsg = java.net.URLEncoder.encode(e.getMessage(), "UTF-8");
-            String redirectUrl = "http://localhost:3000/pay/fail?message=" + errorMsg + "&orderId=" + orderId;
+            String redirectUrl = "http://3.34.181.73/pay/fail?message=" + errorMsg + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
         }
     }
