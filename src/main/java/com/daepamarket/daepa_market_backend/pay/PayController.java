@@ -200,7 +200,7 @@ public class PayController {
             // ===== 1. 토큰 추출 및 사용자 인증 =====
             String token = resolveAccessToken(request);
             if (token == null || jwtProvider.isExpired(token)) {
-                System.out.println(token);
+                System.out.println(token + "weweeewe");
                 handleAuthError(httpServletResponse, "유효하지 않은 토큰입니다.");
                 return; // 여기서 실행 중단
             }
