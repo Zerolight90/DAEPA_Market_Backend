@@ -20,6 +20,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
 
+    /*
     // ✅ CORS 정확히 추가 (콜론 포함)
     @Override
     public void addCorsMappings(CorsRegistry registry) {
@@ -36,6 +37,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowCredentials(true)
                 .maxAge(3600);
     }
+    */
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
