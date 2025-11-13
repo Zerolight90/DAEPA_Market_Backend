@@ -1,5 +1,6 @@
 package com.daepamarket.daepa_market_backend.admin.banner;
 
+import com.daepamarket.daepa_market_backend.S3Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -9,50 +10,46 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class BannerStorageService {
 
-    private final ObjectMapper objectMapper;
-    private final Path storagePath;
+    private static final String S3_BANNERS_JSON_KEY = "banners/banners.json";
 
-    public BannerStorageService(@Value("${app.banner.storage-file:storage/banners.json}") String storageFile) {
+    private final S3Service s3Service;
+    private final ObjectMapper objectMapper;
+
+    public BannerStorageService(S3Service s3Service) {
+        this.s3Service = s3Service;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        this.storagePath = Paths.get(storageFile).toAbsolutePath();
     }
 
     @PostConstruct
     public void initialize() {
         try {
-            Path parent = storagePath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            if (Files.notExists(storagePath)) {
+            // S3에 배너 JSON 파일이 없으면 빈 배열로 초기화
+            if (!s3Service.fileExists(S3_BANNERS_JSON_KEY)) {
                 saveBanners(new ArrayList<>());
             }
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             throw new IllegalStateException("배너 저장소를 초기화하는 중 오류가 발생했습니다.", ex);
         }
     }
 
     public synchronized List<BannerRecord> loadBanners() {
         try {
-            if (Files.notExists(storagePath)) {
+            String jsonContent = s3Service.downloadJsonFile(S3_BANNERS_JSON_KEY);
+            if (jsonContent == null || jsonContent.trim().isEmpty()) {
                 return new ArrayList<>();
             }
-            return objectMapper.readValue(storagePath.toFile(), new TypeReference<List<BannerRecord>>() {});
+            return objectMapper.readValue(jsonContent, new TypeReference<List<BannerRecord>>() {});
         } catch (IOException ex) {
             throw new IllegalStateException("배너 데이터를 불러오는 중 오류가 발생했습니다.", ex);
         }
@@ -60,14 +57,8 @@ public class BannerStorageService {
 
     public synchronized void saveBanners(List<BannerRecord> banners) {
         try {
-            // 부모 디렉토리가 없으면 생성
-            Path parent = storagePath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            // 파일이 없거나 삭제되었을 경우를 대비하여 항상 저장
-            // 파일이 없으면 자동으로 생성됨
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(storagePath.toFile(), banners);
+            String jsonContent = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(banners);
+            s3Service.uploadJsonFile(jsonContent, S3_BANNERS_JSON_KEY);
         } catch (IOException ex) {
             throw new IllegalStateException("배너 데이터를 저장하는 중 오류가 발생했습니다.", ex);
         }
