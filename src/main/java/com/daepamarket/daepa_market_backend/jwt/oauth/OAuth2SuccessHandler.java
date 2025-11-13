@@ -2,6 +2,7 @@ package com.daepamarket.daepa_market_backend.jwt.oauth;
 
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -27,6 +29,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
+    private final CookieUtil cookieUtil;
 
     @Value("${app.front-url}")
     private String frontUrl;

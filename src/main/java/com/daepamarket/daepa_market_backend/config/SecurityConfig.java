@@ -36,6 +36,10 @@ public class SecurityConfig {
                 )
                 //oauth2를 위해 추가
                 .oauth2Login(oauth -> oauth
+                        .authorizationEndpoint(auth -> auth
+                                .baseUri("/api/oauth2/authorization"))
+                        .redirectionEndpoint(redir -> redir
+                                .baseUri("/api/login/oauth2/code/*"))
                         // 커스텀 유저 정보 처리 (네이버 → 우리 UserEntity 저장)
                         .userInfoEndpoint(userInfo ->
                                 userInfo.userService(customOAuth2UserService)
@@ -57,6 +61,7 @@ public class SecurityConfig {
                 "http://127.0.0.1:3000",
                 "http://192.168.*.*:3000",
                 "http://3.34.181.73/",
+                "https://daepamarket.shop",
                 "*"
                 // 운영 도메인 추가
         ));
