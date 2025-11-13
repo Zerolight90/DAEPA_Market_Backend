@@ -23,6 +23,11 @@ RUN apk add --no-cache tzdata curl && \
 
 # 애플리케이션 사용자 생성
 RUN addgroup -S spring && adduser -S spring -G spring
+
+ # ✅ spring 사용자가 사용할 디렉터리 생성 및 권한 부여
+RUN mkdir -p /app/storage /var/log/elearning && \
+    chown -R spring:spring /app/storage /var/log/elearning
+
 USER spring:spring
 
 # 빌드된 JAR 파일 복사
