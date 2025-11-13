@@ -79,13 +79,13 @@ public class PayController {
             // 실제 로직은 Service 계층에 위임
             payService.confirmPointCharge(paymentKey, orderId, amount, userId);
             // 성공 시 사용자에게 보여줄 페이지로 리다이렉트
-            String redirectUrl = "http://localhost:3000/payCharge/success?amount=" + amount;
+            String redirectUrl = frontUrl + "/payCharge/success?amount=" + amount;
             httpServletResponse.sendRedirect(redirectUrl);
 
         } catch (Exception e) {
             // 실패 시 에러 페이지로 (실제 페이지 작성 후 변경!)
             String errorMsg = e.getMessage().replace(" ", "+"); // URL 인코딩 필요
-            String redirectUrl = "http://localhost:3000/payCharge/fail?message=" + errorMsg;
+            String redirectUrl = frontUrl + "/payCharge/fail?message=" + errorMsg;
             httpServletResponse.sendRedirect(redirectUrl);
         }
     }
@@ -200,7 +200,6 @@ public class PayController {
             // ===== 1. 토큰 추출 및 사용자 인증 =====
             String token = resolveAccessToken(request);
             if (token == null || jwtProvider.isExpired(token)) {
-                System.out.println(token + "weweeewe");
                 handleAuthError(httpServletResponse, "유효하지 않은 토큰입니다.");
                 return; // 여기서 실행 중단
             }
