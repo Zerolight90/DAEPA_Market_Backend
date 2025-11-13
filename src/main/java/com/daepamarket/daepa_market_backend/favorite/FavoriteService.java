@@ -97,6 +97,7 @@ public class FavoriteService {
                 .price(p.getPdPrice())
                 .imageUrl(resolveThumbUrl(p.getPdThumb()))      // 썸네일 컬럼명에 맞춰 사용
                 .pdDel(p.isPdDel())
+                .pdCreate(p.getPdCreate())
                 .build();
     }
 
