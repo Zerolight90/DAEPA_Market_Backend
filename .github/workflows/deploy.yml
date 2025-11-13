@@ -2,7 +2,7 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [ main ] #dㅇㅇ
+    branches: [ main ] #dㅇ
   pull_request:
     branches: [ main ]
 
