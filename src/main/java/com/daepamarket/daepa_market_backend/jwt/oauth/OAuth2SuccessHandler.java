@@ -125,20 +125,16 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         user.setUrefreshToken(refreshToken);
         userRepository.save(user);
 
-        // 쿠키로 내려주기 (SameSite=None 설정을 위해 ResponseCookie 사용)
+        // 쿠키로 내려주기 (HTTP 환경을 위해 secure 및 sameSite 속성 제거)
         ResponseCookie atCookie = ResponseCookie.from(CookieUtil.ACCESS, accessToken)
                 .httpOnly(true)
                 .path("/")
-                .secure(true) // HTTPS 환경에서만 쿠키 전송
-                .sameSite("None") // 다른 도메인 간의 요청에도 쿠키 전송 허용
                 .build();
         response.addHeader("Set-Cookie", atCookie.toString());
 
         ResponseCookie rtCookie = ResponseCookie.from(CookieUtil.REFRESH, refreshToken)
                 .httpOnly(true)
                 .path("/")
-                .secure(true)
-                .sameSite("None")
                 .build();
         response.addHeader("Set-Cookie", rtCookie.toString());
 
