@@ -28,6 +28,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
+    private final CookieUtil cookieUtil;
 
     @Value("${app.front-url}")
     private String frontUrl;
@@ -125,7 +126,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         userRepository.save(user);
 
         // 쿠키로 내려주기 (SameSite=None 설정을 위해 ResponseCookie 사용)
-        ResponseCookie atCookie = ResponseCookie.from("accessToken", accessToken)
+        ResponseCookie atCookie = ResponseCookie.from(CookieUtil.ACCESS, accessToken)
                 .httpOnly(true)
                 .path("/")
                 .secure(true) // HTTPS 환경에서만 쿠키 전송
@@ -133,7 +134,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .build();
         response.addHeader("Set-Cookie", atCookie.toString());
 
-        ResponseCookie rtCookie = ResponseCookie.from("refreshToken", refreshToken)
+        ResponseCookie rtCookie = ResponseCookie.from(CookieUtil.REFRESH, refreshToken)
                 .httpOnly(true)
                 .path("/")
                 .secure(true)
