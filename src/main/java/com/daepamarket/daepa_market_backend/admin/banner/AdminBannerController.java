@@ -20,8 +20,18 @@ public class AdminBannerController {
     private final AdminBannerService adminBannerService;
 
     @GetMapping
-    public ResponseEntity<List<BannerResponseDTO>> getBanners() {
+    public ResponseEntity<List<BannerResponseDTO>> getBanners(
+            @RequestParam(required = false, defaultValue = "false") boolean activeOnly
+    ) {
+        if (activeOnly) {
+            return ResponseEntity.ok(adminBannerService.getActiveBanners());
+        }
         return ResponseEntity.ok(adminBannerService.getAllBanners());
+    }
+
+    @GetMapping("/active")
+    public ResponseEntity<List<BannerResponseDTO>> getActiveBanners() {
+        return ResponseEntity.ok(adminBannerService.getActiveBanners());
     }
 
     @GetMapping("/{id}")
