@@ -43,8 +43,8 @@ ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
   "-XX:MaxRAMPercentage=75.0", \
   "-Djava.security.egd=file:/dev/./urandom", \
+  "-Dspring.profiles.active=prod", \
   "-jar", \
-  "app.jar", \
-  "-Dspring.profiles.active=prod"]
+  "app.jar"]
 
 EXPOSE 8080
