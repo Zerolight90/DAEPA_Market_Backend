@@ -1,6 +1,5 @@
 package com.daepamarket.daepa_market_backend.config;
 
-import com.daepamarket.daepa_market_backend.jwt.JwtAuthenticationFilter;
 import com.daepamarket.daepa_market_backend.jwt.oauth.CustomOAuth2UserService;
 import com.daepamarket.daepa_market_backend.jwt.oauth.OAuth2SuccessHandler;
 import org.springframework.context.annotation.Bean;
@@ -9,12 +8,10 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -26,40 +23,16 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain filterChain(
-            HttpSecurity http,
-            CustomOAuth2UserService customOAuth2UserService,
-            OAuth2SuccessHandler oAuth2SuccessHandler,
-            JwtAuthenticationFilter jwtAuthenticationFilter
-    ) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, CustomOAuth2UserService customOAuth2UserService, OAuth2SuccessHandler oAuth2SuccessHandler) throws Exception {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션 비활성화
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-                        // 인증 없이 허용할 경로
-                        .requestMatchers(
-                                "/",
-                                "/error",
-                                "/actuator/**",
-                                "/ws-stomp/**",
-                                "/oauth2/**",
-                                "/login/**",
-                                "/api/login",
-                                "/api/signup",
-                                "/api/refresh",
-                                "/api/users/check-uid",
-                                "/api/users/check-nickname",
-                                "/api/users/find-id",
-                                "/api/users/reset-pw"
-                        ).permitAll()
-                        // 상품 조회, 카테고리 조회 등 GET 요청은 대부분 허용
-                        .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**", "/api/reviews/product/**").permitAll()
-                        // 관리자 API는 ADMIN 역할 필요
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // 그 외 모든 요청은 인증 필요
-                        .anyRequest().authenticated()
+                        // ✅ 헬스체크 엔드포인트는 인증 없이 항상 허용
+                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/", "/ws-stomp/**", "/api/**", "/error", "/oauth2/**", "/login/**").permitAll()
+                        .anyRequest().permitAll()
                 )
                 //oauth2를 위해 추가
                 .oauth2Login(oauth -> oauth
