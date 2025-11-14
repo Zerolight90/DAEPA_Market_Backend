@@ -41,7 +41,7 @@ public class ChatRestController {
     private final SimpMessagingTemplate broker;
 
 
-    /** 내 채팅방 목록 */
+    /** 내 채팅방 목록 * /
     @GetMapping("/my-rooms")
     public List<ChatRoomListDto> myRooms(
             @RequestParam(required = false) Long userId,
