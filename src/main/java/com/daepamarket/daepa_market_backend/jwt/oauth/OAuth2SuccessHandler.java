@@ -141,8 +141,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         // 여기서 status도 같이 넘겨줘서 프론트가 "추가정보 필요" 판단하게
         String redirectUrl = frontUrl + "/oauth/success"
                 + "?provider=" + provider
-                + "&accessToken=" + accessToken
-                + "&refreshToken=" + refreshToken
                 + "&status=" + user.getUStatus();
 
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
