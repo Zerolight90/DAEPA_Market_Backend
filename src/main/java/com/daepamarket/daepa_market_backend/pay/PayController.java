@@ -189,6 +189,55 @@ public class PayController {
         }
     }
 
+    /**
+     * ✅ [신규] 프론트엔드로부터 결제 정보를 받아 최종 처리하는 엔드포인트
+     * @param confirmDto 프론트엔드가 전달하는 결제 정보 (paymentKey, orderId, amount)
+     * @param request 사용자 토큰 검증을 위한 HttpServletRequest
+     * @return ResponseEntity 결제 처리 결과
+     */
+    @PostMapping("/api/pay/confirm")
+    public ResponseEntity<?> confirmPayment(
+            @RequestBody PaymentConfirmDto confirmDto,
+            HttpServletRequest request) {
+        try {
+            // ===== 1. 토큰 추출 및 사용자 인증 =====
+            String token = resolveAccessToken(request);
+            if (token == null || jwtProvider.isExpired(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "유효하지 않은 토큰입니다."));
+            }
+            Long userId = Long.valueOf(jwtProvider.getUid(token));
+
+            // ===== 2. Toss Payments에 최종 결제 승인 요청 =====
+            String url = "https://api.tosspayments.com/v1/payments/confirm";
+            HttpHeaders headers = new HttpHeaders();
+            String encodedKey = Base64.getEncoder().encodeToString((tossSecretKey + ":").getBytes());
+            headers.setBasicAuth(encodedKey);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, Object> bodyMap = new HashMap<>();
+            bodyMap.put("paymentKey", confirmDto.getPaymentKey());
+            bodyMap.put("orderId", confirmDto.getOrderId());
+            bodyMap.put("amount", confirmDto.getAmount());
+
+            HttpEntity<Map<String, Object>> tossRequestEntity = new HttpEntity<>(bodyMap, headers);
+
+            // API 호출 (실패 시 RestClientException 발생)
+            restTemplate.postForEntity(url, tossRequestEntity, String.class);
+
+            // ===== 3. 우리 서비스의 비즈니스 로직 처리 (DB 상태 업데이트 등) =====
+            payService.confirmProductPurchase(confirmDto.getPaymentKey(), confirmDto.getOrderId(), confirmDto.getAmount(), userId);
+
+            // ===== 4. 모든 로직 성공 시, 프론트엔드에 성공 응답 반환 =====
+            return ResponseEntity.ok(Map.of("message", "결제가 성공적으로 처리되었습니다."));
+
+        } catch (Exception e) {
+            // ===== 5. 중간에 어떤 예외라도 발생하면 실패 응답 반환 =====
+            // log.error("결제 최종 승인 처리 중 오류 발생: {}", e.getMessage());
+            // 사용자에게 보여줄 수 있는 더 구체적인 에러 메시지를 포함할 수 있습니다.
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "결제 처리 중 오류가 발생했습니다: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/api/pay/success")
     public void handlePaymentSuccess(
             @RequestParam String paymentKey,
