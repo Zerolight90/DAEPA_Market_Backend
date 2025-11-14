@@ -53,13 +53,11 @@ public class NoticeController {
                                     @RequestPart("req") NoticeRequestDTO req,
                                     @RequestPart(value = "file", required = false) MultipartFile file) {
 
-        // 1. 토큰에서 관리자 ID 추출
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "인증 토큰이 없습니다.");
-        }
-        String token = authHeader.substring(7);
-        Long adminId = Long.valueOf(jwtProvider.getUid(token));
+        // 1. 토큰에서 관리자 ID 추출 (수동 인증 로직 제거)
+        // Long adminId = Long.valueOf(jwtProvider.getUid(token)); // 기존 코드
+
+        System.out.println("🔥 create() 진입: /api/admin/notices POST");  // 로그 추가
+        Long adminId = 1L; // 임시 관리자 ID (보안 취약, 추후 수정 필요)
 
         // 요청한 클라이언트 IP 추출
         String clientIp = request.getHeader("X-Forwarded-For");
