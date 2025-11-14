@@ -3,14 +3,17 @@ package com.daepamarket.daepa_market_backend.admin.notice.Controller;
 import com.daepamarket.daepa_market_backend.admin.notice.DTO.NoticeRequestDTO;
 import com.daepamarket.daepa_market_backend.admin.notice.DTO.NoticeResponseDTO;
 import com.daepamarket.daepa_market_backend.admin.notice.DTO.NoticeUpdateDTO;
-import com.daepamarket.daepa_market_backend.domain.notice.NoticeEntity;
 import com.daepamarket.daepa_market_backend.admin.notice.Service.NoticeService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+
+// ... imports
 
 @RestController
 @RequiredArgsConstructor
@@ -19,7 +22,6 @@ import java.util.List;
 public class NoticeController {
 
     private final NoticeService noticeService;
-    private final com.daepamarket.daepa_market_backend.jwt.JwtProvider jwtProvider;
 
     /** 전체 목록 조회 (DTO로 반환) */
     @GetMapping
@@ -50,16 +52,13 @@ public class NoticeController {
     /** 공지 작성 */
     @PostMapping
     public NoticeResponseDTO create(HttpServletRequest request,
+                                    Authentication authentication,
                                     @RequestPart("req") NoticeRequestDTO req,
                                     @RequestPart(value = "file", required = false) MultipartFile file) {
 
-        // 1. 토큰에서 관리자 ID 추출
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "인증 토큰이 없습니다.");
-        }
-        String token = authHeader.substring(7);
-        Long adminId = Long.valueOf(jwtProvider.getUid(token));
+        // 1. Spring Security 컨텍스트에서 인증된 사용자 정보 가져오기
+        UserEntity admin = (UserEntity) authentication.getPrincipal();
+        Long adminId = admin.getUIdx();
 
         // 요청한 클라이언트 IP 추출
         String clientIp = request.getHeader("X-Forwarded-For");
