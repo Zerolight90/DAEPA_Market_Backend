@@ -134,7 +134,7 @@ public class UserService {
         }
 
         String role = user.getUType() != null ? user.getUType() : "USER";
-        String access = jwtProvider.createAccessToken(String.valueOf(user.getUIdx()), role);
+        String access = jwtProvider.createAccessToken(user.getUid(), role);
         String refresh = jwtProvider.createRefreshToken(String.valueOf(user.getUIdx()));
 
         user.setUrefreshToken(refresh);
@@ -265,8 +265,8 @@ public class UserService {
                 return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
             }
 
-            Long userId = Long.valueOf(jwtProvider.getUid(token));
-            UserEntity user = userRepository.findById(userId).orElse(null);
+            String uid = jwtProvider.getUid(token);
+            UserEntity user = userRepository.findByUid(uid).orElse(null);
             if (user == null) {
                 return ResponseEntity.status(404).body("사용자를 찾을 수 없습니다.");
             }
