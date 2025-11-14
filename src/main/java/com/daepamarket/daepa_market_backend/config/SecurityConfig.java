@@ -32,7 +32,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/", "/ws-stomp/**", "/api/**", "/error", "/oauth2/**", "/login/**").permitAll()
-                        .anyRequest().permitAll()
+                        //.anyRequest().permitAll()
                 )
                 //oauth2를 위해 추가
                 .oauth2Login(oauth -> oauth

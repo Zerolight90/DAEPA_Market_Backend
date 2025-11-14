@@ -15,7 +15,6 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/notices")
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000","http://3.34.181.73","https://daepamarket.shop"})
 public class NoticeController {
 
     private final NoticeService noticeService;
@@ -53,11 +52,13 @@ public class NoticeController {
                                     @RequestPart("req") NoticeRequestDTO req,
                                     @RequestPart(value = "file", required = false) MultipartFile file) {
 
-        // 1. 토큰에서 관리자 ID 추출 (수동 인증 로직 제거)
-        // Long adminId = Long.valueOf(jwtProvider.getUid(token)); // 기존 코드
-
-        System.out.println("🔥 create() 진입: /api/admin/notices POST");  // 로그 추가
-        Long adminId = 1L; // 임시 관리자 ID (보안 취약, 추후 수정 필요)
+        // 1. 토큰에서 관리자 ID 추출
+        String auth = request.getHeader("Authorization");
+        if (auth == null || !auth.startsWith("Bearer ")) {
+            throw new SecurityException("토큰이 없거나 형식이 올바르지 않습니다.");
+        }
+        String token = auth.substring(7);
+        Long adminId = Long.valueOf(jwtProvider.getUid(token));
 
         // 요청한 클라이언트 IP 추출
         String clientIp = request.getHeader("X-Forwarded-For");

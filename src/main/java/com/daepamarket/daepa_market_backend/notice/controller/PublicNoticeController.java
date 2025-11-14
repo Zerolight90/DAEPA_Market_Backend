@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/public/notices")
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000", "http://3.34.181.73"})
 public class PublicNoticeController {
 
     private final PublicNoticeService publicNoticeService;
