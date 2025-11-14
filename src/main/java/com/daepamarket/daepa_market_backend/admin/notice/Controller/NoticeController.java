@@ -19,6 +19,7 @@ import java.util.List;
 public class NoticeController {
 
     private final NoticeService noticeService;
+    private final com.daepamarket.daepa_market_backend.jwt.JwtProvider jwtProvider;
 
     /** 전체 목록 조회 (DTO로 반환) */
     @GetMapping
@@ -52,6 +53,14 @@ public class NoticeController {
                                     @RequestPart("req") NoticeRequestDTO req,
                                     @RequestPart(value = "file", required = false) MultipartFile file) {
 
+        // 1. 토큰에서 관리자 ID 추출
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "인증 토큰이 없습니다.");
+        }
+        String token = authHeader.substring(7);
+        Long adminId = Long.valueOf(jwtProvider.getUid(token));
+
         // 요청한 클라이언트 IP 추출
         String clientIp = request.getHeader("X-Forwarded-For");
         if (clientIp == null || clientIp.isBlank()) {
@@ -62,6 +71,6 @@ public class NoticeController {
         req.setNIp(clientIp);
 
         // 서비스 호출
-        return noticeService.createNotice(req, file);
+        return noticeService.createNotice(adminId, req, file);
     }
 }

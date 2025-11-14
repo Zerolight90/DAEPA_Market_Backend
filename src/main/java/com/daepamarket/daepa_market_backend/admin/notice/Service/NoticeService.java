@@ -58,8 +58,8 @@ public class NoticeService {
     }
 
     /** 등록 */
-    public NoticeResponseDTO createNotice(NoticeRequestDTO req, MultipartFile file) {
-        AdminEntity admin = adminRepository.findById(req.getAdIdx())
+    public NoticeResponseDTO createNotice(Long adminId, NoticeRequestDTO req, MultipartFile file) {
+        AdminEntity admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new RuntimeException("관리자 정보가 존재하지 않습니다."));
 
         // 이미지 파일이 있는 경우 S3에 업로드하고 URL을 받아옴
