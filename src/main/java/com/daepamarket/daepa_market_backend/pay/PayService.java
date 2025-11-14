@@ -207,6 +207,7 @@ public class PayService {
                 .orElseThrow(() -> new RuntimeException("구매자 정보를 찾을 수 없습니다: " + buyerIdx));
         DealEntity deal = dealRepository.findWithWriteLockByProduct_PdIdx(pdIdx)
                 .orElseThrow(() -> new RuntimeException("해당 상품의 거래 정보를 찾을 수 없습니다: " + pdIdx));
+        log.info("[결제-로그] Deal 조회 성공. Deal ID: {}, 현재 paymentKey: {}", deal.getDIdx(), deal.getPaymentKey());
 
         // Deal 상태 검사
         // d_sell이 0L(판매중)이 아닌 경우, 이미 판매되었거나 거래가 불가능한 상품으로 간주
@@ -223,7 +224,10 @@ public class PayService {
         deal.setDStatus(0L);         // 거래 상태 (예: 1 = 결제완료)
         deal.setPaymentKey(paymentKey);
         deal.setOrderId(orderId);
+        log.info("[결제-로그] Deal 엔티티 업데이트. 설정될 paymentKey: {}, orderId: {}", paymentKey, orderId);
+
         dealRepository.save(deal);
+        log.info("[결제-로그] dealRepository.save() 호출 완료.");
 
         // ✅ 채팅방 식별 후, 💸 시스템 메시지 발송 (오류 발생해도 거래는 롤백되지 않도록 처리)
         try {
@@ -244,6 +248,7 @@ public class PayService {
         } catch (Exception e) {
             log.error("결제 완료 후 채팅 알림 전송 중 오류가 발생했으나, 결제 트랜잭션은 커밋됩니다.", e);
         }
+        log.info("[결제-로그] confirmProductPurchase 메소드 정상 종료. OrderId: {}", orderId);
     }
 
     // 대파페이 안전결제
