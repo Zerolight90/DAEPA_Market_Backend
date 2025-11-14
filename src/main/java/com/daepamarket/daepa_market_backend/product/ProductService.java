@@ -1,5 +1,7 @@
 package com.daepamarket.daepa_market_backend.product;
 
+import com.daepamarket.daepa_market_backend.pay.PayService;
+
 import com.daepamarket.daepa_market_backend.S3Service;
 import com.daepamarket.daepa_market_backend.alarm.AlarmService;
 import com.daepamarket.daepa_market_backend.chat.service.ChatService;
@@ -56,6 +58,7 @@ public class ProductService {
 
     private final ChatService chatService;
     private final ChatRoomRepository chatRoomRepository;
+    private final PayService payService; // PayService 주입
 
     // 이 아래 두 개는 네 코드에도 중복으로 있었으니까 그대로 둔다
     private final ProductRepository productRepository;
@@ -537,8 +540,7 @@ public class ProductService {
             try {
                 Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), pdIdx);
                 if (roomId != null) {
-                    String message = "📦 판매 완료 알림\n\n판매자가 상품을 [판매 완료] 상태로 변경했습니다.\n물품을 안전하게 전달받으셨다면, [구매 확정]을 눌러 거래를 완료해주세요! 👍";
-                    chatService.sendMessage(roomId, userIdx, message, null, null);
+                    payService.confirmSellAndNotify(deal.getDIdx(), userIdx);
                 }
             } catch (Exception e) {
                 log.error("판매 완료 채팅 알림 전송 중 오류 발생", e);

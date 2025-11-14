@@ -4,7 +4,7 @@ import lombok.*;
 
 public class ChatRoomOpenDto {
 
-    @Getter @Setter
+    @Builder @Getter @Setter
     public static class OpenChatRoomReq {
         private Long productId;  // pdId
         private Long sellerId;   // 판매자 u_idx
