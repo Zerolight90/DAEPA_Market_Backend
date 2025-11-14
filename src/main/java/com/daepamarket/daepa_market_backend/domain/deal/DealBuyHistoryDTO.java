@@ -20,6 +20,7 @@ public class DealBuyHistoryDTO {
 
     private Integer dvStatus;     // delivery.dv_status
     private Integer ckStatus;     // check.ck_status
+    private Integer ckResult;
 
     // 내가 산 거니까 "판매자" 정보가 필요함
     private Long sellerIdx;       // d.seller.uIdx
@@ -70,6 +71,7 @@ public class DealBuyHistoryDTO {
             String dDeal,
             Integer dvStatus,
             Integer ckStatus,
+            Integer ckResult,
             Long sellerIdx,
             String sellerNickname,
             String sellerPhone,
@@ -84,6 +86,7 @@ public class DealBuyHistoryDTO {
         this.dSell = dSell;
         this.dBuy = dBuy;
         this.dStatus = dStatus;
+        this.ckResult = ckResult;
         this.dDeal = dDeal;
         this.dvStatus = dvStatus;
         this.ckStatus = ckStatus;

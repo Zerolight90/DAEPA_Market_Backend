@@ -105,6 +105,7 @@ public interface DealRepository extends JpaRepository<DealEntity, Long> {
             d.dDeal,
             dv.dvStatus,
             ck.ckStatus,
+            ck.ckResult,
             d.seller.uIdx,
             d.seller.unickname,
             d.seller.uphone,
