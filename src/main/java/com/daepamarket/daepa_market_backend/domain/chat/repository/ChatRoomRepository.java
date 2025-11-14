@@ -19,4 +19,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoomEntity, Long> 
     // ✅ product.pdIdx 기준 최신 방 (deal 미연결 구형데이터 fallback)
     @Query("select r from ChatRoomEntity r where r.product.pdIdx = :pdIdx order by r.chUpdated desc")
     Optional<ChatRoomEntity> findLatestByProductId(@Param("pdIdx") Long pdIdx);
+
+    // ✅ productId와 buyerId로 정확한 채팅방 찾기 (결제 알림용)
+    Optional<ChatRoomEntity> findByProduct_PdIdxAndBuyer_UIdx(Long pdIdx, Long uIdx);
 }
