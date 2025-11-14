@@ -171,29 +171,22 @@ public class PayService {
         deal.setDStatus(0L); // 결제 상태
         dealRepository.save(deal);
 
-        // ✅ 채팅방 식별 및 생성/조회 후, 💸 시스템 메시지 발송
-        // 채팅방이 없을 경우 생성하고, 있을 경우 조회하여 roomId를 확보
-        OpenChatRoomReq openChatRoomReq = OpenChatRoomReq.builder()
-                .productId(product.getPdIdx())
-                .sellerId(sellerId)
-                .build();
-        OpenChatRoomRes openChatRoomRes = roomService.openOrGetRoom(openChatRoomReq, buyerId);
-        Long roomId = openChatRoomRes.getRoomId();
+        // ✅ 채팅방 식별 후, 💸 시스템 메시지 발송 (오류 발생해도 거래는 롤백되지 않도록 처리)
+        try {
+            Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
+            if (roomId != null) {
+                chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
 
-        if (roomId != null) {
-
-            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
-
-            //구매자 명의의 채팅 알림 로직
-            try {
+                // 구매자 명의의 채팅 알림 로직
                 String buyerName = buyer.getUnickname();
                 String formattedPrice = NumberFormat.getInstance(Locale.KOREA).format(deal.getAgreedPrice());
                 String message = String.format("💸 결제 완료 알림\n\n%s님이 %s원을 입금했어요.\n상품 상태를 [판매 완료]로 변경해주세요!", buyerName, formattedPrice);
                 chatService.sendMessage(roomId, buyerId, message, null, null);
-            } catch (Exception e) {
-                log.error("구매자 명의 입금 채팅 알림 전송 중 오류 발생", e);
+            } else {
+                log.warn("페이 결제 완료 알림을 보낼 채팅방을 찾지 못했습니다. Deal ID: {}, Product ID: {}", deal.getDIdx(), product.getPdIdx());
             }
-            //
+        } catch (Exception e) {
+            log.error("페이 결제 완료 후 채팅 알림 전송 중 오류가 발생했으나, 결제 트랜잭션은 커밋됩니다.", e);
         }
 
         return currentBalance - correctTotal;
@@ -232,23 +225,22 @@ public class PayService {
         deal.setOrderId(orderId);
         dealRepository.save(deal);
 
-        // ✅ 채팅방 식별 후, 💸 시스템 메시지 발송 (안정성을 위해 try-catch로 감싸 롤백 방지)
+        // ✅ 채팅방 식별 후, 💸 시스템 메시지 발송 (오류 발생해도 거래는 롤백되지 않도록 처리)
         try {
-            chatRoomRepository.findByProduct_PdIdxAndBuyer_UIdx(pdIdx, buyerIdx).ifPresentOrElse(
-                chatRoom -> {
-                    ProductEntity product = productRepository.findById(pdIdx)
-                            .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + pdIdx));
-                    Long roomId = chatRoom.getChIdx();
-                    chatService.sendBuyerDeposited(roomId, buyerIdx, product.getPdTitle(), amount);
+            ProductEntity product = productRepository.findById(pdIdx)
+                    .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + pdIdx));
+            Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), pdIdx);
+            if (roomId != null) {
+                chatService.sendBuyerDeposited(roomId, buyerIdx, product.getPdTitle(), amount);
 
-                    // 구매자 명의의 채팅 알림 로직
-                    String buyerName = buyer.getUnickname();
-                    String formattedPrice = NumberFormat.getInstance(Locale.KOREA).format(amount);
-                    String message = String.format("💸 결제 완료 알림\n\n%s님이 %s원을 입금했어요.\n상품 상태를 [판매 완료]로 변경해주세요!", buyerName, formattedPrice);
-                    chatService.sendMessage(roomId, buyerIdx, message, null, null);
-                },
-                () -> log.warn("결제 완료 알림을 보낼 채팅방을 찾지 못했습니다. Product ID: {}, Buyer ID: {}", pdIdx, buyerIdx)
-            );
+                // 구매자 명의의 채팅 알림 로직
+                String buyerName = buyer.getUnickname();
+                String formattedPrice = NumberFormat.getInstance(Locale.KOREA).format(amount);
+                String message = String.format("💸 결제 완료 알림\n\n%s님이 %s원을 입금했어요.\n상품 상태를 [판매 완료]로 변경해주세요!", buyerName, formattedPrice);
+                chatService.sendMessage(roomId, buyerIdx, message, null, null);
+            } else {
+                log.warn("결제 완료 알림을 보낼 채팅방을 찾지 못했습니다. Deal ID: {}, Product ID: {}", deal.getDIdx(), pdIdx);
+            }
         } catch (Exception e) {
             log.error("결제 완료 후 채팅 알림 전송 중 오류가 발생했으나, 결제 트랜잭션은 커밋됩니다.", e);
         }
@@ -321,17 +313,16 @@ public class PayService {
         deal.setDStatus(0L); // 결제 상태
         dealRepository.save(deal);
 
-        // ✅ 채팅방 식별 및 생성/조회 후, 💸 시스템 메시지 발송
-        // 채팅방이 없을 경우 생성하고, 있을 경우 조회하여 roomId를 확보
-        OpenChatRoomReq openChatRoomReq = OpenChatRoomReq.builder()
-                .productId(product.getPdIdx())
-                .sellerId(sellerId)
-                .build();
-        OpenChatRoomRes openChatRoomRes = roomService.openOrGetRoom(openChatRoomReq, buyerId);
-        Long roomId = openChatRoomRes.getRoomId();
-
-        if (roomId != null) {
-            chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
+        // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송 (오류 발생해도 거래는 롤백되지 않도록 처리)
+        try {
+            Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
+            if (roomId != null) {
+                chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
+            } else {
+                log.warn("페이 안전결제 완료 알림을 보낼 채팅방을 찾지 못했습니다. Deal ID: {}, Product ID: {}", deal.getDIdx(), product.getPdIdx());
+            }
+        } catch (Exception e) {
+            log.error("페이 안전결제 완료 후 채팅 알림 전송 중 오류가 발생했으나, 결제 트랜잭션은 커밋됩니다.", e);
         }
 
         return currentBalance - correctTotal;
@@ -369,22 +360,18 @@ public class PayService {
         deal.setOrderId(orderId);
         dealRepository.save(deal);
 
-        // ✅ 채팅방 식별 및 생성/조회 후, 💸 시스템 메시지 발송
-        // 채팅방이 없을 경우 생성하고, 있을 경우 조회하여 roomId를 확보
-        ProductEntity product = productRepository.findById(pdIdx)
-                .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + pdIdx));
-        UserEntity seller = product.getSeller();
-        Long sellerId = seller.getUIdx();
-
-        OpenChatRoomReq openChatRoomReq = OpenChatRoomReq.builder()
-                .productId(pdIdx)
-                .sellerId(sellerId)
-                .build();
-        OpenChatRoomRes openChatRoomRes = roomService.openOrGetRoom(openChatRoomReq, buyerIdx);
-        Long roomId = openChatRoomRes.getRoomId();
-
-        if (roomId != null) {
-            chatService.sendBuyerDeposited(roomId, buyerIdx, product.getPdTitle(), amount);
+        // ✅ 채팅방 식별 후, 💸 시스템 메시지 발송 (오류 발생해도 거래는 롤백되지 않도록 처리)
+        try {
+            ProductEntity product = productRepository.findById(pdIdx)
+                    .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + pdIdx));
+            Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), pdIdx);
+            if (roomId != null) {
+                chatService.sendBuyerDeposited(roomId, buyerIdx, product.getPdTitle(), amount);
+            } else {
+                log.warn("안전결제 완료 알림을 보낼 채팅방을 찾지 못했습니다. Deal ID: {}, Product ID: {}", deal.getDIdx(), pdIdx);
+            }
+        } catch (Exception e) {
+            log.error("안전결제 완료 후 채팅 알림 전송 중 오류가 발생했으나, 결제 트랜잭션은 커밋됩니다.", e);
         }
     }
 
