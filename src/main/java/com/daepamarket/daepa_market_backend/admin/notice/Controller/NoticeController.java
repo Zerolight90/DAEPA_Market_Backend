@@ -15,7 +15,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/notices")
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000","http://3.34.181.73"})
+@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000","http://3.34.181.73","https://daepamarket.shop"})
 public class NoticeController {
 
     private final NoticeService noticeService;

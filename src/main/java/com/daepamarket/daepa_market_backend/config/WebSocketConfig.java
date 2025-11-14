@@ -23,6 +23,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                         "http://127.0.0.1:3000",
                         "http://192.168.*.*:3000",
                         "http://3.34.181.73/",
+                        "https://daepamarket.shop",
                         "*"
 
                         // 운영 도메인 추가
