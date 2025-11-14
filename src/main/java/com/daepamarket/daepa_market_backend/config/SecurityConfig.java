@@ -30,7 +30,6 @@ public class SecurityConfig {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션 사용 안함
                 .authorizeHttpRequests(auth -> auth
                         // ✅ 헬스체크 엔드포인트는 인증 없이 항상 허용
                         .requestMatchers("/actuator/**").permitAll()
