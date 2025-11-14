@@ -1,11 +1,15 @@
+package com.daepamarket.daepa_market_backend.jwt.oauth;
 
+import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
+import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 import com.daepamarket.daepa_market_backend.jwt.JwtProps;
-import jakarta.servlet.http.Cookie;
+import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
