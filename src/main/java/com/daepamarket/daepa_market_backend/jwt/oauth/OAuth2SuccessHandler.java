@@ -3,13 +3,14 @@ package com.daepamarket.daepa_market_backend.jwt.oauth;
 import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
+import com.daepamarket.daepa_market_backend.jwt.JwtProps;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -30,6 +32,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
     private final CookieUtil cookieUtil;
+    private final JwtProps jwtProps;
 
     @Value("${app.front-url}")
     private String frontUrl;
@@ -126,16 +129,13 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         user.setUrefreshToken(refreshToken);
         userRepository.save(user);
 
-        // 쿠키로 내려주기
-        Cookie at = new Cookie("accessToken", accessToken);
-        at.setHttpOnly(true);
-        at.setPath("/");
-        response.addCookie(at);
+        // ✅ CookieUtil 사용해서 쿠키 생성
+        ResponseCookie accessCookie = cookieUtil.accessCookie(accessToken, Duration.ofMinutes(jwtProps.getAccessExpMin()));
+        ResponseCookie refreshCookie = cookieUtil.refreshCookie(refreshToken, Duration.ofDays(jwtProps.getRefreshExpDays()));
 
-        Cookie rt = new Cookie("refreshToken", refreshToken);
-        rt.setHttpOnly(true);
-        rt.setPath("/");
-        response.addCookie(rt);
+        response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+
 
         // 프론트로 리다이렉트
         // 여기서 status도 같이 넘겨줘서 프론트가 "추가정보 필요" 판단하게

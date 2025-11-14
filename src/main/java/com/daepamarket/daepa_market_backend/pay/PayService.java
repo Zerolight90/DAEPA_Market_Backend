@@ -1,5 +1,8 @@
 package com.daepamarket.daepa_market_backend.pay;
 
+import com.daepamarket.daepa_market_backend.common.dto.ChatRoomOpenDto.OpenChatRoomReq;
+import com.daepamarket.daepa_market_backend.common.dto.ChatRoomOpenDto.OpenChatRoomRes;
+
 import java.sql.Timestamp;
 import java.text.NumberFormat;
 import java.time.LocalDate;
@@ -10,6 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.daepamarket.daepa_market_backend.chat.service.ChatService;
+import com.daepamarket.daepa_market_backend.chat.service.RoomService; // RoomService 추가
 import com.daepamarket.daepa_market_backend.domain.chat.ChatRoomEntity;
 import com.daepamarket.daepa_market_backend.domain.chat.repository.ChatRoomRepository; // ✅ 추가
 import com.daepamarket.daepa_market_backend.domain.deal.DealEntity;
@@ -46,11 +50,12 @@ public class PayService {
     private final ProductRepository productRepository;
     private final ChatService chatService;
     private final ChatRoomRepository chatRoomRepository;
+    private final RoomService roomService; // RoomService 추가
 
     @Value("${TOSS_SECRET_KEY}")
     private String tossSecretKey;
 
-    public PayService(RestTemplate restTemplate, PayRepository payRepository, UserRepository userRepository, DealRepository dealRepository, ProductRepository productRepository, @Lazy ChatService chatService, ChatRoomRepository chatRoomRepository) {
+    public PayService(RestTemplate restTemplate, PayRepository payRepository, UserRepository userRepository, DealRepository dealRepository, ProductRepository productRepository, @Lazy ChatService chatService, ChatRoomRepository chatRoomRepository, RoomService roomService) {
         this.restTemplate = restTemplate;
         this.payRepository = payRepository;
         this.userRepository = userRepository;
@@ -58,6 +63,7 @@ public class PayService {
         this.productRepository = productRepository;
         this.chatService = chatService;
         this.chatRoomRepository = chatRoomRepository;
+        this.roomService = roomService;
     }
 
     // 대파 페이 충전하기
@@ -165,8 +171,15 @@ public class PayService {
         deal.setDStatus(0L); // 결제 상태
         dealRepository.save(deal);
 
-        // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
-        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
+        // ✅ 채팅방 식별 및 생성/조회 후, 💸 시스템 메시지 발송
+        // 채팅방이 없을 경우 생성하고, 있을 경우 조회하여 roomId를 확보
+        OpenChatRoomReq openChatRoomReq = OpenChatRoomReq.builder()
+                .productId(product.getPdIdx())
+                .sellerId(sellerId)
+                .build();
+        OpenChatRoomRes openChatRoomRes = roomService.openOrGetRoom(openChatRoomReq, buyerId);
+        Long roomId = openChatRoomRes.getRoomId();
+
         if (roomId != null) {
 
             chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
@@ -308,8 +321,15 @@ public class PayService {
         deal.setDStatus(0L); // 결제 상태
         dealRepository.save(deal);
 
-        // ✅ 여기서 채팅방 식별 후, 💸 시스템 메시지 발송
-        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), product.getPdIdx());
+        // ✅ 채팅방 식별 및 생성/조회 후, 💸 시스템 메시지 발송
+        // 채팅방이 없을 경우 생성하고, 있을 경우 조회하여 roomId를 확보
+        OpenChatRoomReq openChatRoomReq = OpenChatRoomReq.builder()
+                .productId(product.getPdIdx())
+                .sellerId(sellerId)
+                .build();
+        OpenChatRoomRes openChatRoomRes = roomService.openOrGetRoom(openChatRoomReq, buyerId);
+        Long roomId = openChatRoomRes.getRoomId();
+
         if (roomId != null) {
             chatService.sendBuyerDeposited(roomId, buyerId, product.getPdTitle(), deal.getAgreedPrice());
         }
@@ -349,10 +369,20 @@ public class PayService {
         deal.setOrderId(orderId);
         dealRepository.save(deal);
 
-        // ✅ 채팅방 식별 후, 💸 시스템 메시지 발송
+        // ✅ 채팅방 식별 및 생성/조회 후, 💸 시스템 메시지 발송
+        // 채팅방이 없을 경우 생성하고, 있을 경우 조회하여 roomId를 확보
         ProductEntity product = productRepository.findById(pdIdx)
                 .orElseThrow(() -> new RuntimeException("상품 정보를 찾을 수 없습니다: " + pdIdx));
-        Long roomId = resolveRoomIdByDealOrProduct(deal.getDIdx(), pdIdx);
+        UserEntity seller = product.getSeller();
+        Long sellerId = seller.getUIdx();
+
+        OpenChatRoomReq openChatRoomReq = OpenChatRoomReq.builder()
+                .productId(pdIdx)
+                .sellerId(sellerId)
+                .build();
+        OpenChatRoomRes openChatRoomRes = roomService.openOrGetRoom(openChatRoomReq, buyerIdx);
+        Long roomId = openChatRoomRes.getRoomId();
+
         if (roomId != null) {
             chatService.sendBuyerDeposited(roomId, buyerIdx, product.getPdTitle(), amount);
         }
