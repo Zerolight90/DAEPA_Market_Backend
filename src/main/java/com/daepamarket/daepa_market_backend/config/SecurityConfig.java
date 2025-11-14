@@ -52,7 +52,7 @@ public class SecurityConfig {
                         // 로그인 성공 후 JWT 만들고 3000으로 리다이렉트
                         .successHandler(oAuth2SuccessHandler)
                 )
-                .httpBasic(Customizer.withDefaults())
+                .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(form -> form.disable());
 
         // JWT 필터 추가
