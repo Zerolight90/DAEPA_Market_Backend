@@ -61,34 +61,26 @@ public class CheckService {
         check.setCkResult(result);
         checkRepository.save(check);
         
-        // 배송 정보가 있는 경우에만 배송 상태 업데이트
+        // 배송 정보가 있는 경우 매너 온도만 업데이트 (배송 상태는 변경하지 않음)
         DeliveryEntity delivery = deliveryRepository.findByCheckCkIdx(ckIdx).orElse(null);
         if (delivery != null) {
             DealEntity deal = delivery.getDeal();
             UserEntity seller = deal.getSeller();
             double currentManner = seller.getUManner();
 
-            // 검수 결과가 합격(1)이면 배송 시작 (3 : 검수 후 배송)
-            if (result == 1) {
-                delivery.setDvStatus(3); // 검수 후 배송
-                deliveryRepository.save(delivery);
-
+            // 검수 결과에 따라 매너 온도만 조정 (배송 상태는 배송 관리에서만 변경)
+            if (result == 0) { // 합격
                 double newManner = Math.min(100, currentManner + 5.0);
                 seller.setUManner(newManner);
                 userRepository.save(seller);
-            } else if (result == 0) {
-                // 불합격이면 반품 처리 (반품: 4)
-                delivery.setDvStatus(4); // 반품
-                deliveryRepository.save(delivery);
-
-                // === 판매자 매너 온도 차감 로직 추가 ===
-                // 매너 온도가 0 이하로 내려가지 않도록 방어 로직 추가 (선택 사항)
+            } else if (result == 1) { // 불합격
+                // 매너 온도가 0 이하로 내려가지 않도록 방어 로직
                 double newManner = Math.max(0, currentManner - 5.0);
                 seller.setUManner(newManner);
                 userRepository.save(seller);
             }
         }
-        // 배송 상태(dv_status)는 별도로 관리되므로 여기서 변경하지 않음
-        // 검수 완료(ck_status = 1)된 항목만 배송 관리 테이블에서 조회됨
+        // 배송 상태(dv_status)는 배송 관리에서만 변경됨
+        // 검수 완료(ck_status = 1)된 항목은 배송 관리에서 배송전(0) 상태로 표시됨
     }
 }
