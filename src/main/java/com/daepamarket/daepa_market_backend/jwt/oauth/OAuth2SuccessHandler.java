@@ -122,14 +122,19 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             log.info("🟢 기존 소셜 유저 로그인 uid={} status={}", uid, user.getUStatus());
         }
 
-        // 네가 만든 JwtProvider 그대로 사용
+        // ✅ 기존 쿠키 삭제 (새로운 로그인 세션을 위해)
+        ResponseCookie clearAccess = cookieUtil.clear(CookieUtil.ACCESS);
+        ResponseCookie clearRefresh = cookieUtil.clear(CookieUtil.REFRESH);
+        response.addHeader(HttpHeaders.SET_COOKIE, clearAccess.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, clearRefresh.toString());
+
+        // ✅ CookieUtil 사용해서 쿠키 생성
         String accessToken = jwtProvider.createAccessToken(String.valueOf(user.getUIdx()), provider);
         String refreshToken = jwtProvider.createRefreshToken(String.valueOf(user.getUIdx()));
 
         user.setUrefreshToken(refreshToken);
         userRepository.save(user);
 
-        // ✅ CookieUtil 사용해서 쿠키 생성
         ResponseCookie accessCookie = cookieUtil.accessCookie(accessToken, Duration.ofMinutes(jwtProps.getAccessExpMin()));
         ResponseCookie refreshCookie = cookieUtil.refreshCookie(refreshToken, Duration.ofDays(jwtProps.getRefreshExpDays()));
 
