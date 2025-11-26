@@ -29,7 +29,7 @@ services:
 
   # Backend (Spring Boot)
   backend:
-    build: .
+    image: ${DOCKER_USERNAME}/elearning-backend:latest
     container_name: elearning-backend
     restart: unless-stopped
 
