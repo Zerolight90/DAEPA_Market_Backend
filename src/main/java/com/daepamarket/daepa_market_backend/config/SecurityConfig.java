@@ -31,6 +31,7 @@ public class SecurityConfig {
                         // ✅ 헬스체크 엔드포인트는 인증 없이 항상 허용
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/uploads/**", "/WEB-INF/views/**").permitAll()
                         .requestMatchers("/", "/ws-stomp/**", "/api/**", "/error", "/oauth2/**", "/login/**").permitAll()
                         //.anyRequest().permitAll()
                 )
