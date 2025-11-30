@@ -9,8 +9,10 @@ import com.daepamarket.daepa_market_backend.domain.user.UserEntity;
 import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.data.domain.Sort.Direction.DESC;
 
 import java.time.LocalDateTime;
@@ -27,8 +29,11 @@ public class FavoriteService {
 
     @Transactional
     public boolean toggle(Long userId, Long productId) {
-        UserEntity user = userRepo.findById(userId).orElseThrow();
-        ProductEntity product = productRepo.findById(productId).orElseThrow();
+        UserEntity user = userRepo.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+        ProductEntity product = productRepo.findById(productId)
+                .filter(p -> !p.isPdDel())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."));
 
         var favOpt = favoriteRepo.findByUserAndProduct(user, product);
         if (favOpt.isEmpty()) {
@@ -51,8 +56,13 @@ public class FavoriteService {
 
     @Transactional(readOnly = true)
     public boolean isFavorited(Long userId, Long productId) {
-        UserEntity user = userRepo.findById(userId).orElseThrow();
-        ProductEntity product = productRepo.findById(productId).orElseThrow();
+        UserEntity user = userRepo.findById(userId).orElse(null);
+        ProductEntity product = productRepo.findById(productId)
+                .filter(p -> !p.isPdDel())
+                .orElse(null);
+        if (user == null || product == null) {
+            return false;
+        }
         return favoriteRepo.findByUserAndProduct(user, product)
                 .map(FavoriteProductEntity::getStatus)
                 .orElse(false);
@@ -60,7 +70,12 @@ public class FavoriteService {
 
     @Transactional(readOnly = true)
     public long count(Long productId) {
-        ProductEntity product = productRepo.findById(productId).orElseThrow();
+        ProductEntity product = productRepo.findById(productId)
+                .filter(p -> !p.isPdDel())
+                .orElse(null);
+        if (product == null) {
+            return 0;
+        }
         return favoriteRepo.countByProductAndStatusIsTrue(product);
     }
 
@@ -69,7 +84,10 @@ public class FavoriteService {
     // =========================
     @Transactional(readOnly = true)
     public List<FavoriteItemDTO> list(Long userId) {
-        UserEntity user = userRepo.findById(userId).orElseThrow();
+        UserEntity user = userRepo.findById(userId).orElse(null);
+        if (user == null) {
+            return List.of();
+        }
 
         // ⚠ 여기 "fDate" 는 엔티티 필드명(게터명)과 100% 동일해야 함
         var favs = favoriteRepo.findByUserAndStatus(user, true, Sort.by(DESC, "fDate"));

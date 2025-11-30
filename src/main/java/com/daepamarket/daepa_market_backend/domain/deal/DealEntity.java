@@ -40,9 +40,11 @@ public class DealEntity {
     @Column(name = "agreed_price")
     private Long agreedPrice;
 
+    @Builder.Default
     @Column(name = "d_sell", nullable = false, columnDefinition = "BIGINT DEFAULT 0")
     private Long dSell = 0L;
 
+    @Builder.Default
     @Column(name = "d_status", nullable = false, columnDefinition = "BIGINT DEFAULT 0")
     private Long dStatus = 0L;
 

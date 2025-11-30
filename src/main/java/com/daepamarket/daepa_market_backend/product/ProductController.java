@@ -106,17 +106,17 @@ public class ProductController {
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByIds(
-            @RequestParam(required = false) Long upperId,
+            @RequestParam(name = "upperId", required = false) Long upperId,
             @RequestParam(name = "mid", required = false) Long middleId,
             @RequestParam(name = "low", required = false) Long lowId,
-            @RequestParam(required = false) Long min,
-            @RequestParam(required = false) Long max,
-            @RequestParam(required = false) String dDeal,
-            @RequestParam(required = false, defaultValue = "false") boolean excludeSold,
-            @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "recent") String sort,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(name = "min", required = false) Long min,
+            @RequestParam(name = "max", required = false) Long max,
+            @RequestParam(name = "dDeal", required = false) String dDeal,
+            @RequestParam(name = "excludeSold", required = false, defaultValue = "false") boolean excludeSold,
+            @RequestParam(name = "keyword", required = false) String keyword,
+            @RequestParam(name = "sort", defaultValue = "recent") String sort,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size
     ) {
         Page<ProductListDTO> mapped = productService
                 .getProductsByIds(
@@ -139,16 +139,16 @@ public class ProductController {
     @GetMapping("/by-name")
     @Transactional(readOnly = true)
     public ResponseEntity<Page<ProductListDTO>> listByNames(
-            @RequestParam(required = false) String big,
-            @RequestParam(required = false) String mid,
-            @RequestParam(required = false) String sub,
-            @RequestParam(required = false) Long min,
-            @RequestParam(required = false) Long max,
-            @RequestParam(required = false) String dDeal,
-            @RequestParam(required = false, defaultValue = "false") boolean excludeSold,
-            @RequestParam(defaultValue = "recent") String sort,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(name = "big", required = false) String big,
+            @RequestParam(name = "mid", required = false) String mid,
+            @RequestParam(name = "sub", required = false) String sub,
+            @RequestParam(name = "min", required = false) Long min,
+            @RequestParam(name = "max", required = false) Long max,
+            @RequestParam(name = "dDeal", required = false) String dDeal,
+            @RequestParam(name = "excludeSold", required = false, defaultValue = "false") boolean excludeSold,
+            @RequestParam(name = "sort", defaultValue = "recent") String sort,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size
     ) {
         Page<ProductListDTO> mapped = productService
                 .getProductsByNames(
@@ -190,17 +190,29 @@ public class ProductController {
     @GetMapping("/mypage")
     public List<productMyPageDTO> myProduct(
             HttpServletRequest request,
-            @RequestParam(required = false) Integer status
+            @RequestParam(name = "status", required = false) Integer status
     ) {
         log.info("/api/products/mypage called, status={}", status);
 
-        String auth = request.getHeader("Authorization");
-        if (auth == null || !auth.startsWith("Bearer ")) {
+        String token = resolveAccessToken(request);
+        if (token == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 없습니다.");
         }
+        if (jwtProvider.isExpired(token)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다.");
+        }
 
-        String accessToken = auth.substring(7);
-        Long uIdx = Long.valueOf(jwtProvider.getUid(accessToken));
+        String uid = jwtProvider.getUid(token);
+        if (uid == null || uid.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+        }
+
+        Long uIdx;
+        try {
+            uIdx = Long.valueOf(uid);
+        } catch (NumberFormatException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+        }
         log.info("token -> uIdx = {}", uIdx);
 
         return productService.getMyProductByUIdx(uIdx, status);
@@ -272,6 +284,7 @@ public class ProductController {
         if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
             thumb = p.getImages().get(0).getImageUrl();
         }
+        thumb = resolveThumbUrl(thumb);
 
         Long dsell = 0L;
         Long dstatus = 0L;
@@ -292,5 +305,18 @@ public class ProductController {
                 .dsell(dsell)
                 .dstatus(dstatus)
                 .build();
+    }
+
+    private String resolveThumbUrl(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/products/KakaoTalk_20251104_145039505.jpg";
+        }
+        if (raw.startsWith("http://") || raw.startsWith("https://")) {
+            return raw;
+        }
+        if (raw.startsWith("uploads/") || raw.equals("no-image.png")) {
+            return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/products/KakaoTalk_20251104_145039505.jpg";
+        }
+        return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/" + raw;
     }
 }

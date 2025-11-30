@@ -26,7 +26,7 @@ public class FavoriteController {
      */
     @PostMapping("/{productId}/toggle")
     public ResponseEntity<?> toggle(HttpServletRequest request,
-                                    @PathVariable Long productId) {
+                                    @PathVariable("productId") Long productId) {
         Long userId = requireUserId(request); // 여긴 진짜 로그인 필요
         boolean now = favoriteService.toggle(userId, productId);
         long count = favoriteService.count(productId);
@@ -38,7 +38,7 @@ public class FavoriteController {
      */
     @GetMapping("/{productId}")
     public ResponseEntity<?> getStatus(HttpServletRequest request,
-                                       @PathVariable Long productId) {
+                                       @PathVariable("productId") Long productId) {
         Long userId = optionalUserId(request);  // 없으면 null
         boolean favorited = false;
         if (userId != null) {

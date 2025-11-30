@@ -25,49 +25,49 @@ import java.util.Optional;
 public class DealController {
 
     private final DealService dealService;
-    private final PayService payService; // ✅ PayService 주입
+    private final PayService payService; // ??PayService 주입
     private final JwtProvider jwtProvider;
     private final UserRepository userRepository;
 
     /**
-     * ✅ [신규] 구매 확정 API
-     * @param dealId 확정할 거래 ID
-     * @param request 사용자 인증을 위한 HttpServletRequest
+     * ??[?�규] 구매 ?�정 API
+     * @param dealId ?�정??거래 ID
+     * @param request ?�용???�증???�한 HttpServletRequest
      */
     @PostMapping("/{dealId}/confirm")
     public ResponseEntity<?> confirmPurchase(
             @PathVariable Long dealId,
             HttpServletRequest request) {
         try {
-            // 1. 토큰에서 사용자 ID 추출 (기존 로직 활용)
+            // 1. ?�큰?�서 ?�용??ID 추출 (기존 로직 ?�용)
             String auth = request.getHeader("Authorization");
             if (auth == null || !auth.startsWith("Bearer ")) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "인증 토큰이 없습니다."));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "?�증 ?�큰???�습?�다."));
             }
             String token = auth.substring(7);
             if (jwtProvider.isExpired(token)) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "토큰이 만료되었습니다."));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "?�큰??만료?�었?�니??"));
             }
             Long userId = Long.valueOf(jwtProvider.getUid(token));
 
-            // 2. 서비스 로직 호출
+            // 2. ?�비??로직 ?�출
             payService.finalizePurchase(dealId, userId);
             dealService.buyerMannerUp(userId);
 
-            return ResponseEntity.ok(Map.of("message", "구매가 성공적으로 확정되었습니다. 판매자에게 정산이 완료됩니다."));
+            return ResponseEntity.ok(Map.of("message", "구매가 ?�공?�으�??�정?�었?�니?? ?�매?�에�??�산???�료?�니??"));
 
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            // 서버 오류 로깅 (실제 운영시 중요)
-            // log.error("구매 확정 처리 중 오류 발생: dealId={}, userId={}", dIdx, userId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "구매 확정 처리 중 서버 오류가 발생했습니다."));
+            // ?�버 ?�류 로깅 (?�제 ?�영??중요)
+            // log.error("구매 ?�정 처리 �??�류 발생: dealId={}, userId={}", dIdx, userId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "구매 ?�정 처리 �??�버 ?�류가 발생?�습?�다."));
         }
     }
 
-    // 안전결제 정산 내역 (내가 판 것)
+    // ?�전결제 ?�산 ?�역 (?��? ??�?
     @GetMapping("/safe")
     public ResponseEntity<?> getMySettlements(HttpServletRequest request) {
         return dealService.getMySettlements(request);
@@ -76,36 +76,36 @@ public class DealController {
     @GetMapping("/mySell")
     public ResponseEntity<?> getMySell(HttpServletRequest request) {
         try {
-            // 1) Authorization 헤더 꺼내기
+            // 1) Authorization ?�더 꺼내�?
             String auth = request.getHeader("Authorization");
             if (auth == null || !auth.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("토큰이 없습니다.");
+                return ResponseEntity.status(401).body("?�큰???�습?�다.");
             }
 
-            // 2) Bearer 잘라내기
+            // 2) Bearer ?�라?�기
             String token = auth.substring(7);
 
-            // 3) 토큰 만료 확인
+            // 3) ?�큰 만료 ?�인
             if (jwtProvider.isExpired(token)) {
-                return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
+                return ResponseEntity.status(401).body("?�효?��? ?��? ?�큰?�니??");
             }
 
-            // 4) 토큰에서 userId 뽑기
+            // 4) ?�큰?�서 userId 뽑기
             Long userId = Long.valueOf(jwtProvider.getUid(token));
 
-            // 5) DB에 진짜 존재하는지 체크
+            // 5) DB??진짜 존재?�는지 체크
             UserEntity user = userRepository.findById(userId).orElse(null);
             if (user == null) {
-                return ResponseEntity.status(404).body("사용자를 찾을 수 없습니다.");
+                return ResponseEntity.status(404).body("?�용?��? 찾을 ???�습?�다.");
             }
 
-            // 6) 판매자 idx = 토큰 주인인 거래만 조회
+            // 6) ?�매??idx = ?�큰 주인??거래�?조회
             List<DealSellHistoryDTO> list = dealService.getMySellHistory(userId);
 
             return ResponseEntity.ok(list);
 
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("서버 오류가 발생했습니다.");
+            return ResponseEntity.status(500).body("?�버 ?�류가 발생?�습?�다.");
         }
     }
 
@@ -114,12 +114,12 @@ public class DealController {
         try {
             String auth = request.getHeader("Authorization");
             if (auth == null || !auth.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("토큰이 없습니다.");
+                return ResponseEntity.status(401).body("?�큰???�습?�다.");
             }
 
             String token = auth.substring(7);
             if (jwtProvider.isExpired(token)) {
-                return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
+                return ResponseEntity.status(401).body("?�효?��? ?��? ?�큰?�니??");
             }
 
             Long uIdx = Long.valueOf(jwtProvider.getUid(token));
@@ -128,12 +128,12 @@ public class DealController {
 
             return ResponseEntity.ok(list);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
+            return ResponseEntity.status(500).body("?�버 ?�류: " + e.getMessage());
         }
     }
 
 
-    //구매내역에서 구매확정 버튼
+    //구매?�역?�서 구매?�정 버튼
     @PatchMapping("/{dealId}/buy-confirm")
     public ResponseEntity<?> confirmBuy(
             @PathVariable Long dealId,
@@ -142,34 +142,35 @@ public class DealController {
         try {
             String auth = request.getHeader("Authorization");
             if (auth == null || !auth.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("토큰이 없습니다.");
+                return ResponseEntity.status(401).body("?�큰???�습?�다.");
             }
 
             String token = auth.substring(7);
             if (jwtProvider.isExpired(token)) {
-                return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
+                return ResponseEntity.status(401).body("?�효?��? ?��? ?�큰?�니??");
             }
 
-            Long uIdx = Long.valueOf(jwtProvider.getUid(token)); // 로그인한 사람(구매자)
+            Long uIdx = Long.valueOf(jwtProvider.getUid(token)); // 로그?�한 ?�람(구매??
 
-            // 서비스에 위임
+            // ?�비?�에 ?�임
             dealService.confirmBuy(dealId, uIdx);
 
-            return ResponseEntity.ok("구매확정 완료");
+            return ResponseEntity.ok("구매?�정 ?�료");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(403).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
+            return ResponseEntity.status(500).body("?�버 ?�류: " + e.getMessage());
         }
     }
 
     @GetMapping("/safe/count")
     public ResponseEntity<Map<String, Long>> getSettlementCount(
-            @RequestParam Long uIdx
+            @RequestParam(name = "uIdx") Long uIdx
     ) {
-        long count = dealService.getSettlementCount(uIdx); // 또는 getSettlementCountLastYear
+        long count = dealService.getSettlementCount(uIdx); // ?�는 getSettlementCountLastYear
         return ResponseEntity.ok(Map.of("count", count));
     }
 
 
 }
+
