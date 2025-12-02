@@ -44,12 +44,16 @@ public class ChatRestController {
     /** 내 채팅방 목록 */
     @GetMapping("/my-rooms")
     public List<ChatRoomListDto> myRooms(
-            @RequestParam(required = false) Long userId,
+            @RequestParam(name = "userId", required = false) Long userId,
             @RequestHeader(name = "x-user-id", required = false) Long userIdHeader,
             Principal principal,
             HttpServletRequest request
     ) {
-        Long effectiveUserId = jwtSupport.resolveUserIdFromCookie(request);
+        // 1) 헤더 > 쿼리파라미터 > 쿠키 순서로 사용자 ID를 해석
+        Long effectiveUserId =
+                userIdHeader != null ? userIdHeader :
+                        userId != null ? userId : jwtSupport.resolveUserIdFromCookie(request);
+
         if (effectiveUserId == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
         }
@@ -59,16 +63,16 @@ public class ChatRestController {
     /** 채팅 메시지 히스토리 (오래된 → 최신, ASC) */
     @GetMapping("/{roomId}/messages")
     public List<ChatDto.MessageRes> messages(@PathVariable Long roomId,
-                                             @RequestParam(required = false) Long before,
-                                             @RequestParam(defaultValue = "30") int size) {
+                                             @RequestParam(name = "before", required = false) Long before,
+                                             @RequestParam(name = "size", defaultValue = "30") int size) {
         return messageMapper.findMessages(roomId, before, size);
     }
 
     /** after(마지막 메시지ID) 초과만 ASC로 반환 → 폴링용 증분 조회 */
     @GetMapping("/{roomId}/messages-after")
     public List<ChatDto.MessageRes> messagesAfter(@PathVariable Long roomId,
-                                                  @RequestParam Long after,
-                                                  @RequestParam(defaultValue = "50") int size) {
+                                                  @RequestParam(name = "after") Long after,
+                                                  @RequestParam(name = "size", defaultValue = "50") int size) {
         return messageMapper.findMessagesAfter(roomId, after, size);
     }
 
@@ -98,7 +102,7 @@ public class ChatRestController {
     /** REST 폴백: 읽음 포인터 올리기(WS 미연결 시 사용) */
     @PostMapping("/{roomId}/read-up-to")
     public ChatDto.ReadEvent readUpTo(@PathVariable Long roomId,
-                                      @RequestParam(required = false) Long upTo,
+                                      @RequestParam(name = "upTo", required = false) Long upTo,
                                       @RequestBody(required = false) ChatDto.ReadEvent body,
                                       Principal principal,
                                       HttpServletRequest http) {
