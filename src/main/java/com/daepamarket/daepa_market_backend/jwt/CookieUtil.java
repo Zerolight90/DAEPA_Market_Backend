@@ -31,11 +31,15 @@ public class CookieUtil {
 
     //쿠키의 기본 설정값
     private ResponseCookie.ResponseCookieBuilder base(String name, String value, Duration maxAge) {
-        return ResponseCookie.from(name, value)
-                .domain(props.getDomain())
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, value)
                 .path(props.getPath())
                 .secure(props.isSecure())
                 .sameSite(props.getSamesite())
                 .maxAge(maxAge);
+        // 도메인이 지정된 경우만 적용: localhost/127/배포 도메인 불일치로 쿠키가 안 남는 상황 방지
+        if (props.getDomain() != null && !props.getDomain().isBlank()) {
+            builder.domain(props.getDomain());
+        }
+        return builder;
     }
 }
