@@ -10,6 +10,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.Arrays;
+
 @RestController
 @RequiredArgsConstructor
 public class ReviewQueryController {
@@ -18,17 +22,28 @@ public class ReviewQueryController {
     private final UserRepository userRepository;
     private final ReviewQueryService reviewQueryService;
 
-    private UserEntity resolveUserFromAuth(String authHeader) {
-        if (authHeader == null || !authHeader.toLowerCase().startsWith("bearer ")) return null;
-        String token = authHeader.substring(7).trim();
-        String subject = jwtProvider.getUid(token);
-        if (subject == null) return null;
+    private UserEntity resolveUserFromAuth(String authHeader, HttpServletRequest request) {
+        String token = null;
+        if (authHeader != null && authHeader.toLowerCase().startsWith("bearer ")) {
+            token = authHeader.substring(7).trim();
+        } else if (request != null && request.getCookies() != null) {
+            token = Arrays.stream(request.getCookies())
+                    .filter(c -> "ACCESS_TOKEN".equalsIgnoreCase(c.getName()) || "accessToken".equalsIgnoreCase(c.getName()))
+                    .findFirst()
+                    .map(Cookie::getValue)
+                    .orElse(null);
+        }
+        if (token == null) return null;
 
         try {
+            String subject = jwtProvider.getUid(token);
+            if (subject == null) return null;
             Long uIdx = Long.valueOf(subject);
             return userRepository.findById(uIdx).orElse(null);
         } catch (NumberFormatException e) {
-            return userRepository.findByUid(subject).orElse(null);
+            return null;
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -36,10 +51,11 @@ public class ReviewQueryController {
     @GetMapping("/api/review/received")
     public ResponseEntity<?> pageReceived(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            HttpServletRequest request,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size
     ) {
-        UserEntity me = resolveUserFromAuth(authHeader);
+        UserEntity me = resolveUserFromAuth(authHeader, request);
         if (me == null) return ResponseEntity.status(401).body("인증 정보가 없습니다.");
         PagedResponse<MyReviewRow> resp = reviewQueryService.getReceived(me.getUIdx(), page, size);
         return ResponseEntity.ok(resp);
@@ -49,10 +65,11 @@ public class ReviewQueryController {
     @GetMapping("/api/review/written")
     public ResponseEntity<?> pageWritten(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            HttpServletRequest request,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size
     ) {
-        UserEntity me = resolveUserFromAuth(authHeader);
+        UserEntity me = resolveUserFromAuth(authHeader, request);
         if (me == null) return ResponseEntity.status(401).body("인증 정보가 없습니다.");
         PagedResponse<MyReviewRow> resp = reviewQueryService.getWritten(me.getUIdx(), page, size);
         return ResponseEntity.ok(resp);
@@ -62,8 +79,8 @@ public class ReviewQueryController {
     @GetMapping("/api/review/user/{sellerId}")
     public ResponseEntity<PagedResponse<MyReviewRow>> getReviewsBySeller(
             @PathVariable Long sellerId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size
     ) {
         return ResponseEntity.ok(reviewQueryService.pageReceivedByUser(sellerId, page, size));
     }

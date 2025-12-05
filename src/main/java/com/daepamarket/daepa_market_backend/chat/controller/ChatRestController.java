@@ -62,7 +62,7 @@ public class ChatRestController {
 
     /** 채팅 메시지 히스토리 (오래된 → 최신, ASC) */
     @GetMapping("/{roomId}/messages")
-    public List<ChatDto.MessageRes> messages(@PathVariable Long roomId,
+    public List<ChatDto.MessageRes> messages(@PathVariable("roomId") Long roomId,
                                              @RequestParam(name = "before", required = false) Long before,
                                              @RequestParam(name = "size", defaultValue = "30") int size) {
         return messageMapper.findMessages(roomId, before, size);
@@ -70,7 +70,7 @@ public class ChatRestController {
 
     /** after(마지막 메시지ID) 초과만 ASC로 반환 → 폴링용 증분 조회 */
     @GetMapping("/{roomId}/messages-after")
-    public List<ChatDto.MessageRes> messagesAfter(@PathVariable Long roomId,
+    public List<ChatDto.MessageRes> messagesAfter(@PathVariable("roomId") Long roomId,
                                                   @RequestParam(name = "after") Long after,
                                                   @RequestParam(name = "size", defaultValue = "50") int size) {
         return messageMapper.findMessagesAfter(roomId, after, size);
@@ -89,7 +89,7 @@ public class ChatRestController {
 
     /** REST 폴백: 메시지 전송(WS 미연결 시 사용) */
     @PostMapping("/{roomId}/send")
-    public ChatDto.MessageRes sendViaHttp(@PathVariable Long roomId,
+    public ChatDto.MessageRes sendViaHttp(@PathVariable("roomId") Long roomId,
                                           @RequestBody ChatDto.SendMessageReq req,
                                           Principal principal,
                                           HttpServletRequest http) {
@@ -101,7 +101,7 @@ public class ChatRestController {
 
     /** REST 폴백: 읽음 포인터 올리기(WS 미연결 시 사용) */
     @PostMapping("/{roomId}/read-up-to")
-    public ChatDto.ReadEvent readUpTo(@PathVariable Long roomId,
+    public ChatDto.ReadEvent readUpTo(@PathVariable("roomId") Long roomId,
                                       @RequestParam(name = "upTo", required = false) Long upTo,
                                       @RequestBody(required = false) ChatDto.ReadEvent body,
                                       Principal principal,
@@ -200,8 +200,8 @@ public class ChatRestController {
     // ✅ 상대방의 마지막 읽음 메시지ID 조회
     @GetMapping("/{roomId}/last-seen")
     public ResponseEntity<Map<String, Object>> lastSeen(
-            @PathVariable Long roomId,
-            @RequestParam("userId") Long userId,
+            @PathVariable("roomId") Long roomId,
+            @RequestParam(name = "userId") Long userId,
             HttpServletRequest request
     ) {
         // (선택) 권한 체크: 로그인 여부만 간단히 확인
@@ -221,7 +221,7 @@ public class ChatRestController {
 
     @GetMapping("/{roomId}/header")
     public ResponseEntity<ChatRoomHeaderDto> header(
-            @PathVariable Long roomId,
+            @PathVariable("roomId") Long roomId,
             @RequestHeader(name = "x-user-id", required = false) Long userIdHeader,
             Principal principal,
             HttpServletRequest request
@@ -242,7 +242,7 @@ public class ChatRestController {
     /** ✅ 채팅방 나가기 (REST 폴백) */
     @PostMapping("/{roomId}/leave")
     public ResponseEntity<ChatDto.RoomEvent> leave(
-            @PathVariable Long roomId,
+            @PathVariable("roomId") Long roomId,
             @RequestHeader(name = "x-user-id", required = false) Long userIdHeader,
             Principal principal,
             HttpServletRequest request
