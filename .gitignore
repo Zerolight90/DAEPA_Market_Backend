@@ -15,8 +15,11 @@ Thumbs.db
 /out/
 /target/
 .gradle/
+.gradle-local/
 !gradle/wrapper/gradle-wrapper.jar
 /**/build/
+/bin/
+/build2/
 
 # --- 로그/임시 ---
 *.log
