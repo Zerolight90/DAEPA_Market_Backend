@@ -9,6 +9,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -24,8 +25,8 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    // ✅ 클로드 보고서대로 custom.cors 경로로 수정
-    @Value("${custom.cors.allowed-origins}")
+    // ✅ .env의 CUSTOM_CORS_ALLOWED_ORIGINS를 직접 읽도록 수정하여 불확실성을 제거합니다.
+    @Value("${CUSTOM_CORS_ALLOWED_ORIGINS:https://daepamarket.shop,https://www.daepamarket.shop}")
     private String allowedOrigins;
 
     @Bean
@@ -33,6 +34,8 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
+                // ✅ 세션을 사용하지 않고 JWT를 사용함을 명시 (중요)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -60,23 +63,27 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // ✅ yml에서 읽어온 주소들을 리스트로 변환 (공백 제거 처리 추가)
+        // ✅ 쉼표로 구분된 주소들을 리스트로 변환 (공백 제거 포함)
         List<String> origins = new ArrayList<>();
-        if (allowedOrigins != null) {
+        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
             Arrays.stream(allowedOrigins.split(","))
                   .map(String::trim)
+                  .filter(s -> !s.isEmpty())
                   .forEach(origins::add);
         }
 
+        // 로컬 개발 환경 주소가 없으면 추가
         if (!origins.contains("http://localhost:3000")) {
             origins.add("http://localhost:3000");
         }
 
-        config.setAllowCredentials(true);
+        config.setAllowCredentials(true); // ✅ 쿠키(토큰) 전송 허용 필수
         config.setAllowedOrigins(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
         config.setExposedHeaders(List.of("Authorization", "Set-Cookie", "Content-Disposition"));
+        // ✅ 브라우저가 프리플라이트(OPTIONS) 요청 결과를 캐시할 시간 설정
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
