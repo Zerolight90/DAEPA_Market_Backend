@@ -24,13 +24,13 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    // ✅ 클로드 보고서대로 custom.cors 경로로 수정
     @Value("${custom.cors.allowed-origins}")
     private String allowedOrigins;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, CustomOAuth2UserService customOAuth2UserService, OAuth2SuccessHandler oAuth2SuccessHandler) throws Exception {
         http
-                // ✅ 직접 정의한 corsConfigurationSource를 사용하도록 설정
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
@@ -60,10 +60,14 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // ✅ .env에서 읽어온 주소들을 리스트로 변환
-        List<String> origins = new ArrayList<>(Arrays.asList(allowedOrigins.split(",")));
+        // ✅ yml에서 읽어온 주소들을 리스트로 변환 (공백 제거 처리 추가)
+        List<String> origins = new ArrayList<>();
+        if (allowedOrigins != null) {
+            Arrays.stream(allowedOrigins.split(","))
+                  .map(String::trim)
+                  .forEach(origins::add);
+        }
 
-        // 로컬 개발 환경 주소 강제 추가 (중복 방지)
         if (!origins.contains("http://localhost:3000")) {
             origins.add("http://localhost:3000");
         }
@@ -83,4 +87,4 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-}
+}commit
