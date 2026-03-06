@@ -1,101 +1,23 @@
 version: '3.8'
 
 services:
-  # MySQL
-  mysql:
-    image: mysql:8.0
-    container_name: elearning-mysql
-    restart: unless-stopped
-    environment:
-      # 🔸 .env에 MYSQL_ROOT_PASSWORD가 없으면 아래처럼 하나 지정해줘 (예: root 비번)
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      TZ: Asia/Seoul
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --max_connections=200
-    volumes:
-      - /opt/elearning/mysql:/var/lib/mysql
-    networks:
-      - elearning-network
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Backend (Spring Boot)
   backend:
-    image: ${DOCKER_USERNAME}/elearning-backend:latest
-    container_name: elearning-backend
+    image: zerolightdev/daepa-backend:latest
+    container_name: daepa-backend
     restart: unless-stopped
-
-    # ✅ 외부/프론트에서 접근 가능하게 8080 노출
     ports:
       - "8080:8080"
-
-    # ✅ 컨테이너에 .env 값 주입
     env_file:
       - ./.env
-
     environment:
-      # ✅ 프로필
       SPRING_PROFILES_ACTIVE: prod
-
-      # ✅ DB 연결 (compose 내부 MySQL을 사용하므로 host는 'mysql')
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
-
-      # ✅ CORS/업로드 경로 등 Spring에서 참조하는 커스텀 값
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-      UPLOAD_DIR: ${UPLOAD_DIR}
-      UPLOAD_BASE_URL: ${UPLOAD_BASE_URL}
-
-      # ✅ JWT
-      JWT_SECRET: ${JWT_SECRET}
-
-      # ✅ AWS 자격증명 (S3 업로드)
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-
-      # ✅ 메일(SMTP)
-      NAVER_EMAIL_USERNAME: ${NAVER_EMAIL_USERNAME}
-      NAVER_EMAIL_PASSWORD: ${NAVER_EMAIL_PASSWORD}
-
-      # ✅ OAuth2 (네이버/카카오)
-      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
-      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
-      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID}
-      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET}
-
-    depends_on:
-      mysql:
-        condition: service_healthy
+      # DB_HOST를 .env에서 읽어오도록 설정
+      SPRING_DATASOURCE_URL: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
     networks:
-      - elearning-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  # Frontend (Next.js)
-  frontend:
-    image: ${DOCKER_USERNAME}/elearning-frontend:latest
-    container_name: elearning-frontend
-    restart: unless-stopped
-    ports:
-      - "80:3000"
-    depends_on:
-      - backend
-    networks:
-      - elearning-network
+      - daepa-network
 
 networks:
-  elearning-network:
+  daepa-network:
     driver: bridge
