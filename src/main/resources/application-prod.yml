@@ -85,10 +85,8 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
-jwt:
-  secret: ${JWT_SECRET}
-  accessExpMin: ${JWT_EXPIRATION:3600000}
-  refreshExpDays: ${JWT_REFRESH_EXPIRATION:604800000}
+
+
 
 logging:
   level:
@@ -113,7 +111,13 @@ custom:
   cors:
     allowed-origins: "https://daepamarket.shop"
 
-app:
+app:  
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: daepa-market
+    access-exp-min: ${JWT_ACCESS_EXP_MIN:600}    # 분 단위 (600분 = 10시간)
+    refresh-exp-days: ${JWT_REFRESH_EXP_DAYS:14} # 일 단위
+
   front-url: "https://daepamarket.shop"
   cookie:
     domain: daepamarket.shop
