@@ -90,14 +90,15 @@ public class SecurityConfig {
         return source;
     }
 
-//     @Bean
-//     public PasswordEncoder passwordEncoder() {
-//         return new BCryptPasswordEncoder();
-//     }
-    @SuppressWarnings("deprecation")
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // NoOpPasswordEncoder는 암호화를 하지 않고 평문 그대로 비교하게 해줍니다.
-        return org.springframework.security.crypto.password.NoOpPasswordEncoder.getInstance();
+        return new BCryptPasswordEncoder();
     }
+
+    // @SuppressWarnings("deprecation")
+    // @Bean
+    // public PasswordEncoder passwordEncoder() {
+    //     // NoOpPasswordEncoder는 암호화를 하지 않고 평문 그대로 비교하게 해줍니다.
+    //     return org.springframework.security.crypto.password.NoOpPasswordEncoder.getInstance();
+    // }
 }
