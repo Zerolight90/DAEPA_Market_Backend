@@ -30,7 +30,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOrigins(
                         "http://localhost:3000",
                         "http://3.34.181.73",  // ← 반드시 콜론 포함!
-                        "https://daepamarket.shop"
+                        "https://daepazone.shop"
                         // 필요 시, 배포 도메인도 여기에 추가
                 )
                 .allowedMethods("GET","POST","PUT","PATCH","DELETE","OPTIONS")

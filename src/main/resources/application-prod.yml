@@ -39,13 +39,13 @@ spring:
           naver:
             client-id: ${NAVER_CLIENT_ID}
             client-secret: ${NAVER_CLIENT_SECRET}
-            redirect-uri: "https://daepamarket.shop/api/login/oauth2/code/naver"
+            redirect-uri: "https://daepazone.shop/api/login/oauth2/code/naver"
             authorization-grant-type: authorization_code
             scope: [name, email, mobile, nickname, gender, birthday, birthyear, profile_image]
           kakao:
             client-id: ${KAKAO_CLIENT_ID}
             client-secret: ${KAKAO_CLIENT_SECRET}
-            redirect-uri: "https://daepamarket.shop/api/login/oauth2/code/kakao"
+            redirect-uri: "https://daepazone.shop/api/login/oauth2/code/kakao"
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_post
             scope: [profile_nickname, account_email]
@@ -89,7 +89,6 @@ app:
     refresh-exp-days: ${JWT_REFRESH_EXP_DAYS:14}
   front-url: "https://daepazone.shop"
   cookie:
-    # ✅ .daepamarket.shop 으로 설정해야 api와 www 사이에서 쿠키가 공유됩니다.
     domain: ".daepazone.shop"
     secure: true
     samesite: None
