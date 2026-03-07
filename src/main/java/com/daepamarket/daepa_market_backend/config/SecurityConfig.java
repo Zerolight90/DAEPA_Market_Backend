@@ -26,7 +26,7 @@ import java.util.List;
 public class SecurityConfig {
 
     // ✅ .env의 CUSTOM_CORS_ALLOWED_ORIGINS를 직접 읽도록 수정하여 불확실성을 제거합니다.
-    @Value("${CUSTOM_CORS_ALLOWED_ORIGINS:https://daepamarket.shop,https://www.daepamarket.shop}")
+    @Value("${CUSTOM_CORS_ALLOWED_ORIGINS:https://daepazone.shop,https://www.daepazone.shop}")
     private String allowedOrigins;
 
     @Bean
