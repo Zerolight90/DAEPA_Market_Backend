@@ -2,7 +2,6 @@ package com.daepamarket.daepa_market_backend.pay;
 
 import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.Getter;
@@ -10,7 +9,6 @@ import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import lombok.RequiredArgsConstructor;
@@ -18,11 +16,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
@@ -33,10 +27,8 @@ import java.util.Map;
 public class PayController {
 
     private final PayService payService;
-
     private final JwtProvider jwtProvider;
     private final CookieUtil cookieUtil;
-
     private final RestTemplate restTemplate;
 
     @Value("${TOSS_SECRET_KEY}")
@@ -44,6 +36,15 @@ public class PayController {
 
     @Value("${app.front-url}")
     private String frontUrl;
+
+    // ✅ 만능 열쇠 헬퍼 메서드
+    private String extractToken(HttpServletRequest request) {
+        String token = cookieUtil.getAccessTokenFromCookie(request);
+        if (token == null || token.isBlank() || jwtProvider.isExpired(token)) {
+            return null;
+        }
+        return token;
+    }
 
     // Toss Payments가 성공 시 호출하는 엔드포인트
     @GetMapping("/api/charge/success")
@@ -54,18 +55,12 @@ public class PayController {
             HttpServletResponse httpServletResponse,
             HttpServletRequest request
     ) throws IOException {
-        // ===== 1. 토큰 추출 및 검증 =====
-        String token = resolveAccessToken(request);
+        String token = extractToken(request);
         if (token == null) {
-            handleAuthError(httpServletResponse, "로그인이 필요합니다 (토큰 없음).");
-            return;
-        }
-        if (jwtProvider.isExpired(token)) {
-            handleAuthError(httpServletResponse, "토큰이 만료되었습니다.");
+            handleAuthError(httpServletResponse, "로그인이 필요하거나 토큰이 만료되었습니다.");
             return;
         }
 
-        // ===== 2. 토큰에서 사용자 ID 추출 =====
         Long userId;
         try {
             userId = Long.valueOf(jwtProvider.getUid(token));
@@ -73,18 +68,13 @@ public class PayController {
             handleAuthError(httpServletResponse, "유효하지 않은 토큰입니다.");
             return;
         }
-        // =======================================================
 
         try {
-            // 실제 로직은 Service 계층에 위임
             payService.confirmPointCharge(paymentKey, orderId, amount, userId);
-            // 성공 시 사용자에게 보여줄 페이지로 리다이렉트
             String redirectUrl = frontUrl + "/payCharge/success?amount=" + amount;
             httpServletResponse.sendRedirect(redirectUrl);
-
         } catch (Exception e) {
-            // 실패 시 에러 페이지로 (실제 페이지 작성 후 변경!)
-            String errorMsg = e.getMessage().replace(" ", "+"); // URL 인코딩 필요
+            String errorMsg = e.getMessage().replace(" ", "+");
             String redirectUrl = frontUrl + "/payCharge/fail?message=" + errorMsg;
             httpServletResponse.sendRedirect(redirectUrl);
         }
@@ -93,95 +83,54 @@ public class PayController {
     // --- 페이 잔액 조회 API ---
     @GetMapping("/api/pay/balance")
     public ResponseEntity<?> getPayBalance(HttpServletRequest request) {
-        // ===== 1. 토큰 추출 및 검증 (ProductController 방식) =====
-        String token = resolveAccessToken(request); // 토큰 추출
-        System.out.println("### 전달받은 토큰: " + token); // ✅ 로그 추가!
+        String token = extractToken(request);
         if (token == null) {
-            // 401 Unauthorized 응답
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "로그인이 필요합니다 (토큰 없음)."));
-        }
-        if (jwtProvider.isExpired(token)) {
-            // 401 Unauthorized 응답
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "토큰이 만료되었습니다."));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "로그인이 필요하거나 토큰이 만료되었습니다."));
         }
 
-        // ===== 2. 토큰에서 사용자 ID 추출 =====
-        Long userId;
-        try {
-            userId = Long.valueOf(jwtProvider.getUid(token)); // 토큰 subject가 uIdx (문자열)라고 가정
-            System.out.println("### 추출된 User ID: " + userId); // ✅ 성공 시 로그 추가!
-        } catch (Exception e) {
-            // 401 Unauthorized 응답
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "유효하지 않은 토큰입니다."));
-        }
-        // =======================================================
-
-        // ===== 3. 비즈니스 로직 호출 =====
-        try {
-            long balance = payService.getCurrentBalance(userId); // 추출한 userId 사용
-            return ResponseEntity.ok(Map.of("balance", balance));
-        } catch (Exception e) {
-            // 서비스 로직에서 발생한 예외 처리 (e.g., UserNotFound)
-            System.err.println("잔액 조회 중 서버 오류: " + e.getMessage()); // 로그 추가 권장
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "잔액 조회 중 오류가 발생했습니다."));
-        }
-    }
-
-    // --- 토큰 추출 헬퍼 메소드 ---
-    private String resolveAccessToken(HttpServletRequest request) {
-        // 1) 쿠키 우선
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie c : cookies) {
-                // ✅ CookieUtil.ACCESS (쿠키 이름) 확인!
-                if (CookieUtil.ACCESS.equals(c.getName())) {
-                    String v = c.getValue();
-                    if (v != null && !v.isBlank()) return v;
-                }
-            }
-        }
-        // 2) Authorization: Bearer 헤더
-        String auth = cookieUtil.getAccessTokenFromCookie(request);
-        if (auth != null && auth.startsWith("Bearer ")) {
-            return auth.substring(7);
-        }
-        return null; // 토큰 못 찾음
-    }
-
-    // --- 페이로 상품 구매 API ---
-    @PostMapping("/api/pay/purchase-with-points")
-    public ResponseEntity<?> purchaseWithPoints(
-            @RequestBody PayRequestDTO payRequestDTO, // ✅ 요청 DTO 사용
-            HttpServletRequest request) {
-
-        // ===== 1. 토큰 추출 및 검증 =====
-        String token = resolveAccessToken(request);
-        if (token == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "로그인이 필요합니다 (토큰 없음)."));
-        }
-        if (jwtProvider.isExpired(token)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "토큰이 만료되었습니다."));
-        }
-
-        // ===== 2. 토큰에서 사용자 ID 추출 =====
         Long userId;
         try {
             userId = Long.valueOf(jwtProvider.getUid(token));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "유효하지 않은 토큰입니다."));
         }
-        // ===================================
 
-        // ===== 3. 비즈니스 로직 호출 =====
+        try {
+            long balance = payService.getCurrentBalance(userId);
+            return ResponseEntity.ok(Map.of("balance", balance));
+        } catch (Exception e) {
+            System.err.println("잔액 조회 중 서버 오류: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "잔액 조회 중 오류가 발생했습니다."));
+        }
+    }
+
+    // --- 페이로 상품 구매 API ---
+    @PostMapping("/api/pay/purchase-with-points")
+    public ResponseEntity<?> purchaseWithPoints(
+            @RequestBody PayRequestDTO payRequestDTO,
+            HttpServletRequest request) {
+
+        String token = extractToken(request);
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "로그인이 필요하거나 토큰이 만료되었습니다."));
+        }
+
+        Long userId;
+        try {
+            userId = Long.valueOf(jwtProvider.getUid(token));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "유효하지 않은 토큰입니다."));
+        }
+
         try {
             long remainingBalance = payService.processPurchaseWithPoints(
-                    userId, // 추출한 userId 사용
+                    userId,
                     payRequestDTO.getItemId(),
                     payRequestDTO.getQty(),
                     payRequestDTO.getAmount()
             );
             return ResponseEntity.ok(Map.of("message", "결제 완료", "remainingBalance", remainingBalance));
-        } catch (IllegalArgumentException e) { // 잔액 부족, 금액 불일치 등
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             System.err.println("페이 결제 처리 중 서버 오류: " + e.getMessage());
@@ -189,25 +138,17 @@ public class PayController {
         }
     }
 
-    /**
-     * ✅ [신규] 프론트엔드로부터 결제 정보를 받아 최종 처리하는 엔드포인트
-     * @param confirmDto 프론트엔드가 전달하는 결제 정보 (paymentKey, orderId, amount)
-     * @param request 사용자 토큰 검증을 위한 HttpServletRequest
-     * @return ResponseEntity 결제 처리 결과
-     */
     @PostMapping("/api/pay/confirm")
     public ResponseEntity<?> confirmPayment(
             @RequestBody PaymentConfirmDto confirmDto,
             HttpServletRequest request) {
         try {
-            // ===== 1. 토큰 추출 및 사용자 인증 =====
-            String token = resolveAccessToken(request);
-            if (token == null || jwtProvider.isExpired(token)) {
+            String token = extractToken(request);
+            if (token == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "유효하지 않은 토큰입니다."));
             }
             Long userId = Long.valueOf(jwtProvider.getUid(token));
 
-            // ===== 2. Toss Payments에 최종 결제 승인 요청 =====
             String url = "https://api.tosspayments.com/v1/payments/confirm";
             HttpHeaders headers = new HttpHeaders();
             String encodedKey = Base64.getEncoder().encodeToString((tossSecretKey + ":").getBytes());
@@ -220,20 +161,11 @@ public class PayController {
             bodyMap.put("amount", confirmDto.getAmount());
 
             HttpEntity<Map<String, Object>> tossRequestEntity = new HttpEntity<>(bodyMap, headers);
-
-            // API 호출 (실패 시 RestClientException 발생)
             restTemplate.postForEntity(url, tossRequestEntity, String.class);
 
-            // ===== 3. 우리 서비스의 비즈니스 로직 처리 (DB 상태 업데이트 등) =====
             payService.confirmProductPurchase(confirmDto.getPaymentKey(), confirmDto.getOrderId(), confirmDto.getAmount(), userId);
-
-            // ===== 4. 모든 로직 성공 시, 프론트엔드에 성공 응답 반환 =====
             return ResponseEntity.ok(Map.of("message", "결제가 성공적으로 처리되었습니다."));
-
         } catch (Exception e) {
-            // ===== 5. 중간에 어떤 예외라도 발생하면 실패 응답 반환 =====
-            // log.error("결제 최종 승인 처리 중 오류 발생: {}", e.getMessage());
-            // 사용자에게 보여줄 수 있는 더 구체적인 에러 메시지를 포함할 수 있습니다.
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "결제 처리 중 오류가 발생했습니다: " + e.getMessage()));
         }
     }
@@ -244,17 +176,15 @@ public class PayController {
             @RequestParam String orderId,
             @RequestParam Long amount,
             HttpServletResponse httpServletResponse,
-            HttpServletRequest request) throws IOException { // ✅ HttpServletRequest 추가
+            HttpServletRequest request) throws IOException { 
         try {
-            // ===== 1. 토큰 추출 및 사용자 인증 =====
-            String token = resolveAccessToken(request);
-            if (token == null || jwtProvider.isExpired(token)) {
+            String token = extractToken(request);
+            if (token == null) {
                 handleAuthError(httpServletResponse, "유효하지 않은 토큰입니다.");
-                return; // 여기서 실행 중단
+                return;
             }
             Long userId = Long.valueOf(jwtProvider.getUid(token));
 
-            // ===== 2. Toss Payments에 최종 결제 승인 요청 =====
             String url = "https://api.tosspayments.com/v1/payments/confirm";
             HttpHeaders headers = new HttpHeaders();
             String encodedKey = Base64.getEncoder().encodeToString((tossSecretKey + ":").getBytes());
@@ -268,27 +198,18 @@ public class PayController {
 
             HttpEntity<Map<String, Object>> tossRequestEntity = new HttpEntity<>(bodyMap, headers);
 
-            ResponseEntity<String> tossResponse;
             try {
-                // API 호출
-                tossResponse = restTemplate.postForEntity(url, tossRequestEntity, String.class);
+                restTemplate.postForEntity(url, tossRequestEntity, String.class);
             } catch (Exception e) {
-                // Toss API 승인 자체가 실패하면 즉시 예외 발생
                 System.err.println("Toss Payments 승인 API 호출 실패: " + e.getMessage());
                 throw new RuntimeException("결제 승인에 실패했습니다. (API 오류)");
             }
 
-            // ===== 3. 우리 서비스의 비즈니스 로직 처리 (DB 상태 업데이트 등) =====
-            // tossResponse.getBody()를 파싱해서 결제 완료 시간 등의 추가 정보를 넘겨줄 수도 있습니다.
             payService.confirmProductPurchase(paymentKey, orderId, amount, userId);
-
-            // ===== 4. 모든 로직 성공 시, 프론트엔드의 성공 페이지로 리다이렉트 =====
             String redirectUrl = frontUrl + "/pay/success?amount=" + amount + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
 
         } catch (Exception e) {
-            // ===== 5. 중간에 어떤 예외라도 발생하면 실패 페이지로 리다이렉트 =====
-            // URL 쿼리 파라미터로 보내기 위해 에러 메시지를 인코딩하는 것이 안전합니다.
             String errorMsg = java.net.URLEncoder.encode(e.getMessage(), "UTF-8");
             String redirectUrl = frontUrl + "/pay/fail?message=" + errorMsg + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
@@ -304,15 +225,13 @@ public class PayController {
             HttpServletRequest request) throws IOException {
 
         try {
-            // ===== 1. 토큰 추출 및 사용자 인증 =====
-            String token = resolveAccessToken(request);
-            if (token == null || jwtProvider.isExpired(token)) {
+            String token = extractToken(request);
+            if (token == null) {
                 handleAuthError(httpServletResponse, "유효하지 않은 토큰입니다.");
-                return; // 여기서 실행 중단
+                return;
             }
             Long userId = Long.valueOf(jwtProvider.getUid(token));
 
-            // ===== 2. Toss Payments에 최종 결제 승인 요청 =====
             String url = "https://api.tosspayments.com/v1/payments/confirm";
             HttpHeaders headers = new HttpHeaders();
             String encodedKey = Base64.getEncoder().encodeToString((tossSecretKey + ":").getBytes());
@@ -326,82 +245,51 @@ public class PayController {
 
             HttpEntity<Map<String, Object>> tossRequestEntity = new HttpEntity<>(bodyMap, headers);
 
-            ResponseEntity<String> tossResponse;
             try {
-                // API 호출
-                tossResponse = restTemplate.postForEntity(url, tossRequestEntity, String.class);
+                restTemplate.postForEntity(url, tossRequestEntity, String.class);
             } catch (Exception e) {
-                // Toss API 승인 자체가 실패하면 즉시 예외 발생
                 System.err.println("Toss Payments 승인 API 호출 실패: " + e.getMessage());
                 throw new RuntimeException("결제 승인에 실패했습니다. (API 오류)");
             }
 
-            // ===== 3. 우리 서비스의 비즈니스 로직 처리 (DB 상태 업데이트 등) =====
-            // tossResponse.getBody()를 파싱해서 결제 완료 시간 등의 추가 정보를 넘겨줄 수도 있습니다.
             payService.confirmProductSecPurchase(paymentKey, orderId, amount, userId);
-
-            // ===== 4. 모든 로직 성공 시, 프론트엔드의 성공 페이지로 리다이렉트 =====
             String redirectUrl = frontUrl + "/pay/sec/success?amount=" + amount + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
 
         } catch (Exception e) {
-            // ===== 5. 중간에 어떤 예외라도 발생하면 실패 페이지로 리다이렉트 =====
-            // URL 쿼리 파라미터로 보내기 위해 에러 메시지를 인코딩하는 것이 안전합니다.
             String errorMsg = java.net.URLEncoder.encode(e.getMessage(), "UTF-8");
             String redirectUrl = frontUrl + "/pay/sec/fail?message=" + errorMsg + "&orderId=" + orderId;
             httpServletResponse.sendRedirect(redirectUrl);
         }
     }
 
-
-    /**
-     * ✅ [신규] 상품 구매 취소 (환불) API
-     * @param dIdx 취소할 거래(Deal)의 ID
-     * @param cancelDto 취소 사유가 담긴 DTO
-     * @param request 토큰 검증을 위한 HttpServletRequest
-     */
     @PostMapping("/api/{dIdx}/payCancel")
     public ResponseEntity<?> handlePayCancel(
             @PathVariable Long dIdx,
-            @RequestBody CancelRequestDto cancelDto, // {"cancelReason": "사유"}
+            @RequestBody CancelRequestDto cancelDto,
             HttpServletRequest request
     ) {
         Long userId;
         try {
-            // ===== 1. 토큰 검증 및 사용자 ID 추출 =====
-            String token = resolveAccessToken(request);
+            String token = extractToken(request);
             if (token == null) { throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."); }
-            if (jwtProvider.isExpired(token)) { throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다."); }
             userId = Long.valueOf(jwtProvider.getUid(token));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "유효하지 않은 토큰입니다."));
         }
 
         try {
-            // ===== 2. 서비스 로직 호출 =====
             payService.cancelProductPurchase(dIdx, userId, cancelDto.getCancelReason());
             return ResponseEntity.ok(Map.of("message", "결제가 성공적으로 취소되었습니다."));
-
-        } catch (IllegalStateException e) { // 이미 취소된 경우 등
+        } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
-        } catch (AccessDeniedException e) { // 권한 없는 경우
+        } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) { // 기타 서버 오류
+        } catch (Exception e) {
             System.err.println("결제 취소 처리 중 오류 발생: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "결제 취소 중 오류가 발생했습니다."));
         }
-//        HttpRequest request = HttpRequest.newBuilder()
-//                .uri(URI.create("https://api.tosspayments.com/v1/payments/tviva20251031143331MUp15/cancel"))
-//                .header("Authorization", "Basic dGVzdF9za196WExrS0V5cE5BcldtbzUwblgzbG1lYXhZRzVSOg==")
-//                .header("Content-Type", "application/json")
-//                .method("POST", HttpRequest.BodyPublishers.ofString("{\"cancelReason\":\"구매자 변심\"}"))
-//                .build();
-//        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-//        System.out.println(response.body());
-
-
     }
-
 
     @Getter
     @NoArgsConstructor
@@ -409,11 +297,8 @@ public class PayController {
         private String cancelReason;
     }
 
-    // --- 에러 처리 헬퍼 메소드 (리다이렉트용) ---
     private void handleAuthError(HttpServletResponse response, String message) throws IOException {
-        // 간단히 실패 페이지로 리다이렉트 (메시지 포함)
         String errorMsg = URLEncoder.encode(message, StandardCharsets.UTF_8);
-        // 로그인 페이지나 공통 에러 페이지로 보내는 것이 더 좋을 수 있음
         response.sendRedirect(frontUrl + "/login?error=" + errorMsg);
     }
 }
