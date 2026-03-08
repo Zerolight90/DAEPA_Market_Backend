@@ -120,6 +120,7 @@ app:
     access-exp-min: 600
     refresh-exp-days: 14
   cookie:
+    domain: ".daepazone.shop"
     secure: true
     samesite: None
     path: /
