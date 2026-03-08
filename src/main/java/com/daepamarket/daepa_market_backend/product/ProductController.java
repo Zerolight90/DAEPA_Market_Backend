@@ -96,7 +96,7 @@ public class ProductController {
                 }
             }
         }
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
         if (auth != null && auth.startsWith("Bearer ")) {
             return auth.substring(7);
         }

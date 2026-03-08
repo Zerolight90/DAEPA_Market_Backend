@@ -22,6 +22,9 @@ import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil; // ✅ CookieUtil 임포트 추가
+
+
 @Service
 @RequiredArgsConstructor
 public class LocationService {
@@ -29,20 +32,16 @@ public class LocationService {
     private final UserRepository userRepository;
     private final LocationRepository locationRepository;
     private final JwtProvider jwtProvider;
+    private final CookieUtil cookieUtil;
 
     @Transactional
     public ResponseEntity<?> addLocation(HttpServletRequest request, Map<String, Object> body) {
 
         // 1) 토큰 꺼내기
-        String auth = request.getHeader("Authorization");
-        if (auth == null || !auth.startsWith("Bearer ")) {
-            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
+        String token = cookieUtil.getAccessTokenFromCookie(request);
+        if (token == null || token.isBlank() || jwtProvider.isExpired(token)) {
+            throw new SecurityException("유효하지 않은 토큰입니다."); // (또는 리턴값에 맞게 변경)
         }
-        String token = auth.substring(7);
-        if (jwtProvider.isExpired(token)) {
-            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 만료되었습니다.");
-        }
-
         Long uIdx = Long.valueOf(jwtProvider.getUid(token));
 
         // 2) 사용자 찾기
@@ -110,7 +109,7 @@ public class LocationService {
     @Transactional
     public ResponseEntity<?> deleteLocation(HttpServletRequest request, Long locKey) {
         // 토큰 꺼내기
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
         if (auth == null || !auth.startsWith("Bearer ")) {
             throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
         }
@@ -142,7 +141,7 @@ public class LocationService {
     @Transactional
     public ResponseEntity<?> updateLocation(HttpServletRequest request, Long locKey) {
         // 토큰 꺼내기
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
         if (auth == null || !auth.startsWith("Bearer ")) {
             throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
         }

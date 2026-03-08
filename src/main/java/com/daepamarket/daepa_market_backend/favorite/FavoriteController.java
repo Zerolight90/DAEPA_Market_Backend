@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 
 import java.util.List;
 
@@ -20,6 +21,7 @@ public class FavoriteController {
 
     private final FavoriteService favoriteService;
     private final JwtProvider jwtProvider;
+    private final CookieUtil cookieUtil;
 
     /**
      * 찜 토글 (로그인 필수)
@@ -83,7 +85,7 @@ public class FavoriteController {
         String token = null;
 
         // 1) 헤더 먼저
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
         if (auth != null && auth.startsWith("Bearer ")) {
             token = auth.substring(7);
         }

@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/deal")
@@ -28,6 +30,7 @@ public class DealController {
     private final PayService payService; // ✅ PayService 주입
     private final JwtProvider jwtProvider;
     private final UserRepository userRepository;
+    private final CookieUtil cookieUtil;
 
     /**
      * ✅ [신규] 구매 확정 API
@@ -40,7 +43,7 @@ public class DealController {
             HttpServletRequest request) {
         try {
             // 1. 토큰에서 사용자 ID 추출 (기존 로직 활용)
-            String auth = request.getHeader("Authorization");
+            String auth = cookieUtil.getAccessTokenFromCookie(request);
             if (auth == null || !auth.startsWith("Bearer ")) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "인증 토큰이 없습니다."));
             }
@@ -77,7 +80,7 @@ public class DealController {
     public ResponseEntity<?> getMySell(HttpServletRequest request) {
         try {
             // 1) Authorization 헤더 꺼내기
-            String auth = request.getHeader("Authorization");
+            String auth = cookieUtil.getAccessTokenFromCookie(request);
             if (auth == null || !auth.startsWith("Bearer ")) {
                 return ResponseEntity.status(401).body("토큰이 없습니다.");
             }
@@ -112,7 +115,7 @@ public class DealController {
     @GetMapping("/myBuy")
     public ResponseEntity<?> getMyBuys(HttpServletRequest request) {
         try {
-            String auth = request.getHeader("Authorization");
+            String auth = cookieUtil.getAccessTokenFromCookie(request);
             if (auth == null || !auth.startsWith("Bearer ")) {
                 return ResponseEntity.status(401).body("토큰이 없습니다.");
             }
@@ -140,7 +143,7 @@ public class DealController {
             HttpServletRequest request
     ) {
         try {
-            String auth = request.getHeader("Authorization");
+            String auth = cookieUtil.getAccessTokenFromCookie(request);
             if (auth == null || !auth.startsWith("Bearer ")) {
                 return ResponseEntity.status(401).body("토큰이 없습니다.");
             }

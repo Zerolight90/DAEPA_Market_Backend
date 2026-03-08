@@ -239,7 +239,7 @@ public class UserService {
     public ResponseEntity<?> getMe(HttpServletRequest request) {
         try {
             String token = null;
-            String auth = request.getHeader("Authorization");
+            String auth = cookieUtil.getAccessTokenFromCookie(request);
 
             // 1️⃣ Authorization 헤더 우선
             if (auth != null && auth.startsWith("Bearer ")) {
@@ -330,7 +330,7 @@ public class UserService {
     @Transactional
     public void bye(HttpServletRequest request, Map<String, Object> body) {
         // 1) 토큰에서 유저 아이디 꺼내기
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
 
         if (auth == null || !auth.startsWith("Bearer ")) {
             throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
@@ -404,7 +404,7 @@ public class UserService {
 
     @Transactional
     public String uploadProfile(HttpServletRequest request, MultipartFile file) {
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
         if (auth == null || !auth.startsWith("Bearer ")) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 없습니다.");
         }
@@ -439,7 +439,7 @@ public class UserService {
     @Transactional
     public void updateMe(HttpServletRequest request, UserUpdateDTO dto) {
         // 1) 토큰에서 유저 찾기 (지금 로그인 정보 가져오는 방식 그대로)
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
         if (auth == null || !auth.startsWith("Bearer ")) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 없습니다.");
         }

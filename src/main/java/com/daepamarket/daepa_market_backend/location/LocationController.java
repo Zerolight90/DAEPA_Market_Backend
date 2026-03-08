@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 
 @Controller
 @RequiredArgsConstructor
@@ -21,6 +22,7 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 public class LocationController {
     private final LocationService locationService;
     private final JwtProvider jwtProvider;
+    private final CookieUtil cookieUtil;    
 
     @PostMapping("/location")
     public ResponseEntity<?> addLocation(HttpServletRequest request, HttpServletResponse response, @RequestBody Map<String, Object> body){
@@ -50,7 +52,7 @@ public class LocationController {
      */
     @GetMapping("/locations/default")
     public ResponseEntity<LocationDto> getDefaultLocation(HttpServletRequest request) {
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
         if (auth == null || !auth.startsWith("Bearer ")) {
             throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
         }
@@ -73,7 +75,7 @@ public class LocationController {
      */
     @GetMapping("/locations")
     public ResponseEntity<List<LocationDto>> getAllLocations(HttpServletRequest request) {
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
         if (auth == null || !auth.startsWith("Bearer ")) {
             throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
         }

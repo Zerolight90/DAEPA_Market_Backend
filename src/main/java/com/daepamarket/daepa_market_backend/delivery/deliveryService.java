@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -20,6 +22,7 @@ public class deliveryService {
 
     private final JwtProvider jwtProvider;
     private final DeliveryRepository deliveryRepository;
+    private final CookieUtil cookieUtil;
 
     // [보낸 배송]
     public ResponseEntity<?> getMySentDeliveries(HttpServletRequest request) {
@@ -57,7 +60,7 @@ public class deliveryService {
      * Authorization 헤더 또는 ACCESS_TOKEN/ accessToken 쿠키에서 토큰 추출
      */
     private String resolveAccessToken(HttpServletRequest request) {
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
         if (auth != null && auth.toLowerCase().startsWith("bearer ")) {
             return auth.substring(7).trim();
         }

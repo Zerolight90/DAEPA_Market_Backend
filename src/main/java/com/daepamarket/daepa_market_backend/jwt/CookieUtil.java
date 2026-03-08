@@ -6,6 +6,9 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+
 @Component
 @RequiredArgsConstructor
 public class CookieUtil {
@@ -42,4 +45,16 @@ public class CookieUtil {
         }
         return builder;
     }
+    // 요청(Request)의 쿠키에서 AccessToken만 쏙 빼오는 유틸 메서드 추가
+    public String getAccessTokenFromCookie(HttpServletRequest request) {
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if (ACCESS.equals(cookie.getName())) {
+                    return cookie.getValue(); // 토큰 값 반환
+                }
+            }
+        }
+        return null; // AccessToken 쿠키가 없는 경우
+    }
+
 }

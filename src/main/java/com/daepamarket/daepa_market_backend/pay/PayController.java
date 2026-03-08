@@ -141,7 +141,7 @@ public class PayController {
             }
         }
         // 2) Authorization: Bearer 헤더
-        String auth = request.getHeader("Authorization");
+        String auth = cookieUtil.getAccessTokenFromCookie(request);
         if (auth != null && auth.startsWith("Bearer ")) {
             return auth.substring(7);
         }

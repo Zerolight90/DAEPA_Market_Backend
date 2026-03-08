@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 
 @RestController
 @RequiredArgsConstructor
@@ -18,23 +19,19 @@ public class AlarmController {
 
     private final AlarmService alarmService;
     private final JwtProvider jwtProvider;
+    private final CookieUtil cookieUtil;
 
     @DeleteMapping("/delete/{productId}")
     public ResponseEntity<Void> deleteNotification(
             HttpServletRequest request,
             @PathVariable Long productId) {
 
-        String auth = request.getHeader("Authorization");
-        if (auth == null || !auth.startsWith("Bearer ")) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 없습니다.");
+        String token = cookieUtil.getAccessTokenFromCookie(request);
+        if (token == null || token.isBlank() || jwtProvider.isExpired(token)) {
+            throw new SecurityException("유효하지 않은 토큰입니다."); // (또는 리턴값에 맞게 변경)
         }
+        Long uIdx = Long.valueOf(jwtProvider.getUid(token));
 
-        String accessToken = auth.substring(7);
-        if (jwtProvider.isExpired(accessToken)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰 만료");
-        }
-
-        Long uIdx = Long.valueOf(jwtProvider.getUid(accessToken));
         alarmService.deleteNotification(uIdx, productId);
         return ResponseEntity.ok().build();
     }

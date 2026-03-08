@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
+
 @Service
 public class DealService {
 
@@ -22,12 +24,15 @@ public class DealService {
     private final JwtProvider jwtProvider;
     private final PayService payService; // PayService 주입
     private final UserRepository userRepository; // UserRepository 주입
+    private final CookieUtil cookieUtil;
 
-    public DealService(DealRepository dealRepository, JwtProvider jwtProvider, @Lazy PayService payService, UserRepository userRepository) {
+    
+    public DealService(DealRepository dealRepository, JwtProvider jwtProvider, @Lazy PayService payService, UserRepository userRepository, CookieUtil cookieUtil) {
         this.dealRepository = dealRepository;
         this.jwtProvider = jwtProvider;
         this.payService = payService;
         this.userRepository = userRepository;
+        this.cookieUtil = cookieUtil; 
     }
 
     /**
@@ -48,15 +53,17 @@ public class DealService {
 
     public ResponseEntity<?> getMySettlements(HttpServletRequest request) {
         try {
-            String auth = request.getHeader("Authorization");
-            if (auth == null || !auth.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("토큰이 없습니다.");
+            String token = cookieUtil.getAccessTokenFromCookie(request); // auth 변수 대신 바로 token으로 받기
+            if (token == null || token.isBlank()) { 
+                throw new SecurityException("토큰이 없습니다."); 
             }
 
-            String token = auth.substring(7);
+            // Bearer 자르는 로직 없이 곧바로 만료 확인 및 파싱
             if (jwtProvider.isExpired(token)) {
-                return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
+                throw new SecurityException("유효하지 않은 토큰입니다.");
             }
+            Long adminId = Long.valueOf(jwtProvider.getUid(token));
+
 
             Long uIdx = Long.valueOf(jwtProvider.getUid(token));
 
