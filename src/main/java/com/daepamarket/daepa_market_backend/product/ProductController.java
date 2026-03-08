@@ -246,10 +246,12 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
+    // DAEPA_Market_Backend/src/main/java/com/daepamarket/daepa_market_backend/product/ProductController.java
+
     private ProductListDTO toListDTO(ProductEntity p) {
-        // 🚨 500 에러를 유발하던 p.getImages() 관련 코드를 싹 날렸습니다!
+        // 🚨 사수의 실수로 남아있던 500 에러의 주범(p.getImages)을 드.디.어 완전히 삭제했습니다!
         String thumb = p.getPdThumb();
-        thumb = resolveThumbUrl(thumb); // 안전하게 대표 이미지나 기본 이미지로 변환
+        thumb = resolveThumbUrl(thumb); // 이제 곧바로 안전하게 이미지 URL을 변환합니다.
 
         Long dsell = 0L;
         Long dstatus = 0L;
