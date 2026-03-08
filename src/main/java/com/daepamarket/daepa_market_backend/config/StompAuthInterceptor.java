@@ -1,99 +1,99 @@
 package com.daepamarket.daepa_market_backend.config;
 
-import com.daepamarket.daepa_market_backend.chat.service.RoomService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.lang.Nullable;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.simp.stomp.StompCommand;
-import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
-import org.springframework.messaging.support.ChannelInterceptor;
-import org.springframework.stereotype.Component;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.security.Principal;
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
-@Component
-@RequiredArgsConstructor
-public class StompAuthInterceptor implements ChannelInterceptor {
+/**
+ * 전역 예외 핸들러
+ * - 모든 API 에러를 { code, message, fields?, timestamp } 형식으로 통일
+ * - 프론트엔드 Axios interceptor가 code 값으로 에러를 분기함
+ */
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
 
-    private final RoomService roomService;
+    // ── 1. ResponseStatusException (가장 흔한 비즈니스 예외) ──────────────
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException e) {
+        log.warn("[ResponseStatusException] status={}, reason={}", e.getStatusCode(), e.getReason());
 
-    // 개발 중에는 true → 운영에서 false (혹은 프로필로 분기 추천)
-    private static final boolean DEV_ALLOW_ALL = false;
+        HttpStatus status = HttpStatus.resolve(e.getStatusCode().value());
+        String code = resolveCode(status);
 
-    @Override
-    public Message<?> preSend(Message<?> message, MessageChannel channel) {
-        StompHeaderAccessor acc = StompHeaderAccessor.wrap(message);
-        StompCommand cmd = acc.getCommand();
-        if (cmd == null) return message;
-
-        // CONNECT에서는 인증/세션 세팅만 할 수도 있음 (필요 시 처리)
-        if (cmd == StompCommand.SUBSCRIBE || cmd == StompCommand.SEND) {
-            final String dest = acc.getDestination();
-            if (dest != null && isChatDestination(dest)) {
-                Long roomId = extractRoomId(dest);
-                Long userId = extractUserId(acc);
-                if (!DEV_ALLOW_ALL) {
-                    // roomId/userId가 없으면 막기
-                    if (roomId == null || userId == null) {
-                        throw new IllegalStateException("Missing roomId or userId for chat access");
-                    }
-                    // 방 참여자만 허용
-                    if (!roomService.isParticipant(roomId, userId)) {
-                        throw new IllegalStateException("Unauthorized chat access: user=" + userId + ", room=" + roomId);
-                    }
-                }
-            }
-        }
-        // 헤더/페이로드 수정 안 하면 원본 그대로 반환
-        return message;
+        return ResponseEntity
+                .status(e.getStatusCode())
+                .body(ErrorResponse.of(code, e.getReason() != null ? e.getReason() : e.getMessage()));
     }
 
-    /** /sub/chats/{roomId} (구독) 또는 /app/chats/{roomId}/... (발행) 만 필터링 */
-    private boolean isChatDestination(String dest) {
-        return dest.startsWith("/sub/chats/") || dest.startsWith("/app/chats/");
+    // ── 2. @Valid 실패 → 400 + 필드별 메시지 ─────────────────────────────
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {
+        Map<String, String> fields = e.getBindingResult()
+                .getFieldErrors().stream()
+                .collect(Collectors.toMap(
+                        fe -> fe.getField(),
+                        fe -> Optional.ofNullable(fe.getDefaultMessage()).orElse(""),
+                        (a, b) -> a // 동일 필드 중복 시 첫 번째
+                ));
+
+        log.warn("[Validation] fields={}", fields);
+
+        return ResponseEntity
+                .badRequest()
+                .body(ErrorResponse.withFields("VALIDATION", "입력값을 확인해주세요.", fields));
     }
 
-    /** 목적지에서 roomId 뽑기 */
-    @Nullable
-    private Long extractRoomId(String dest) {
-        try {
-            if (dest.startsWith("/sub/chats/")) {
-                // 예: /sub/chats/9020
-                String id = dest.substring("/sub/chats/".length());
-                int slash = id.indexOf('/');
-                return Long.valueOf(slash >= 0 ? id.substring(0, slash) : id);
-            }
-            if (dest.startsWith("/app/chats/")) {
-                // 예: /app/chats/9020/send
-                String rest = dest.substring("/app/chats/".length());
-                int slash = rest.indexOf('/');
-                String id = (slash >= 0) ? rest.substring(0, slash) : rest;
-                return Long.valueOf(id);
-            }
-        } catch (Exception ignore) { /* fallthrough */ }
-        return null;
+    // ── 3. 그 외 모든 예외 → 500 (상세 내용 노출 금지) ───────────────────
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleAll(Exception e) {
+        log.error("[CRITICAL] Unhandled exception: {}", e.getMessage(), e);
+        // TODO: Sentry.captureException(e); 연동 시 여기서 호출
+
+        return ResponseEntity
+                .internalServerError()
+                .body(ErrorResponse.of("INTERNAL", "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
     }
 
-    /** x-user-id 헤더 → Principal → 세션 attr 순으로 추출 */
-    @Nullable
-    private Long extractUserId(StompHeaderAccessor acc) {
-        // 1) 클라이언트 커스텀 헤더
-        String h = acc.getFirstNativeHeader("x-user-id");
-        if (h != null) {
-            try { return Long.valueOf(h); } catch (Exception ignore) {}
+    // ── 상태 코드 → 에러 코드 매핑 ───────────────────────────────────────
+    private String resolveCode(HttpStatus status) {
+        if (status == null) return "UNKNOWN";
+        return switch (status) {
+            case UNAUTHORIZED    -> "AUTH_001";
+            case FORBIDDEN       -> "FORBIDDEN";
+            case NOT_FOUND       -> "NOT_FOUND";
+            case BAD_REQUEST     -> "BAD_REQUEST";
+            case CONFLICT        -> "CONFLICT";
+            default              -> "ERROR_" + status.value();
+        };
+    }
+
+    // ── ErrorResponse DTO (내부 클래스) ──────────────────────────────────
+    @Getter
+    @AllArgsConstructor
+    public static class ErrorResponse {
+        private final String code;
+        private final String message;
+        private final Map<String, String> fields;   // Validation 에러용 (null 가능)
+        private final LocalDateTime timestamp;
+
+        public static ErrorResponse of(String code, String message) {
+            return new ErrorResponse(code, message, null, LocalDateTime.now());
         }
-        // 2) Principal (WebSocketHandshakeInterceptor 등에서 세팅 가능)
-        Principal p = acc.getUser();
-        if (p != null) {
-            try { return Long.valueOf(p.getName()); } catch (Exception ignore) {}
+
+        public static ErrorResponse withFields(String code, String message, Map<String, String> fields) {
+            return new ErrorResponse(code, message, fields, LocalDateTime.now());
         }
-        // 3) 세션 속성
-        Object v = (acc.getSessionAttributes() != null) ? acc.getSessionAttributes().get("userId") : null;
-        if (v instanceof Number) return ((Number) v).longValue();
-        if (v != null) {
-            try { return Long.valueOf(String.valueOf(v)); } catch (Exception ignore) {}
-        }
-        return null;
     }
 }
