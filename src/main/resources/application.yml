@@ -106,9 +106,10 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
+# 👇 여기서부터 수정되었습니다! (CORS 허용 주소에 실서버 추가)
 custom:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+    allowed-origins: "https://daepazone.shop,http://localhost:3000"
 
 app:
   upload:
@@ -125,7 +126,8 @@ app:
     samesite: None
     path: /
     defaultcookie: 3600
-  front-url: ${APP_FRONT_URL:http://localhost:3000}
+  # 👇 결제 성공 등에서 돌아갈 프론트 주소도 실서버로 수정
+  front-url: "https://daepazone.shop"
 
 cloud:
   aws:
