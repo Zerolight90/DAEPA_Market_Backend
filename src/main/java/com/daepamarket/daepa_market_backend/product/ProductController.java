@@ -247,11 +247,9 @@ public class ProductController {
     }
 
     private ProductListDTO toListDTO(ProductEntity p) {
+        // 🚨 500 에러를 유발하던 p.getImages() 관련 코드를 싹 날렸습니다!
         String thumb = p.getPdThumb();
-        if (thumb == null && p.getImages() != null && !p.getImages().isEmpty()) {
-            thumb = p.getImages().get(0).getImageUrl();
-        }
-        thumb = resolveThumbUrl(thumb);
+        thumb = resolveThumbUrl(thumb); // 안전하게 대표 이미지나 기본 이미지로 변환
 
         Long dsell = 0L;
         Long dstatus = 0L;
