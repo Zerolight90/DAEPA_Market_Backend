@@ -5,7 +5,6 @@ import com.daepamarket.daepa_market_backend.domain.product.ProductEntity;
 import com.daepamarket.daepa_market_backend.domain.product.ProductRepository;
 import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +33,15 @@ public class ProductController {
     private final JwtProvider jwtProvider;
     private final CookieUtil cookieUtil;
 
+    // ✅ 만능 열쇠를 사용해서 토큰 꺼내기! (Bearer 찌꺼기 제거)
+    private String extractToken(HttpServletRequest request) {
+        String token = cookieUtil.getAccessTokenFromCookie(request);
+        if (token == null || token.isBlank() || jwtProvider.isExpired(token)) {
+            return null; // 토큰이 없거나 만료됐으면 null 반환
+        }
+        return token;
+    }
+
     @PostMapping(value = "/create-multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createMultipart(
             HttpServletRequest request,
@@ -48,12 +56,9 @@ public class ProductController {
             return ResponseEntity.badRequest().body(errors);
         }
 
-        String token = resolveAccessToken(request);
+        String token = extractToken(request);
         if (token == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
-        }
-        if (jwtProvider.isExpired(token)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰 만료");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요하거나 토큰이 만료되었습니다.");
         }
 
         Long userId = Long.valueOf(jwtProvider.getUid(token));
@@ -76,31 +81,14 @@ public class ProductController {
             return ResponseEntity.badRequest().body(errors);
         }
 
-        String token = resolveAccessToken(request);
+        String token = extractToken(request);
         if (token == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요하거나 토큰이 만료되었습니다.");
         }
         Long userId = Long.valueOf(jwtProvider.getUid(token));
 
         productService.updateMultipart(id, userId, dto, images);
         return ResponseEntity.ok().build();
-    }
-
-    private String resolveAccessToken(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie c : cookies) {
-                if (CookieUtil.ACCESS.equals(c.getName())) {
-                    String v = c.getValue();
-                    if (v != null && !v.isBlank()) return v;
-                }
-            }
-        }
-        String auth = cookieUtil.getAccessTokenFromCookie(request);
-        if (auth != null && auth.startsWith("Bearer ")) {
-            return auth.substring(7);
-        }
-        return null;
     }
 
     @GetMapping
@@ -120,17 +108,8 @@ public class ProductController {
     ) {
         Page<ProductListDTO> mapped = productService
                 .getProductsByIds(
-                        upperId,
-                        middleId,
-                        lowId,
-                        min,
-                        max,
-                        dDeal,
-                        excludeSold,
-                        keyword,
-                        sort,
-                        page,
-                        size
+                        upperId, middleId, lowId, min, max, dDeal,
+                        excludeSold, keyword, sort, page, size
                 )
                 .map(this::toListDTO);
         return ResponseEntity.ok(mapped);
@@ -152,16 +131,8 @@ public class ProductController {
     ) {
         Page<ProductListDTO> mapped = productService
                 .getProductsByNames(
-                        big,
-                        mid,
-                        sub,
-                        min,
-                        max,
-                        dDeal,
-                        excludeSold,
-                        sort,
-                        page,
-                        size
+                        big, mid, sub, min, max, dDeal,
+                        excludeSold, sort, page, size
                 )
                 .map(this::toListDTO);
         return ResponseEntity.ok(mapped);
@@ -194,26 +165,22 @@ public class ProductController {
     ) {
         log.info("/api/products/mypage called, status={}", status);
 
-        String token = resolveAccessToken(request);
+        String token = extractToken(request);
         if (token == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 없습니다.");
-        }
-        if (jwtProvider.isExpired(token)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다.");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요하거나 토큰이 만료되었습니다.");
         }
 
         String uid = jwtProvider.getUid(token);
         if (uid == null || uid.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 사용자 정보입니다.");
         }
 
         Long uIdx;
         try {
             uIdx = Long.valueOf(uid);
         } catch (NumberFormatException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 사용자 정보입니다.");
         }
-        log.info("token -> uIdx = {}", uIdx);
 
         return productService.getMyProductByUIdx(uIdx, status);
     }
@@ -224,7 +191,7 @@ public class ProductController {
             HttpServletRequest request,
             @Valid @RequestBody ProductCreateDTO dto
     ) {
-        String token = resolveAccessToken(request);
+        String token = extractToken(request);
         if (token == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
         }
@@ -239,7 +206,7 @@ public class ProductController {
             @PathVariable("id") Long id,
             HttpServletRequest request
     ) {
-        String token = resolveAccessToken(request);
+        String token = extractToken(request);
         if (token == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
         }
@@ -254,7 +221,7 @@ public class ProductController {
             @PathVariable("id") Long id,
             HttpServletRequest request
     ) {
-        String token = resolveAccessToken(request);
+        String token = extractToken(request);
         if (token == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
         }
@@ -269,7 +236,7 @@ public class ProductController {
             @PathVariable("id") Long id,
             HttpServletRequest request
     ) {
-        String token = resolveAccessToken(request);
+        String token = extractToken(request);
         if (token == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
         }
