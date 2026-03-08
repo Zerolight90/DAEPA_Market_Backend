@@ -52,14 +52,9 @@ public class LocationController {
      */
     @GetMapping("/locations/default")
     public ResponseEntity<LocationDto> getDefaultLocation(HttpServletRequest request) {
-        String auth = cookieUtil.getAccessTokenFromCookie(request);
-        if (auth == null || !auth.startsWith("Bearer ")) {
-            throw new ResponseStatusException(UNAUTHORIZED, "토큰이 없습니다.");
-        }
-        String token = auth.substring(7);
-
-        if (jwtProvider.isExpired(token)) {
-            throw new ResponseStatusException(UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+        String token = cookieUtil.getAccessTokenFromCookie(request);
+        if (token == null || token.isBlank() || jwtProvider.isExpired(token)) {
+            throw new SecurityException("유효하지 않은 토큰입니다."); // (또는 리턴값에 맞게 변경)
         }
         Long userId = Long.valueOf(jwtProvider.getUid(token));
 

@@ -43,13 +43,9 @@ public class DealController {
             HttpServletRequest request) {
         try {
             // 1. 토큰에서 사용자 ID 추출 (기존 로직 활용)
-            String auth = cookieUtil.getAccessTokenFromCookie(request);
-            if (auth == null || !auth.startsWith("Bearer ")) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "인증 토큰이 없습니다."));
-            }
-            String token = auth.substring(7);
-            if (jwtProvider.isExpired(token)) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "토큰이 만료되었습니다."));
+            String token = cookieUtil.getAccessTokenFromCookie(request);
+            if (token == null || token.isBlank() || jwtProvider.isExpired(token)) {
+                throw new SecurityException("유효하지 않은 토큰입니다."); // (또는 리턴값에 맞게 변경)
             }
             Long userId = Long.valueOf(jwtProvider.getUid(token));
 
