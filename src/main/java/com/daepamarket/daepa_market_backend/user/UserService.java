@@ -49,21 +49,12 @@ public class UserService {
     private final GetoutRepository getoutRepository;
     private final S3Service s3Service;
 
-    public boolean existsByuId(String uId) {
-        return userRepository.existsByUid(uId);
-    }
-
-    public boolean existsByuNickname(String uNickname) {
-        return userRepository.existsByUnickname(uNickname);
-    }
-
-    public boolean existsByuPhone(String uPhone) {
-        return userRepository.existsByUphone(uPhone);
-    }
+    public boolean existsByuId(String uId) { return userRepository.existsByUid(uId); }
+    public boolean existsByuNickname(String uNickname) { return userRepository.existsByUnickname(uNickname); }
+    public boolean existsByuPhone(String uPhone) { return userRepository.existsByUphone(uPhone); }
 
     public UserEntity findUserByuId(String uid) {
-        return userRepository.findByUid(uid)
-                .orElseThrow(() -> new RuntimeException("찾을 수 없는 유저: " + uid));
+        return userRepository.findByUid(uid).orElseThrow(() -> new RuntimeException("찾을 수 없는 유저: " + uid));
     }
 
     @Transactional
@@ -102,7 +93,6 @@ public class UserService {
                     .build();
             locationRepository.save(loc);
         }
-
         return user.getUIdx();
     }
 
@@ -114,7 +104,6 @@ public class UserService {
         if (!passwordEncoder.matches(dto.getU_pw(), user.getUPw())) {
             throw new ResponseStatusException(UNAUTHORIZED, "비밀번호 불일치");
         }
-
         if (user.getUStatus() == 2) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "탈퇴한 회원입니다.");
         }
@@ -173,14 +162,12 @@ public class UserService {
     @Transactional
     public ResponseEntity<?> logout(HttpServletRequest request) {
         String refresh = readCookie(request, CookieUtil.REFRESH).orElse(null);
-
         if (refresh != null) {
             userRepository.findByUrefreshToken(refresh).ifPresent(user -> {
                 user.setUrefreshToken(null);
                 userRepository.save(user);
             });
         }
-
         ResponseCookie clearAccess = cookieUtil.clear(CookieUtil.ACCESS);
         ResponseCookie clearRefresh = cookieUtil.clear(CookieUtil.REFRESH);
 
@@ -193,21 +180,16 @@ public class UserService {
     private Optional<String> readCookie(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) return Optional.empty();
-
         for (Cookie cookie : cookies) {
-            if (name.equals(cookie.getName())) {
-                return Optional.ofNullable(cookie.getValue());
-            }
+            if (name.equals(cookie.getName())) return Optional.ofNullable(cookie.getValue());
         }
         return Optional.empty();
     }
 
-    // 로그인한 회원 정보 반환
+    // ✅ 로그인한 회원 정보 반환 (500 에러 폭탄 제거 완료!)
     public ResponseEntity<?> getMe(HttpServletRequest request) {
         try {
-            // ✅ 수동 반복문 제거, 만능 열쇠 사용
             String token = cookieUtil.getAccessTokenFromCookie(request);
-            
             if (token == null || token.isBlank() || jwtProvider.isExpired(token)) {
                 return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
             }
@@ -229,23 +211,27 @@ public class UserService {
             result.put("uNickname", user.getUnickname());
             result.put("u_nickname", user.getUnickname());
             result.put("u_profile", user.getUProfile());
-            result.put("locations", locations.stream().map(loc -> Map.of(
-                    "locKey", loc.getLocKey(),
-                    "locAddress", loc.getLocAddress(),
-                    "locCode", loc.getLocCode(),
-                    "locDetail", loc.getLocDetail(),
-                    "locDefault", loc.isLocDefault()
-            )).toList());
+            
+            // 🚨 Map.of() 대신 HashMap 사용하여 null 허용!
+            result.put("locations", locations.stream().map(loc -> {
+                Map<String, Object> locMap = new HashMap<>();
+                locMap.put("locKey", loc.getLocKey());
+                locMap.put("locAddress", loc.getLocAddress());
+                locMap.put("locCode", loc.getLocCode());
+                locMap.put("locDetail", loc.getLocDetail()); // null이어도 에러 안 남
+                locMap.put("locDefault", loc.isLocDefault());
+                return locMap;
+            }).toList());
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("getMe 에러 발생: ", e);
             return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
         }
     }
 
     public UserEntity findUserById (Long user){
-        return userRepository.findById(user)
-                .orElseThrow(() -> new RuntimeException("User Not Found: " + user));
+        return userRepository.findById(user).orElseThrow(() -> new RuntimeException("User Not Found: " + user));
     }
 
     public Optional<UserEntity> findByUNameAndUphone(String uname, String uphone){
@@ -371,7 +357,6 @@ public class UserService {
         if (dto.getProfile() != null && !dto.getProfile().isBlank()) {
             user.setUProfile(dto.getProfile());
         }
-
         userRepository.save(user);
     }
 
