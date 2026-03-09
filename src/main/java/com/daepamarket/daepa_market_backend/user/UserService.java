@@ -115,8 +115,10 @@ public class UserService {
         user.setUrefreshToken(refresh);
         userRepository.save(user);
 
-        ResponseCookie a = cookieUtil.accessCookie(access, Duration.ofMinutes(jwtProps.getAccessExpMin()));
-        ResponseCookie r = cookieUtil.refreshCookie(refresh, Duration.ofDays(jwtProps.getRefreshExpDays()));
+        // 🚨 [수정된 부분] 프론트에서 받아온 autoLogin 값으로 쿠키 굽기!
+        boolean isAuto = dto.isAutoLogin();
+        ResponseCookie a = cookieUtil.accessCookie(access, Duration.ofMinutes(jwtProps.getAccessExpMin()), isAuto);
+        ResponseCookie r = cookieUtil.refreshCookie(refresh, Duration.ofDays(jwtProps.getRefreshExpDays()), isAuto);
 
         Map<String, Object> responseBody = new HashMap<>();
         responseBody.put("u_idx", user.getUIdx());

@@ -17,5 +17,7 @@ public class UserLoginDTO {
 
     private String message;
 
+    private boolean autoLogin;
+
 
 }

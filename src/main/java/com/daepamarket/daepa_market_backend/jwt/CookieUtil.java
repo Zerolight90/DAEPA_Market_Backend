@@ -17,14 +17,24 @@ public class CookieUtil {
 
     private final CookieProps props;
 
-    //AccessToken 쿠키 생성
+    // --- 기존 방식 (호환성 유지용) ---
     public ResponseCookie accessCookie(String token, Duration maxAge) {
-        return base(ACCESS, token, maxAge).httpOnly(true).build();
+        return accessCookie(token, maxAge, true); // 기본은 영구 쿠키 유지
     }
 
-    //RefreshToken 쿠키 생성
     public ResponseCookie refreshCookie(String token, Duration maxAge) {
-        return base(REFRESH, token, maxAge).httpOnly(true).build();
+        return refreshCookie(token, maxAge, true);
+    }
+
+    // 🚨 [신규 추가] 자동 로그인 여부(isAutoLogin)에 따라 수명을 조절하는 진짜 메서드!
+    public ResponseCookie accessCookie(String token, Duration maxAge, boolean isAutoLogin) {
+        // 자동 로그인 안 하면 수명을 -1(세션 쿠키)로 만들어 브라우저 종료 시 증발시킵니다.
+        return base(ACCESS, token, isAutoLogin ? maxAge : Duration.ofSeconds(-1)).httpOnly(true).build();
+    }
+
+    public ResponseCookie refreshCookie(String token, Duration maxAge, boolean isAutoLogin) {
+        // 자동 로그인 안 하면 수명을 -1(세션 쿠키)로 만들어 브라우저 종료 시 증발시킵니다.
+        return base(REFRESH, token, isAutoLogin ? maxAge : Duration.ofSeconds(-1)).httpOnly(true).build();
     }
 
     //로그아웃시 강제로 삭제할 쿠키 이름
@@ -45,7 +55,8 @@ public class CookieUtil {
         }
         return builder;
     }
-    // 요청(Request)의 쿠키에서 AccessToken만 쏙 빼오는 유틸 메서드 추가
+
+    // 요청(Request)의 쿠키에서 AccessToken만 쏙 빼오는 유틸 메서드
     public String getAccessTokenFromCookie(HttpServletRequest request) {
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
@@ -56,5 +67,4 @@ public class CookieUtil {
         }
         return null; // AccessToken 쿠키가 없는 경우
     }
-
 }
