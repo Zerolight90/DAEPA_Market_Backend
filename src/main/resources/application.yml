@@ -25,7 +25,7 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
 
-  # 📧 메일 설정
+  # 메일 설정
   mail:
     host: smtp.naver.com
     port: 465
@@ -41,7 +41,7 @@ spring:
       mail.smtp.starttls.enable: false
       mail.smtp.ssl.protocols: TLSv1.2
 
-  # ✅ MyBatis
+  # MyBatis
   mybatis:
     mapper-locations: classpath*:mapper/**/*.xml
     type-aliases-package: com.daepa.**.domain
@@ -49,7 +49,7 @@ spring:
       map-underscore-to-camel-case: true
       cache-enabled: false
 
-  # ✅ 소셜 로그인 (Naver + Kakao)
+  # 소셜 로그인 (Naver + Kakao)
   security:
     oauth2:
       client:
@@ -106,7 +106,7 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
-# 👇 여기서부터 수정되었습니다! (CORS 허용 주소에 실서버 추가)
+
 custom:
   cors:
     allowed-origins: "https://daepazone.shop,http://localhost:3000"
@@ -126,7 +126,7 @@ app:
     samesite: None
     path: /
     defaultcookie: 3600
-  # 👇 결제 성공 등에서 돌아갈 프론트 주소도 실서버로 수정
+  
   front-url: "https://daepazone.shop"
 
 cloud:
