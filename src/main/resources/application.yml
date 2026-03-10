@@ -25,7 +25,6 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
 
-  # 메일 설정
   mail:
     host: smtp.naver.com
     port: 465
@@ -41,7 +40,6 @@ spring:
       mail.smtp.starttls.enable: false
       mail.smtp.ssl.protocols: TLSv1.2
 
-  # MyBatis
   mybatis:
     mapper-locations: classpath*:mapper/**/*.xml
     type-aliases-package: com.daepa.**.domain
@@ -49,7 +47,6 @@ spring:
       map-underscore-to-camel-case: true
       cache-enabled: false
 
-  # 소셜 로그인 (Naver + Kakao)
   security:
     oauth2:
       client:
@@ -57,7 +54,7 @@ spring:
           naver:
             client-id: ${NAVER_CLIENT_ID}
             client-secret: ${NAVER_CLIENT_SECRET}
-            redirect-uri: "{baseUrl}/api/login/oauth2/code/{registrationId}"
+            redirect-uri: "https://daepazone.shop/login/oauth2/code/naver"
             authorization-grant-type: authorization_code
             scope:
               - name
@@ -71,10 +68,8 @@ spring:
             client-name: naver
           kakao:
             client-id: ${KAKAO_CLIENT_ID}
-            client-secret: ${KAKAO_CLIENT_SECRET}
-            redirect-uri: "{baseUrl}/api/login/oauth2/code/{registrationId}"
+            redirect-uri: "https://daepazone.shop/login/oauth2/code/kakao"
             authorization-grant-type: authorization_code
-            client-authentication-method: client_secret_post
             scope:
               - profile_nickname
               - account_email
@@ -108,7 +103,6 @@ logging:
     org.springframework.security: DEBUG
     org.springframework.security.oauth2: DEBUG
 
-
 custom:
   cors:
     allowed-origins: "https://daepazone.shop,http://localhost:3000"
@@ -128,7 +122,6 @@ app:
     samesite: None
     path: /
     defaultcookie: 3600
-  
   front-url: "https://daepazone.shop"
 
 cloud:
