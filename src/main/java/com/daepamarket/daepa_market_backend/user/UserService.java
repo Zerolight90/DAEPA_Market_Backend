@@ -158,7 +158,7 @@ public class UserService {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(Map.of("message", "토큰 재발급 완료"));
+                .body(Map.of("message", "토큰 재발급 완료", "accessToken", newAccess));
     }
 
     @Transactional
@@ -224,6 +224,10 @@ public class UserService {
                 locMap.put("locDefault", loc.isLocDefault());
                 return locMap;
             }).toList());
+
+            // 클라이언트가 Zustand Store를 초기화할 수 있도록 accessToken도 포함
+            // (HttpOnly 쿠키는 JS에서 직접 읽을 수 없으므로 바디에도 내려줌)
+            result.put("accessToken", token);
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
