@@ -23,7 +23,7 @@ import java.util.*;
 @Slf4j
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/api/sing")
+@RequestMapping("/api/sign")
 public class UserController {
     private final UserService userService;
     private final UserRepository userRepository;

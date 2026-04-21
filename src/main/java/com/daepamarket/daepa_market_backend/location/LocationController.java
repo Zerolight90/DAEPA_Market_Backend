@@ -18,7 +18,7 @@ import com.daepamarket.daepa_market_backend.jwt.CookieUtil;
 
 @Controller
 @RequiredArgsConstructor
-@RequestMapping("/api/sing")
+@RequestMapping("/api/sign")
 public class LocationController {
     private final LocationService locationService;
     private final JwtProvider jwtProvider;

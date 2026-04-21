@@ -15,11 +15,11 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class deliveryService {
+public class DeliveryService {
 
     private final JwtProvider jwtProvider;
     private final DeliveryRepository deliveryRepository;
-    private final CookieUtil cookieUtil; // ✅ 의존성 주입 완료
+    private final CookieUtil cookieUtil;
 
     public ResponseEntity<?> getMySentDeliveries(HttpServletRequest request) {
         return processDeliveryRequest(request, true);
@@ -29,7 +29,6 @@ public class deliveryService {
         return processDeliveryRequest(request, false);
     }
 
-    // ✅ 중복 코드를 하나의 메서드로 통합
     private ResponseEntity<?> processDeliveryRequest(HttpServletRequest request, boolean isSent) {
         try {
             String token = cookieUtil.getAccessTokenFromCookie(request);
@@ -37,9 +36,9 @@ public class deliveryService {
             if (jwtProvider.isExpired(token)) return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
 
             Long uIdx = Long.valueOf(jwtProvider.getUid(token));
-            List<DeliveryDTO> deliveries = isSent ? 
-                deliveryRepository.findSentParcelsBySeller(uIdx) : 
-                deliveryRepository.findReceivedParcelsByBuyer(uIdx);
+            List<DeliveryDTO> deliveries = isSent
+                    ? deliveryRepository.findSentParcelsBySeller(uIdx)
+                    : deliveryRepository.findReceivedParcelsByBuyer(uIdx);
 
             return ResponseEntity.ok(deliveries);
         } catch (Exception e) {

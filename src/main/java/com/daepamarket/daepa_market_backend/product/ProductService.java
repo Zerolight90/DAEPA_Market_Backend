@@ -25,6 +25,7 @@ import com.daepamarket.daepa_market_backend.domain.user.UserRepository;
 import com.daepamarket.daepa_market_backend.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -44,13 +45,16 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ProductService {
 
-    private final ProductRepository productRepo;
+    @Value("${app.default-image.url:https://daepa-s3.s3.ap-northeast-2.amazonaws.com/products/default.jpg}")
+    private String defaultImageUrl;
+
+    private final ProductRepository productRepository;
     private final ProductImageRepository imageRepo;
     private final DealRepository dealRepo;
     private final DeliveryRepository deliveryRepo;
     private final CheckRepository checkRepo;
 
-    private final UserRepository userRepo;
+    private final UserRepository userRepository;
     private final CtLowRepository ctLowRepo;
 
     private final S3Service s3Service;
@@ -58,11 +62,7 @@ public class ProductService {
 
     private final ChatService chatService;
     private final ChatRoomRepository chatRoomRepository;
-    private final PayService payService; // PayService 주입
-
-    // 이 아래 두 개는 네 코드에도 중복으로 있었으니까 그대로 둔다
-    private final ProductRepository productRepository;
-    private final UserRepository userRepository;
+    private final PayService payService;
     private final JwtProvider jwtProvider;
 
     @Transactional
@@ -89,7 +89,7 @@ public class ProductService {
     @Transactional
     public Long register(Long userIdx, ProductCreateDTO dto) {
 
-        UserEntity seller = userRepo.findById(userIdx)
+        UserEntity seller = userRepository.findById(userIdx)
                 .orElseThrow(() -> new IllegalArgumentException("판매자를 찾을 수 없습니다."));
 
         CtLowEntity low = ctLowRepo.findById(dto.getLowId())
@@ -102,7 +102,7 @@ public class ProductService {
             throw new IllegalArgumentException("상위 카테고리가 중위와 일치하지 않습니다.");
         }
 
-        ProductEntity product = productRepo.save(
+        ProductEntity product = productRepository.save(
                 ProductEntity.builder()
                         .seller(seller)
                         .ctLow(low)
@@ -137,7 +137,7 @@ public class ProductService {
                     ));
         }
 
-        ProductEntity savedProduct = productRepo.save(product);
+        ProductEntity savedProduct = productRepository.save(product);
         // 매칭 상품 알림
         alarmService.createAlarmsForMatchingProduct(savedProduct);
 
@@ -241,7 +241,7 @@ public class ProductService {
             }
         }
 
-        productRepo.save(product);
+        productRepository.save(product);
     }
 
     @Transactional(readOnly = true)
@@ -266,7 +266,7 @@ public class ProductService {
                 : null;
 
         if ("favorite".equalsIgnoreCase(sort)) {
-            return productRepo.findAllByCategoryIdsOrderByFavoriteDesc(
+            return productRepository.findAllByCategoryIdsOrderByFavoriteDesc(
                     upperId,
                     middleId,
                     lowId,
@@ -277,7 +277,7 @@ public class ProductService {
         }
 
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        return productRepo.findAllByCategoryIds(
+        return productRepository.findAllByCategoryIds(
                 upperId,
                 middleId,
                 lowId,
@@ -307,7 +307,7 @@ public class ProductService {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(3);
 
         if ("favorite".equalsIgnoreCase(sort)) {
-            return productRepo.findAllByNamesOrderByFavoriteDesc(
+            return productRepository.findAllByNamesOrderByFavoriteDesc(
                     big,
                     mid,
                     sub,
@@ -317,7 +317,7 @@ public class ProductService {
         }
 
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        return productRepo.findAllByNames(
+        return productRepository.findAllByNames(
                 big,
                 mid,
                 sub,
@@ -401,31 +401,31 @@ public class ProductService {
                 .toList();
     }
 
-    // DB에 들어있는 값이 uploads/... 나 no-image.png 여도
-    // 프론트에는 항상 S3의 풀 URL만 나가게 정규화
+    /**
+     * DB에 저장된 썸네일 경로를 클라이언트가 사용 가능한 전체 URL로 정규화합니다.
+     * <ul>
+     *   <li>null/blank → 기본 이미지(설정값)</li>
+     *   <li>http(s):// 시작 → 그대로 반환</li>
+     *   <li>로컬 경로(uploads/, no-image.png) → 기본 이미지</li>
+     *   <li>그 외 → S3 기본 URL 앞에 붙여 반환</li>
+     * </ul>
+     */
     private String resolveThumbUrl(String raw) {
-        // 1) 아예 없으면 기본 이미지
         if (raw == null || raw.isBlank()) {
-            return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/products/KakaoTalk_20251104_145039505.jpg";
+            return defaultImageUrl;
         }
-
-        // 2) 이미 풀 URL이면 그대로
         if (raw.startsWith("http://") || raw.startsWith("https://")) {
             return raw;
         }
-
-        // 3) 예전 로컬경로로 저장돼 있던 것들 → 프론트에서 절대 못 여니까 S3 기본이미지로 교체
         if (raw.startsWith("uploads/") || raw.equals("no-image.png")) {
-            return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/products/KakaoTalk_20251104_145039505.jpg";
+            return defaultImageUrl;
         }
-
-        // 4) 그 외에는 S3 규칙에 맞춰서 붙여주기
         return "https://daepa-s3.s3.ap-northeast-2.amazonaws.com/" + raw;
     }
 
     @Transactional(readOnly = true)
     public ProductDetailDTO getProductDetail(Long pdIdx) {
-        ProductEntity product = productRepo.findById(pdIdx)
+        ProductEntity product = productRepository.findById(pdIdx)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
 
         if (product.isPdDel()) {
@@ -482,7 +482,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductEntity> getRelatedProducts(Long pdIdx, int limit) {
-        ProductEntity base = productRepo.findById(pdIdx)
+        ProductEntity base = productRepository.findById(pdIdx)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."));
 
         if (base.isPdDel()) {
@@ -491,7 +491,7 @@ public class ProductService {
 
         Long lowId = base.getCtLow() != null ? base.getCtLow().getLowIdx() : null;
 
-        return productRepo.findRelatedByLowIdExcludingSelf(
+        return productRepository.findRelatedByLowIdExcludingSelf(
                 lowId,
                 pdIdx,
                 PageRequest.of(0, limit)
@@ -502,14 +502,14 @@ public class ProductService {
     public void softDeleteProduct(Long pdIdx, Long userIdx) {
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
         product.setPdDel(true);
-        productRepo.save(product);
+        productRepository.save(product);
     }
 
     @Transactional
     public void bumpProduct(Long pdIdx, Long userIdx) {
         ProductEntity product = getOwnedProduct(pdIdx, userIdx);
         product.setPdRefdate(LocalDateTime.now());
-        productRepo.save(product);
+        productRepository.save(product);
     }
 
     @Transactional
@@ -547,11 +547,11 @@ public class ProductService {
             }
         });
         product.setPdEdate(LocalDateTime.now());
-        productRepo.save(product);
+        productRepository.save(product);
     }
 
     private ProductEntity getOwnedProduct(Long pdIdx, Long userIdx) {
-        ProductEntity product = productRepo.findById(pdIdx)
+        ProductEntity product = productRepository.findById(pdIdx)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."));
         if (product.getSeller() == null || !product.getSeller().getUIdx().equals(userIdx)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 상품만 처리할 수 있습니다.");
@@ -583,7 +583,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public Page<ProductEntity> getSellerProducts(Long sellerId, int page, int size) {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(3);
-        return productRepo.findAlivePageBySellerId(
+        return productRepository.findAlivePageBySellerId(
                 sellerId,
                 cutoff,
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "pdIdx"))

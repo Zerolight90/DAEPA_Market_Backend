@@ -113,6 +113,8 @@ app:
   upload:
     dir: ${UPLOAD_DIR}
     base-url: ${UPLOAD_BASE_URL}
+  default-image:
+    url: ${DEFAULT_IMAGE_URL:https://daepa-s3.s3.ap-northeast-2.amazonaws.com/products/default.jpg}
   jwt:
     issuer: daepa-market
     secret: ${JWT_SECRET}

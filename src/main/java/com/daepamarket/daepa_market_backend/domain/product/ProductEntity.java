@@ -34,16 +34,16 @@ public class ProductEntity {
     @Column(name = "pd_title", length = 100)
     private String pdTitle;
 
-    @Column(name = "pd_content", length = 100)
+    @Column(name = "pd_content", columnDefinition = "TEXT")
     private String pdContent;
 
-    @Column(name = "pd_location", length = 20)
+    @Column(name = "pd_location", length = 100)
     private String pdLocation;
 
     @Column(name = "pd_status")
     private Integer pdStatus;
 
-    @Column(name = "pd_thumb", length = 250)
+    @Column(name = "pd_thumb", length = 500)
     private String pdThumb;
 
     @Column(name = "pd_hit")
