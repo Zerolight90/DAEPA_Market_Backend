@@ -23,7 +23,7 @@ public class WebConfig implements WebMvcConfigurer {
     private String uploadDir;
 
     /*
-    // ✅ CORS 정확히 추가 (콜론 포함)
+    // CORS 정확히 추가 (콜론 포함)
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
