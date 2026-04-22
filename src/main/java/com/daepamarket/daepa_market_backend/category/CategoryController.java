@@ -6,17 +6,16 @@ import java.util.stream.Collectors;
 
 import com.daepamarket.daepa_market_backend.domain.Category.CtUpperRepository;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import lombok.RequiredArgsConstructor;
 
+// @CrossOrigin 제거 → SecurityConfig의 전역 CORS 설정(CorsConfigurationSource)이 적용됨
 @RestController
 @RequestMapping("/api/category")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class CategoryController {
     private final CategoryService categoryService;
     private final CtUpperRepository ctUpperRepository;

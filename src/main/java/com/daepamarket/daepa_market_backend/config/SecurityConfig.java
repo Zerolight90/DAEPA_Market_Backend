@@ -54,7 +54,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                 // 공개 API
-                .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**",
+                .requestMatchers(HttpMethod.GET, "/api/products/**",
+                                 "/api/category/**", "/api/categories/**",
                                  "/api/notice/**", "/api/seller/**", "/api/banner/**",
                                  "/api/faq/**").permitAll()
                 // 인증 엔드포인트 (sign = 신규 경로, sing = 하위 호환 경로)
