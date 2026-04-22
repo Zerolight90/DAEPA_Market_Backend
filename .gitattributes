@@ -1,0 +1,25 @@
+# 모든 텍스트 파일 LF로 통일
+* text=auto eol=lf
+
+# 백엔드 소스
+*.java       text eol=lf
+*.xml        text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.properties text eol=lf
+*.gradle     text eol=lf
+*.md         text eol=lf
+*.json       text eol=lf
+*.sql        text eol=lf
+*.sh         text eol=lf
+Dockerfile   text eol=lf
+
+# gradlew는 LF 필수 (Linux 서버에서 실행)
+gradlew      text eol=lf
+
+# 바이너리 파일은 변환 안 함
+*.jar   binary
+*.class binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
