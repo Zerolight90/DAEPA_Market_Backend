@@ -9,6 +9,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,5 +23,10 @@ public class PublicNoticeController {
     @GetMapping
     public Page<PublicNoticeDTO> getNotices(@PageableDefault(size = 10, sort = "nIdx", direction = Sort.Direction.DESC) Pageable pageable) {
         return publicNoticeService.findNotices(pageable);
+    }
+
+    @GetMapping("/{id}")
+    public PublicNoticeDTO getNotice(@PathVariable Long id) {
+        return publicNoticeService.findById(id);
     }
 }

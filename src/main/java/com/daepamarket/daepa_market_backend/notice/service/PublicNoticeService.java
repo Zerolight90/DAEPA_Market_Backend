@@ -47,4 +47,10 @@ public class PublicNoticeService {
         Page<NoticeEntity> noticePage = noticeRepository.findAllWithAdmin(pageable);
         return noticePage.map(this::toDTO);
     }
+
+    public PublicNoticeDTO findById(Long id) {
+        NoticeEntity entity = noticeRepository.findByIdWithAdmin(id)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("공지사항을 찾을 수 없습니다."));
+        return toDTO(entity);
+    }
 }
