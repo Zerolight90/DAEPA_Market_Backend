@@ -43,6 +43,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         "/api/products/**",
         "/api/categories/**",
         "/api/notice/**",
+        "/api/public/**",
         "/api/seller/**",
         "/api/banner/**",
         "/api/admin/banners/active",
